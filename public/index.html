@@ -1,0 +1,142 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Zero-Trust Edge Enclave</title>
+    <link rel="stylesheet" href="/styles.css">
+  </head>
+  <body>
+    <header class="topbar">
+      <div>
+        <p class="eyebrow">Nebius x NVIDIA Hackathon MVP</p>
+        <h1>Zero-Trust Edge Enclave</h1>
+      </div>
+      <nav aria-label="Primary navigation">
+        <a class="nav-link active" href="/">Sender Enclave</a>
+        <a class="nav-link" href="/decode.html">Recipient Decode Gate</a>
+        <a class="nav-link" href="/audit.html">SOC Audit Dashboard</a>
+      </nav>
+    </header>
+
+    <main class="layout">
+      <section class="panel primary-panel">
+        <div class="section-heading">
+          <p class="eyebrow">Sender Enclave</p>
+          <h2>Seal internal data before it leaves the browser</h2>
+        </div>
+
+        <label class="field">
+          <span>Document name</span>
+          <input id="fileName" value="Q3_Financial_Draft.txt" autocomplete="off">
+        </label>
+
+        <label class="field">
+          <span>Sender role</span>
+          <select id="senderRole">
+            <option value="finance">Finance</option>
+            <option value="cfo">CFO Office</option>
+            <option value="manager">Manager</option>
+          </select>
+        </label>
+
+        <label class="field">
+          <span>Intended recipient role</span>
+          <select id="recipientRole">
+            <option value="cfo">CFO Office</option>
+            <option value="manager">Manager</option>
+            <option value="marketing">Marketing</option>
+          </select>
+        </label>
+
+        <div class="metadata-grid" aria-label="Non-content policy metadata">
+          <label class="field">
+            <span>Data category</span>
+            <select id="dataCategory">
+              <option value="finance">Finance</option>
+              <option value="legal">Legal</option>
+              <option value="hr">HR</option>
+              <option value="engineering">Engineering</option>
+            </select>
+          </label>
+
+          <label class="field">
+            <span>Confidentiality</span>
+            <select id="confidentiality">
+              <option value="confidential">Confidential</option>
+              <option value="restricted">Restricted</option>
+              <option value="internal">Internal</option>
+            </select>
+          </label>
+
+          <label class="field">
+            <span>Business purpose</span>
+            <select id="businessPurpose">
+              <option value="approval">Approval</option>
+              <option value="review">Review</option>
+              <option value="archive">Archive</option>
+            </select>
+          </label>
+
+          <label class="field">
+            <span>Requested expiry</span>
+            <select id="requestedExpiry">
+              <option value="1h">1 hour</option>
+              <option value="4h">4 hours</option>
+              <option value="24h">24 hours</option>
+            </select>
+          </label>
+
+          <label class="field">
+            <span>Device policy</span>
+            <select id="devicePolicy">
+              <option value="managed_device_only">Managed device only</option>
+              <option value="registered_device">Registered device</option>
+              <option value="any_authenticated_device">Any authenticated device</option>
+            </select>
+          </label>
+
+          <label class="field">
+            <span>Open limit</span>
+            <select id="openLimit">
+              <option value="single_use">Single use</option>
+              <option value="limited_use">Limited use</option>
+            </select>
+          </label>
+        </div>
+
+        <label class="field">
+          <span>Internal payload</span>
+          <textarea id="payload" rows="10">Unreleased Q3 financial draft. Revenue targets, customer renewal list, and confidential board notes are included. This content should be limited to the CFO office and must not be forwarded as plaintext.</textarea>
+        </label>
+        <p class="boundary-note">Payload content is encrypted locally. AI receives only the non-content policy metadata above.</p>
+
+        <div class="button-row">
+          <button id="recommendBtn" class="button primary">Ask Nemotron for policy</button>
+          <button id="sealBtn" class="button" disabled>Encrypt and seal package</button>
+        </div>
+      </section>
+
+      <aside class="panel">
+        <div class="section-heading">
+          <p class="eyebrow">Policy Control Plane</p>
+          <h2>AI recommendation</h2>
+        </div>
+        <div id="health" class="status-card">Checking runtime...</div>
+        <pre id="policyOutput" class="code-block">No policy requested yet.</pre>
+      </aside>
+
+      <section class="panel wide">
+        <div class="section-heading">
+          <p class="eyebrow">Sealed Delivery</p>
+          <h2>Package result</h2>
+        </div>
+        <div id="packageResult" class="result-grid">
+          <div class="empty-state">Create a policy and seal a package to generate a one-way delivery link.</div>
+        </div>
+      </section>
+    </main>
+
+    <script src="/app.js" type="module"></script>
+  </body>
+</html>

@@ -1,0 +1,69 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>SOC Audit Dashboard - Zero-Trust Edge Enclave</title>
+    <link rel="stylesheet" href="/styles.css">
+  </head>
+  <body>
+    <header class="topbar">
+      <div>
+        <p class="eyebrow">Security Operations</p>
+        <h1>SOC Audit Dashboard</h1>
+      </div>
+      <nav aria-label="Primary navigation">
+        <a class="nav-link" href="/">Sender Enclave</a>
+        <a class="nav-link" href="/decode.html">Recipient Decode Gate</a>
+        <a class="nav-link active" href="/audit.html">SOC Audit Dashboard</a>
+      </nav>
+    </header>
+
+    <main class="layout dashboard-layout">
+      <section class="panel metric-panel">
+        <p class="eyebrow">Runtime</p>
+        <h2 id="runtimeMode">Checking</h2>
+      </section>
+      <section class="panel metric-panel">
+        <p class="eyebrow">Allowed</p>
+        <h2 id="allowCount">0</h2>
+      </section>
+      <section class="panel metric-panel">
+        <p class="eyebrow">Denied</p>
+        <h2 id="denyCount">0</h2>
+      </section>
+
+      <section class="panel wide">
+        <div class="section-heading">
+          <p class="eyebrow">Audit Events</p>
+          <h2>Append-only access evidence</h2>
+        </div>
+        <div class="button-row">
+          <button id="refreshBtn" class="button primary">Refresh audit</button>
+        </div>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>Time</th>
+                <th>Result</th>
+                <th>Type</th>
+                <th>Role</th>
+                <th>Device</th>
+                <th>Package hash</th>
+                <th>Reason</th>
+              </tr>
+            </thead>
+            <tbody id="auditRows">
+              <tr>
+                <td colspan="7">No audit events loaded.</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </section>
+    </main>
+
+    <script src="/audit.js" type="module"></script>
+  </body>
+</html>

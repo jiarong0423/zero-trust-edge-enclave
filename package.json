@@ -1,0 +1,16 @@
+{
+  "name": "zero-trust-edge-enclave",
+  "version": "0.1.0",
+  "description": "AI-native zero-trust policy control plane for encrypted internal data delivery.",
+  "license": "MIT",
+  "type": "module",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "dev": "node server.js",
+    "check": "node --check server.js && node --check scripts/smoke-test.mjs"
+  },
+  "engines": {
+    "node": ">=20.9.0"
+  }
+}

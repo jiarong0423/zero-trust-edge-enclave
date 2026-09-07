@@ -1,0 +1,75 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Recipient Decode Gate - Zero-Trust Edge Enclave</title>
+    <link rel="stylesheet" href="/styles.css">
+  </head>
+  <body>
+    <header class="topbar">
+      <div>
+        <p class="eyebrow">Recipient Runtime</p>
+        <h1>Recipient Decode Gate</h1>
+      </div>
+      <nav aria-label="Primary navigation">
+        <a class="nav-link" href="/">Sender Enclave</a>
+        <a class="nav-link active" href="/decode.html">Recipient Decode Gate</a>
+        <a class="nav-link" href="/audit.html">SOC Audit Dashboard</a>
+      </nav>
+    </header>
+
+    <main class="layout two-column">
+      <section class="panel">
+        <div class="section-heading">
+          <p class="eyebrow">Access Claim</p>
+          <h2>Prove role and device before local decrypt</h2>
+        </div>
+
+        <label class="field">
+          <span>Package id</span>
+          <input id="packageId" placeholder="Paste or open a sealed link">
+        </label>
+
+        <label class="field">
+          <span>Recipient role</span>
+          <select id="decodeRole">
+            <option value="cfo">CFO Office</option>
+            <option value="manager">Manager</option>
+            <option value="marketing">Marketing</option>
+          </select>
+        </label>
+
+        <label class="field">
+          <span>Device claim</span>
+          <select id="deviceClaim">
+            <option value="managed-laptop">Managed laptop</option>
+            <option value="managed-factory-terminal">Managed factory terminal</option>
+            <option value="personal-phone">Personal phone</option>
+          </select>
+        </label>
+
+        <label class="field">
+          <span>Local passphrase</span>
+          <input id="passphrase" type="password" value="demo-passphrase" autocomplete="off">
+        </label>
+
+        <button id="decodeBtn" class="button primary">Request decode</button>
+      </section>
+
+      <section class="panel">
+        <div class="section-heading">
+          <p class="eyebrow">Protected View</p>
+          <h2>Local browser memory render</h2>
+        </div>
+        <div id="decodeStatus" class="status-card">No decode attempt yet.</div>
+        <pre id="credentialView" class="credential-view">No timed credential issued.</pre>
+        <div id="protectedView" class="protected-view">
+          <div class="empty-state">Approved content renders here after policy checks pass.</div>
+        </div>
+      </section>
+    </main>
+
+    <script src="/decode.js" type="module"></script>
+  </body>
+</html>
