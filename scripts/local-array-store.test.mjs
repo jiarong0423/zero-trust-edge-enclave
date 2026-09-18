@@ -1,0 +1,32 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import { promises as fs } from 'node:fs';
+import path from 'node:path';
+import os from 'node:os';
+import { initializeArrays, readArray, writeArray } from '../local-array-store.js';
+
+test('array store refuses missing corrupt and symlink state without resetting history', async t => {
+  const root = await fs.mkdtemp(path.join(os.tmpdir(), 'enclave-array-test-'));
+  t.after(() => fs.rm(root, { recursive: true, force: true }));
+  const files = ['tasks.json', 'audit.json'].map(name => path.join(root, name));
+  await initializeArrays(files);
+  await writeArray(files[0], [{ id: 'synthetic', consumed: true }]);
+  const original = await fs.readFile(files[0], 'utf8');
+  await initializeArrays(files);
+  assert.equal(await fs.readFile(files[0], 'utf8'), original);
+  await fs.unlink(files[1]);
+  await assert.rejects(initializeArrays(files), /LOCAL_STORE_UNAVAILABLE/);
+  await assert.rejects(readArray(files[1]), /LOCAL_STORE_UNAVAILABLE/);
+  await assert.rejects(writeArray(files[1], []), /LOCAL_STORE_UNAVAILABLE/);
+  assert.equal(await fs.readFile(files[0], 'utf8'), original);
+  await fs.writeFile(files[1], 'CORRUPT_PRIVATE_CANARY');
+  await assert.rejects(readArray(files[1]), error => error.status === 503 && !error.message.includes('CANARY'));
+  await assert.rejects(writeArray(files[1], []), /LOCAL_STORE_UNAVAILABLE/);
+  assert.equal(await fs.readFile(files[1], 'utf8'), 'CORRUPT_PRIVATE_CANARY');
+  const link = path.join(root, 'link.json');
+  await fs.symlink(files[0], link);
+  await assert.rejects(readArray(link), /LOCAL_STORE_UNAVAILABLE/);
+  await assert.rejects(writeArray(link, []), /LOCAL_STORE_UNAVAILABLE/);
+  assert.equal(await fs.readFile(files[0], 'utf8'), original);
+  assert.ok(!(await fs.readdir(root)).some(name => name.endsWith('.tmp')));
+});
