@@ -82,6 +82,7 @@ scripts/file-routing.test.mjs
 scripts/file-worker.test.mjs
 scripts/generate-business-fixtures.mjs
 scripts/generate-native-fixtures.py
+scripts/hosted-preflight.mjs
 scripts/i18n.test.mjs
 scripts/live-provider-smoke.mjs
 scripts/local-adviser-outlet.test.mjs
