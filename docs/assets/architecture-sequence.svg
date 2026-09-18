@@ -1,13 +1,15 @@
 <!--
   Zero-Trust Edge Enclave — architecture diagram
-  Generated 2026-09-18. Purpose: README and hackathon submission material.
+  Generated 2026-09-18, revised 2026-09-19 for the delivery follow-up exchange.
+  Purpose: README and hackathon submission material.
   Sources of truth: audit-boundary.js (state allowlist), task-operations.js (resumable reason
-  codes), file-routing.js (five-field projection), private-mapping.js (group codes).
+  codes), file-routing.js and delivery-followup.js (the two five-field projections),
+  file-worker.js (both worker passes), private-mapping.js (group codes).
   This depicts the implementation as built; it does not show mechanisms that do not exist.
 -->
-<svg width="100%" viewBox="0 0 680 778" xmlns="http://www.w3.org/2000/svg" role="img">
+<svg width="100%" viewBox="0 0 680 876" xmlns="http://www.w3.org/2000/svg" role="img">
   <title>Delivery sequence</title>
-  <desc>Five lifelines: sender, backend, key vault, adviser, phone. Sixteen messages from browser-side encryption through double confirmation, the five-field projection to the adviser, gate re-verification, recipient authentication, one-use key ticket, on-device decryption, receipt reporting and sender polling. The adviser lifeline ends after step five.</desc>
+  <desc>Five lifelines: sender, backend, key vault, adviser, phone. Nineteen messages from browser-side encryption through double confirmation, the five-field projection to the adviser, gate re-verification, recipient authentication, one-use key ticket, on-device decryption, receipt reporting and sender polling. The adviser is consulted twice: once for routing at step five, and again after a notice is prepared, for as long as an unacknowledged delivery has time left.</desc>
   <style>
     text { font-family: -apple-system, "Helvetica Neue", Inter, system-ui, sans-serif; }
     .ts { font-size: 12px; fill: #5f5e5a; }
@@ -30,9 +32,9 @@
   <g class="c-purple"><rect x="448" y="40" width="112" height="44" rx="8" stroke-width="0.5"/><text class="th" x="504" y="62" text-anchor="middle" dominant-baseline="central">Adviser</text></g>
   <g class="c-coral"><rect x="584" y="40" width="56" height="44" rx="8" stroke-width="0.5"/><text class="th" x="612" y="62" text-anchor="middle" dominant-baseline="central">Phone</text></g>
 
-  <line x1="96" y1="84" x2="96" y2="680" class="leader"/><line x1="232" y1="84" x2="232" y2="680" class="leader"/>
-  <line x1="368" y1="84" x2="368" y2="680" class="leader"/><line x1="504" y1="84" x2="504" y2="318" class="leader"/>
-  <line x1="612" y1="84" x2="612" y2="680" class="leader"/>
+  <line x1="96" y1="84" x2="96" y2="778" class="leader"/><line x1="232" y1="84" x2="232" y2="778" class="leader"/>
+  <line x1="368" y1="84" x2="368" y2="778" class="leader"/><line x1="504" y1="84" x2="504" y2="778" class="leader"/>
+  <line x1="612" y1="84" x2="612" y2="778" class="leader"/>
 
   <line x1="96" y1="112" x2="232" y2="112" class="arr" marker-end="url(#a)"/>
   <text class="ts" x="164" y="104" text-anchor="middle">1. First confirmation</text>
@@ -58,10 +60,16 @@
   <text class="ts" x="490" y="538" text-anchor="middle">12. Key: five minutes, single use</text>
   <line x1="612" y1="614" x2="232" y2="614" class="arr" marker-end="url(#a)"/>
   <text class="ts" x="422" y="606" text-anchor="middle">14. Report download / verified / acknowledged</text>
-  <line x1="96" y1="648" x2="232" y2="648" class="arr" marker-end="url(#a)"/>
-  <text class="ts" x="164" y="640" text-anchor="middle">15. Poll every second</text>
-  <line x1="232" y1="674" x2="96" y2="674" class="arr" stroke-dasharray="5 4" marker-end="url(#a)"/>
-  <text class="ts" x="164" y="666" text-anchor="middle">16. Who received it</text>
+  <line x1="232" y1="650" x2="504" y2="650" class="arr" marker-end="url(#a)"/>
+  <text class="ts" x="368" y="642" text-anchor="middle">15. Nobody collected: timeCode · nudgeCount · pickupCode</text>
+  <line x1="504" y1="680" x2="232" y2="680" class="arr" stroke-dasharray="5 4" marker-end="url(#a)"/>
+  <text class="ts" x="368" y="672" text-anchor="middle">16. WAIT, REMIND or ESCALATE</text>
+  <line x1="232" y1="712" x2="612" y2="712" class="arr" marker-end="url(#a)"/>
+  <text class="ts" x="422" y="704" text-anchor="middle">17. Reminder, only to those who have not collected</text>
+  <line x1="96" y1="744" x2="232" y2="744" class="arr" marker-end="url(#a)"/>
+  <text class="ts" x="164" y="736" text-anchor="middle">18. Poll every second</text>
+  <line x1="232" y1="770" x2="96" y2="770" class="arr" stroke-dasharray="5 4" marker-end="url(#a)"/>
+  <text class="ts" x="164" y="762" text-anchor="middle">19. Who received it</text>
 
   <g class="c-gray"><rect x="176" y="304" width="256" height="44" rx="8" stroke-width="0.5"/>
     <text class="ts" x="304" y="318" text-anchor="middle" dominant-baseline="central">6. Re-verify authority, then resolve</text>
@@ -69,7 +77,7 @@
   <g class="c-gray"><rect x="500" y="550" width="140" height="34" rx="8" stroke-width="0.5"/>
     <text class="ts" x="570" y="567" text-anchor="middle" dominant-baseline="central">13. Decrypt on device</text></g>
 
-  <g class="c-purple"><rect x="40" y="702" width="600" height="56" rx="8" stroke-width="0.5"/>
-    <text class="ts" x="340" y="722" text-anchor="middle" dominant-baseline="central">Never reaches the adviser: the document, real identities, addresses, keys,</text>
-    <text class="ts" x="340" y="740" text-anchor="middle" dominant-baseline="central">how many recipients, or which departments. Its lifeline ends after step 5.</text></g>
+  <g class="c-purple"><rect x="40" y="800" width="600" height="56" rx="8" stroke-width="0.5"/>
+    <text class="ts" x="340" y="820" text-anchor="middle" dominant-baseline="central">Never reaches either adviser: the document, real identities, addresses, keys,</text>
+    <text class="ts" x="340" y="838" text-anchor="middle" dominant-baseline="central">how many recipients, how many collected, or which departments.</text></g>
 </svg>

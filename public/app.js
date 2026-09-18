@@ -98,9 +98,12 @@ async function trackDelivery(id, version) {
         const prefix = location.pathname.startsWith('/zh-TW/') ? '/zh-TW' : '';
         recipientLink.href = prefix + '/decode.html?id=' + encodeURIComponent(id) + '&version=' + version;
         recipientLink.hidden = false;
-        return;
       }
-      if (!['PENDING_CHECK', 'RETRY_WAIT'].includes(job.status)) return;
+      // A prepared notice used to end this loop. It no longer ends the work: a delivery that must be
+      // acknowledged is reconsidered in the backend until its deadline, and a reminder returns to
+      // this same state. Leaving the loop here suppressed the one line that tells the sender work
+      // continues without the page open, for exactly the state where that is now true.
+      if (!['PENDING_CHECK', 'RETRY_WAIT', 'DRY_RUN_PREPARED'].includes(job.status)) return;
     } catch {
       if (generation === trackingGeneration) setText(deliveryStatus, 'Delivery status unavailable');
       return;

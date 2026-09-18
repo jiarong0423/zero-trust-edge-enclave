@@ -1,6 +1,6 @@
 # 收斂版密件交付架構
 
-更新：2026-09-08。範圍：單一本機服務、合成名單、email dry-run。真實 Nebius Token Factory／NVIDIA Nemotron 受限呼叫已有隔離測試證據；預設仍為本地合成回應，並非預設上雲。沒有多地協調、數位簽章或發文者二次回覆協議。真實寄送、企業 SSO、獨立 KMS 與地端模型實測不在本輪交付範圍。
+更新：2026-09-19（原 2026-09-08；新增投遞催促顧問）。範圍：單一本機服務、合成名單、email dry-run。真實 Nebius Token Factory／NVIDIA Nemotron 受限呼叫已有隔離測試證據；預設仍為本地合成回應，並非預設上雲。沒有多地協調、數位簽章或發文者二次回覆協議。真實寄送、企業 SSO、獨立 KMS 與地端模型實測不在本輪交付範圍。
 
 本圖表示原始碼已實作的界線，不代表現有預覽程序已載入最新模型提示詞，也不代表 GitHub 已發布。實線為本地流程，虛線為受限建議或模擬通知；不是物理單向網路。
 
@@ -23,7 +23,7 @@ flowchart TB
     Store["密文暫存<br/>文件金鑰另行包裝"]
     Commit["持久核准與工作紀錄"]
     Gate["固定程式驗證<br/>名單、版本、撤銷、渠道"]
-    Worker["有限重試<br/>只準備模擬通知"]
+    Worker["有限重試與催促迴路<br/>只準備模擬通知"]
     Access["收件身分驗證<br/>密文與取鑰分開檢查"]
     Mode{"已核准交付模式"}
     Required["指定人交付<br/>無額外下載截止<br/>仍須有效授權"]
@@ -36,8 +36,8 @@ flowchart TB
     Mode --> Timed --> Key
   end
   subgraph AI["受限協作區"]
-    Codes["五欄白名單<br/>別名、版本、渠道、狀態、次數"]
-    Adviser["後端模型介面<br/>預設合成回應"]
+    Codes["兩組五欄白名單<br/>路由：渠道、狀態、次數<br/>催促：時間帶、催促次數、領取序位"]
+    Adviser["後端模型介面<br/>兩個決策・預設合成回應"]
     Cloud["明確啟用才呼叫<br/>Nebius／NVIDIA Nemotron<br/>真實呼叫已有測試"]
     MCP["受限 MCP<br/>查狀態／請求建議<br/>無文件與取鑰工具"]
     Codes -.-> Adviser
@@ -73,8 +73,9 @@ flowchart TB
 ## 不變邊界
 
 - AI 不取得文件、摘要、密文、真實名單、私密映射、金鑰或憑據。只能提出既有允許渠道的建議；固定程式重新驗證。
-- 五欄是 taskAlias、snapshotVersion、channels、state、attempts。真實模型須同時明確設定 LOCAL_ONLY=false、COORDINATOR_PROVIDER=nebius 與後端金鑰；僅放金鑰不會啟用。MCP 與模型不是同一元件，MCP 不直接觸發檔案交付。
-- 目前模型不可用、輸出無效或建議暫停時，工作進入 PAUSED；不宣稱雲端中斷就自動改接地端模型。權限有效性在模型前後都重查。
+- 有兩組五欄投影，各自獨立驗證。路由：taskAlias、snapshotVersion、channels、state、attempts，回答 ROUTE 或 PAUSE。催促：taskAlias、snapshotVersion、timeCode、nudgeCount、pickupCode，回答 WAIT、REMIND 或 ESCALATE，僅適用於 REQUIRED_ACK 且期限未到的投遞。
+- timeCode 是該任務自身窗口的相對位置，pickupCode 是序位不是數量，兩者都推不回時鐘值或人數。提醒要送給誰由固定程式從收據還原，顧問看不到，已領取者直接跳過。真實模型須同時明確設定 LOCAL_ONLY=false、COORDINATOR_PROVIDER=nebius 與後端金鑰；僅放金鑰不會啟用。MCP 與模型不是同一元件，MCP 不直接觸發檔案交付。
+- 路由階段模型不可用、輸出無效或建議暫停時，工作進入 PAUSED。催促階段不同：被拒絕只記錄 followupPausedBy 並延後重新考慮，狀態維持 DRY_RUN_PREPARED，不會把工作推進暫停。兩者都不宣稱雲端中斷就自動改接地端模型，權限有效性在模型前後都重查。
 - 兩次確認屬於同一發文者，不是雙人覆核或 MFA。版本、名單或授權有變動，就不能沿用舊確認。
 - 已核准快照不被覆寫；新審核建立新版本。授權失效或撤銷後，不可用新版本名義繼續舊版本取用。
 - 指定人模式不另加 1／4／24 小時的文件下載限制，但不繞過真實授權期限或撤銷。授權續接需要管理員有效授權與發文者重新確認。

@@ -20,9 +20,9 @@ or newer.
 | `HOST` | `0.0.0.0` | The local default stays `127.0.0.1`. That default is deliberate — a developer running this on a laptop should not expose it — so the loopback binding is overridden per deployment rather than changed in code. |
 | `PORT` | supplied by Zeabur | Already read from the environment. |
 | `DATA_DIR` | `/data` | Must point at a mounted volume. Without one, ciphertext, wrapped keys, the access registry and the audit trail are lost on every restart. |
-| `LOCAL_ONLY` | `false` | Left at the default `true`, every route recommendation is `synthetic_fixture` and a judge cannot observe a real provider call. |
-| `COORDINATOR_PROVIDER` | `nebius` | A key alone does not enable inference; this is the second half of the switch. |
-| `NEBIUS_API_KEY` | Zeabur secret | Backend only. Never in Git, never in browser code, never in model context. |
+| `LOCAL_ONLY` | `true` | The default. Both adviser kinds fall back to `synthetic_fixture`, which is the intended posture for an instance deployed without a key. |
+| `COORDINATOR_PROVIDER` | `synthetic_fixture` | The default. A key alone would not enable inference either; both halves of the switch are left off. |
+| `NEBIUS_API_KEY` | not set | Deliberately omitted. Without it both advisers stay on the synthetic fixture and issue no provider request, so a hosted instance spends no quota and carries no credential. Evidence for real inference lives in `SECURITY_SCAN_EVIDENCE.md`, measured where the key is held. |
 | `NEBIUS_BASE_URL` | `https://api.tokenfactory.nebius.com/v1` | The adviser refuses any other host. |
 | `NEBIUS_MODEL` | `nvidia/nemotron-3-super-120b-a12b` | Must start with `nvidia/` or the adviser refuses it. |
 | `TOKEN_SIGNING_SECRET` | Zeabur secret | Signs timed decode credentials. |
@@ -62,10 +62,15 @@ so no additional rate limiting was added:
 
 - every route that can reach a provider requires a bearer token
 - staged file tasks are capped at 50 (`507` beyond that)
-- `maxAttempts` is validated to 1–5 per grant, so each task retries at most five times
-- each request carries a five-second abort and `max_tokens: 512`
+- `maxAttempts` is validated to 1–5 per grant, so the routing pass asks at most five times per task
+- the follow-up pass asks a bounded number of further times: it applies only to `REQUIRED_ACK`
+  deliveries, stands down at the deadline, and reconsiders at the midpoint of what is left with a
+  floor of an eighth of the window, which is four decision points from approval
+- each request carries an abort deadline and a token ceiling, five seconds and 512 hosted
 
-Worst case is therefore in the low hundreds of calls, not an open endpoint.
+Both callers together are therefore bounded at roughly nine provider calls per task, and the
+50-task cap puts the worst case in the low hundreds, not an open endpoint. The follow-up pass is
+counted here because it is a second caller on a schedule `maxAttempts` does not govern.
 
 ## Security Posture Of A Hosted Instance
 

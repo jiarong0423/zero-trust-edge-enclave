@@ -10,7 +10,7 @@ The local sender confirms twice through a versioned snapshot. Load authorized re
 
 Transport remains email dry-run after both confirmations. `DRY_RUN_PREPARED` means only notice preparation, not complete handoff. Receipt and download-window states are separate. No further sender acknowledgement is required after the recipient reports complete receipt, and there is no promotion to real email.
 
-Humans own the recipient selection and grant. AI may recommend only approved routes; encryption and authorization remain outside AI. Documents, cryptographic material, credentials, and the full draft body are not returned through the coordinator model interface. Current tests use synthetic recommendations rather than live Nemotron inference.
+Humans own the recipient selection and grant. AI is asked two bounded questions and nothing else: which approved channel a prepared job should use, and whether an unacknowledged delivery should be waited on, reminded or escalated. Encryption and authorization remain outside AI, and so does who a reminder reaches, which fixed code resolves from receipts no adviser sees. Documents, cryptographic material, credentials, and the full draft body are not returned through the coordinator model interface. Current tests use synthetic recommendations rather than live Nemotron inference.
 
 The entrypoint uses an authorization id and bounded directory selection. Private task/version mappings and unattended dry-run processing are implemented; arbitrary natural-language role resolution and real endpoint/channel bindings are not. This scope refers to this project's tests, not independently verified legacy Shared Room MCP behavior.
 
@@ -38,19 +38,19 @@ Configure a local MCP client to launch `node scripts/coordinator-mcp.mjs` from t
 
 The HTTP coordinator accepts taskAlias and snapshotVersion and, for legacy delivery, a request id and allowlisted channel. It does not accept internal package IDs. Its responses are projected metadata, not raw package, credential, or audit records. The old application MCP-style endpoint is operator-only and cannot issue credentials.
 
-Default recommendations are labeled `synthetic_fixture`. Real file inference additionally requires LOCAL_ONLY=false, COORDINATOR_PROVIDER=nebius and backend provider settings; otherwise cloud mode fails closed. File adviser requests are allowlisted code-only input, bounded response size and deadline, with strict task/version/channel response validation. Worker reloads authorization after advice before dispatch. Adapter tests use fake fetch; they are not live Nemotron evidence or evidence of a semantic advantage over rules.
+Default recommendations are labeled `synthetic_fixture`. Real file inference additionally requires LOCAL_ONLY=false, COORDINATOR_PROVIDER=nebius and backend provider settings; otherwise cloud mode fails closed. Both adviser requests are allowlisted code-only input with a bounded response size and deadline. Each has its own validator: routing advice must carry taskAlias, snapshotVersion, action, channel and reasonCode, and follow-up advice must carry taskAlias, snapshotVersion, action and reasonCode, with no channel key at all. The follow-up validator additionally refuses a reminder past the budget, any action other than WAIT on a fully collected delivery, and a reason that contradicts the input it was given. Worker reloads authorization after advice before dispatch. Adapter tests use fake fetch; they are not live Nemotron evidence or evidence of a semantic advantage over rules.
 
 ## State and Persistence
 
 New snapshots contain private task/version-scoped UUID aliases for selected recipients and their approved simulated endpoints. The snapshot commitment binds this mapping; confirmation and dispatch verify it. The coordinator sees only the alias projection, never private recipient ids or endpoint ids. Endpoints are explicitly dry-run identifiers, not real email/address resolution. Pre-mapping snapshots fail closed on the new server; create a new reviewed draft instead of silently migrating old approvals. Existing running servers are not automatically upgraded by source edits.
 
 - `PENDING_CHECK`: no delivery attempt recorded.
-- `DRY_RUN_PREPARED`: a local notice was prepared; no email was sent and no remote delivery is claimed.
+- `DRY_RUN_PREPARED`: a local notice was prepared; no email was sent and no remote delivery is claimed. For a delivery that must be acknowledged this is not the end: while its deadline has not passed the job is reconsidered here, and a reminder returns it to this same state rather than moving it on.
 - `RETRY_WAIT`: a configured synthetic transient failure, with exponential backoff.
 - `OUTCOME_UNKNOWN`: ambiguous outcome; no automatic resend.
 - `PAUSED`: attempts exhausted; this processing run stops without automatic resend.
 
-The human-owned grant may set `simulatedOutcomes` to `prepared`, `transient`, or `unknown`. Clients cannot select outcomes. File jobs run in the backend timer with bounded retries; closing the sender page does not stop them. The sender display polls status and offers manual receipt refresh. Legacy package tools retain explicit delivery requests for regression compatibility.
+The human-owned grant may set `simulatedOutcomes` to `prepared`, `transient`, or `unknown`. Clients cannot select outcomes. File jobs run in the backend timer with bounded retries, and prepared REQUIRED_ACK jobs are reconsidered there on a cadence taken from each task's own window rather than from the clock. Closing the sender page does not stop either pass. The sender display polls status and offers manual receipt refresh. Legacy package tools retain explicit delivery requests for regression compatibility.
 
 Requests and transitions are persisted with the package. A per-process queue serializes API operations and a data-directory lock prevents two instances of this version from sharing a store. After an unclean crash, inspect the recorded PID before manually clearing a stale lock. Do not run old server versions against this data directory. JSON parse errors fail closed rather than replacing stores with empty arrays.
 
@@ -58,7 +58,7 @@ Requests and transitions are persisted with the package. A per-process queue ser
 
 Snapshot approval and its unique job are stored in one task aggregate. Before dispatch or credential release, the server rereads task/version state; old cache assertions cannot authorize access. An approved version is not overwritten by edits, and a new draft does not revoke it. Explicit revocation prevents future credential release and verification but cannot recall keys or plaintext already obtained.
 
-Audit records use fixed task/version/event/reason/state/time/attempt fields. Identity, endpoint, credential and raw-error fields are excluded; model tools receive only their separate status projection. Snapshot and delivery transitions queue sanitized audit events alongside state, then replay and acknowledge each event idempotently. Other legacy audit producers are still separate writes. No full database transaction, power-loss guarantee or tamper-proof storage is claimed.
+Audit records use fixed task/version/event/reason/state/time/attempt fields. Identity, endpoint, credential and raw-error fields are excluded; model tools receive only their separate status projection. Snapshot transitions, delivery transitions and follow-up decisions queue sanitized audit events alongside state, then replay and acknowledge each event idempotently. Other legacy audit producers are still separate writes. No full database transaction, power-loss guarantee or tamper-proof storage is claimed.
 
 Tests now also cover four material edits, old confirmation tokens, parallel duplicate confirmations, approved-snapshot preservation, explicit revocation, ciphertext/IV/salt binding, actual server restart, terminal HTTP outcomes and persisted audit privacy. A local browser check verified first confirmation, edit invalidation, version 2 reconfirmation, second confirmation and one-attempt dry-run. Live provider evidence is not part of these checks.
 

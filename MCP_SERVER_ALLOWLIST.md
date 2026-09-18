@@ -50,12 +50,12 @@ Allowed local tool names:
 
 ## Implemented Codex Coordinator Profile
 
-Current dedicated tools: legacy status/recommend/deliver and file_status/file_recommend. File tools accept taskAlias and snapshotVersion only; return code-only status/advice, never documents or keys. The file worker consumes backend adviser output behind the fixed gate, not direct MCP execution commands. Provider credentials stay backend-only; synthetic responses do not count as real cloud evidence.
+Current dedicated tools: legacy status/recommend/deliver and file_status/file_recommend. File tools accept taskAlias and snapshotVersion only; return code-only status/advice, never documents or keys. The file worker consumes backend adviser output behind the fixed gate, for both the routing and the delivery follow-up decision, not direct MCP execution commands. Only routing advice is reachable over MCP; the follow-up projection is never exposed there. Provider credentials stay backend-only; synthetic responses do not count as real cloud evidence.
 
 Status: implemented through the separate `scripts/coordinator-mcp.mjs` adapter and coordinator endpoint. The application HTTP tools require an operator token. Credential issuance is recipient-only and unavailable through MCP. See `docs/agent/local-workflow.md` for configuration and tested limits.
 
 - Humans configure grants and confirm each file-task snapshot twice. Only subsequent bounded worker actions run unattended; AI cannot approve a snapshot.
-- Expose sanitized receipt, fallback, and audit status; allow bounded route and notice requests only through a deterministic authorization gate.
+- Expose sanitized receipt, fallback, and audit status; allow bounded route, follow-up and notice requests only through a deterministic authorization gate.
 - Package creation stays with the sender application. Credential issuance stays with the authenticated recipient service; do not expose credential tokens to Codex.
 - Do not forward raw outputs from the existing tool surface. A dedicated adapter must project approved metadata fields and opaque handles, excluding filenames, recipient addresses, document content, and cryptographic material.
 - Codex may request metadata-only Nemotron recommendations through a dedicated backend adapter; the provider credential never enters model context.

@@ -100,10 +100,19 @@ not enable it. Configure an untracked environment file using `env.sample`, and s
 `SKIP_LOCAL_ENV=true` only when deliberately loading that private configuration. Never place secrets
 in Git, browser code or model context.
 
-The adviser receives exactly `taskAlias`, `snapshotVersion`, `channels`, `state` and `attempts`, and
-returns exactly five fields. It cannot read documents, addresses, real identities or keys, cannot
-change recipients, extend expiry or authorize execution, and is not told who the recipients are, how
-many there are, or how they are grouped.
+Two decisions sit behind that contract, each with its own five-field projection and its own
+validator. Routing is asked whether a prepared job should go out on an approved channel or hold:
+`taskAlias`, `snapshotVersion`, `channels`, `state`, `attempts`, answered with `ROUTE` or `PAUSE`.
+Follow-up is asked what to do about a delivery that must be acknowledged and that nobody has
+collected: `taskAlias`, `snapshotVersion`, `timeCode`, `nudgeCount`, `pickupCode`, answered with
+`WAIT`, `REMIND` or `ESCALATE`.
+
+Neither adviser can read documents, addresses, real identities or keys, change recipients, extend
+expiry or authorize execution, and neither is told who the recipients are, how many there are, or
+how they are grouped. The follow-up projection is starved further still: `timeCode` is a position in
+the task's own window rather than a time, so an identical value means a different hour on a two-day
+task and a two-month one, and `pickupCode` is `PICKUP_NONE`, `PICKUP_SOME` or `PICKUP_ALL`, never a
+count. Fixed code decides who a reminder reaches, resolving it from receipts the adviser never saw.
 
 Real provider calls, input rejection and injected-output gate tests were recorded separately during
 development, including earlier failed calls and their successful retests. One earlier conclusion was
@@ -126,9 +135,10 @@ outside the boundary and is reached by two dashed edges and nothing else.
 
 ![Trust boundary](docs/assets/architecture-trust-boundary.svg)
 
-**The order things happen in.** Sixteen messages from browser-side encryption to receipt reporting.
-The adviser lifeline ends at step 5: it is absent for the key exchange, the decryption and the
-reporting that follow.
+**The order things happen in.** Nineteen messages from browser-side encryption to receipt reporting.
+The adviser appears twice and nowhere else: once at step 5 to choose a route, and again at steps 15
+and 16 when a delivery that must be acknowledged has not been collected. It is absent for the key
+exchange, the decryption, and the reporting in between.
 
 ![Delivery sequence](docs/assets/architecture-sequence.svg)
 

@@ -1,6 +1,6 @@
 # Threat Model
 
-Review date: 2026-09-08. Revised 2026-09-18: group codes were added to the private mapping for the sender and receipt surfaces, and deliberately kept out of every adviser and coordinator projection. Current file workflow, not the legacy passphrase demo. A Traditional Chinese translation follows the English text.
+Review date: 2026-09-08. Revised 2026-09-18: a second adviser was added for delivery follow-up, with its own projection and validator, and group codes were added to the private mapping for the sender and receipt surfaces, and deliberately kept out of every adviser and coordinator projection. Current file workflow, not the legacy passphrase demo. A Traditional Chinese translation follows the English text.
 
 ## Assets
 
@@ -22,7 +22,7 @@ Sender and recipient browsers handle plaintext. The local backend is trusted for
 
 ## Data Flow
 
-Browser encryption precedes the first confirmation, which stages ciphertext and a wrapped key. Second confirmation approves the unchanged snapshot and creates its unique job. Five allowlisted metadata fields may go to the adviser: taskAlias, snapshotVersion, channels, state and attempts. The adviser is told nothing about recipients — not their identifiers, not their group codes, not how many there are. Recipient selection is settled by human approval before the adviser is called, and the dispatch gate resolves recipients from the snapshot afterwards. Fixed code reloads authority before dispatch. Recipients authenticate and obtain ciphertext plus a separately validated key ticket, decrypt locally and report receipt.
+Browser encryption precedes the first confirmation, which stages ciphertext and a wrapped key. Second confirmation approves the unchanged snapshot and creates its unique job. Two advisers exist, each with its own allowlisted five-field projection and its own validator. Routing receives taskAlias, snapshotVersion, channels, state and attempts, and answers ROUTE or PAUSE. Follow-up, which applies only to a REQUIRED_ACK delivery before its deadline, receives taskAlias, snapshotVersion, timeCode, nudgeCount and pickupCode, and answers WAIT, REMIND or ESCALATE. Neither is told anything about recipients — not their identifiers, not their group codes, not how many there are. timeCode is a position within the task's own window rather than a time, and pickupCode is an ordinal, never a count, so neither can be converted back into a clock value or a headcount. A reminder's targets are resolved by fixed code from receipts no adviser sees, and whoever already collected is passed over. Recipient selection is settled by human approval before the adviser is called, and the dispatch gate resolves recipients from the snapshot afterwards. Fixed code reloads authority before dispatch. Recipients authenticate and obtain ciphertext plus a separately validated key ticket, decrypt locally and report receipt.
 
 ## Threats And Controls
 
@@ -50,7 +50,7 @@ See docs/agent/security-gate-summary.md for scoped review; tests are not a produ
 
 # 威脅模型（繁體中文）
 
-檢視日期 2026-09-08。2026-09-18 修訂：私有映射表新增組別代號供發文者介面與收據使用，並刻意排除於所有顧問與協調投影之外。適用目前的檔案流程，非舊版通行碼展示。本節為上方英文內容的翻譯。
+檢視日期 2026-09-08。2026-09-18 修訂：新增投遞催促顧問，具備獨立投影與驗證器；私有映射表新增組別代號供發文者介面與收據使用，並刻意排除於所有顧問與協調投影之外。適用目前的檔案流程，非舊版通行碼展示。本節為上方英文內容的翻譯。
 
 ## 資產
 
@@ -72,7 +72,7 @@ See docs/agent/security-gate-summary.md for scoped review; tests are not a produ
 
 ## 資料流
 
-瀏覽器加密先於第一次確認，該次確認暫存密文與封裝金鑰。第二次確認核准未變動的快照並建立唯一工作。五個允許欄位可送至顧問模型：taskAlias、snapshotVersion、channels、state、attempts。顧問模型對收件人一無所知 —— 不知道識別碼、不知道組別代號、也不知道有幾個人。收件人由人在呼叫模型之前核准決定，之後由投遞閘門從快照還原。固定程式在派送前重新載入授權。收件人通過驗證後取得密文與另行驗證的金鑰票券，在本地解密並回報收訖。
+瀏覽器加密先於第一次確認，該次確認暫存密文與封裝金鑰。第二次確認核准未變動的快照並建立唯一工作。有兩個顧問模型，各自有獨立的五欄投影與獨立的驗證器。路由顧問收到 taskAlias、snapshotVersion、channels、state、attempts，回答 ROUTE 或 PAUSE。催促顧問只用於 REQUIRED_ACK 模式且期限未到的投遞，收到 taskAlias、snapshotVersion、timeCode、nudgeCount、pickupCode，回答 WAIT、REMIND 或 ESCALATE。兩者對收件人都一無所知 —— 不知道識別碼、不知道組別代號、也不知道有幾個人。timeCode 是該任務自身窗口內的相對位置而非時間，pickupCode 是序位而非數量，兩者都無法反推回時鐘值或人數。提醒要送給誰由固定程式從顧問看不到的收據還原，已經領取者直接跳過。收件人由人在呼叫模型之前核准決定，之後由投遞閘門從快照還原。固定程式在派送前重新載入授權。收件人通過驗證後取得密文與另行驗證的金鑰票券，在本地解密並回報收訖。
 
 ## 威脅與控制
 

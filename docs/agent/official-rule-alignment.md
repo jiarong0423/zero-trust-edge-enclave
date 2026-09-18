@@ -12,7 +12,7 @@ Official rules sections 4 and 6 were rechecked on 2026-09-07. This is a dated in
 - Private development may stay private. The public submission repository must include necessary working source, assets, license and instructions; mock files or a wrapper dependent on undisclosed private core code are insufficient.
 - Do not publish API keys, existing bearer credentials, operational stores or private logs. Synthetic test identities should be generated during setup.
 - Submission materials require English or English translations, including video, descriptions and testing instructions.
-- MCP is a tool boundary, not automatic novelty. Humans approve recipients, models propose routes, and fixed code enforces authorization and cryptography. Real model usefulness versus deterministic routing needs evidence.
+- MCP is a tool boundary, not automatic novelty. Humans approve recipients, the model proposes a route and separately whether to chase an unacknowledged delivery, and fixed code enforces authorization and cryptography. Real model usefulness versus deterministic routing needs evidence.
 - Current state: bounded real NVIDIA/Nebius calls are recorded in the red/white defense material, including failed calls and separate successful retests. No superiority to rules or production security claim follows. Current release review supersedes historical export passes; remote visibility is not established by this review.
 - Remaining delivery: accessible test-build URL, public functional source, short public video, platform feedback, dated prior-work disclosure and free judge-access clarification.
 - Unresolved organizer question: does a local test build requiring judges to supply their own paid/provider key satisfy free unrestricted testing, and which access alternative is acceptable without exposing developer keys? Obtain organizer clarification; do not assume BYO-key-only access is sufficient.
@@ -42,7 +42,7 @@ Official requirement:
 Project alignment:
 
 - The configured model is `nvidia/nemotron-3-super-120b-a12b`.
-- NVIDIA Nemotron provides bounded code-only route proposals, not permission decisions or document analysis.
+- NVIDIA Nemotron provides bounded code-only proposals for two distinct decisions, routing and delivery follow-up, each with its own allowlisted projection and validator. Neither is a permission decision and neither involves document analysis.
 
 Status: aligned after real Token Factory call evidence, pending final demo narration.
 
@@ -55,7 +55,7 @@ Best fit:
 Reason:
 
 - The project is a usable enterprise workflow app: sender enclave, decode gate, transport shell, audit dashboard, timed credential, and one-way delivery dry-run.
-- It uses Nemotron on Nebius for restricted route proposals. Its added value over fixed rules remains limited and must not be overstated.
+- It uses Nemotron on Nebius for two restricted proposal types. Routing adds little over a fixed rule and that must not be overstated; the follow-up decision has no deterministic equivalent, because when to chase an unacknowledged delivery depends on how time remaining, reminders already ignored and partial collection sit against each other.
 
 Status: aligned.
 

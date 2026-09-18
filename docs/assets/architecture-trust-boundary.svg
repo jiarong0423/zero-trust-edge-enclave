@@ -1,11 +1,13 @@
 <!--
   Zero-Trust Edge Enclave — architecture diagram
-  Generated 2026-09-18. Purpose: README and hackathon submission material.
+  Generated 2026-09-18, revised 2026-09-19 for the second adviser.
+  Purpose: README and hackathon submission material.
   Sources of truth: audit-boundary.js (state allowlist), task-operations.js (resumable reason
-  codes), file-routing.js (five-field projection), private-mapping.js (group codes).
+  codes), file-routing.js and delivery-followup.js (the two five-field projections),
+  file-worker.js (both worker passes), private-mapping.js (group codes).
   This depicts the implementation as built; it does not show mechanisms that do not exist.
 -->
-<svg width="100%" viewBox="0 0 680 562" xmlns="http://www.w3.org/2000/svg" role="img">
+<svg width="100%" viewBox="0 0 680 598" xmlns="http://www.w3.org/2000/svg" role="img">
   <title>Trust boundary: what each party can reach</title>
   <desc>Three bands. Human devices hold plaintext. The local backend inside the trust boundary holds the immutable snapshot, the private mapping, the key vault and the fixed-code gate. The adviser model sits outside the boundary, connected only by dashed lines.</desc>
   <style>
@@ -54,9 +56,11 @@
   <path d="M300 375 L300 402" class="arr" stroke-dasharray="5 4" marker-end="url(#a)"/>
   <path d="M380 402 L380 375" class="arr" stroke-dasharray="5 4" marker-end="url(#a)"/>
 
-  <g class="c-purple"><rect x="40" y="412" width="600" height="110" rx="20" stroke-width="0.5" stroke-dasharray="6 4"/>
-    <text class="th" x="56" y="434" dominant-baseline="central">Outside the boundary — adviser model</text></g>
-  <g><rect class="box" x="56" y="450" width="568" height="56" rx="8"/>
+  <g class="c-purple"><rect x="40" y="412" width="600" height="146" rx="20" stroke-width="0.5" stroke-dasharray="6 4"/>
+    <text class="th" x="56" y="434" dominant-baseline="central">Outside the boundary — adviser model, asked two separate questions</text></g>
+  <g><rect class="box" x="56" y="450" width="568" height="92" rx="8"/>
     <text class="th" x="340" y="468" text-anchor="middle" dominant-baseline="central">Nemotron | Nebius cloud or local loopback</text>
-    <text class="ts" x="340" y="488" text-anchor="middle" dominant-baseline="central">Five anonymous fields in, advice out — output is data, never permission</text></g>
+    <text class="ts" x="340" y="490" text-anchor="middle" dominant-baseline="central">Route: channels · state · attempts in — ROUTE or PAUSE out</text>
+    <text class="ts" x="340" y="508" text-anchor="middle" dominant-baseline="central">Follow up: timeCode · nudgeCount · pickupCode in — WAIT, REMIND or ESCALATE out</text>
+    <text class="ts" x="340" y="528" text-anchor="middle" dominant-baseline="central">Five anonymous fields each way. Output is data, never permission</text></g>
 </svg>

@@ -6,7 +6,7 @@ Review date: 2026-09-08. Scope: local hackathon prototype, synthetic documents o
 
 Humans configure grants and confirm each snapshot twice. Browser cryptography encrypts file bytes; AI does not perform encryption. Fixed backend checks enforce current identity, grant version, snapshot, recipient membership, expiry, channels and replay limits.
 
-The model and coordinator receive allowlisted metadata only. Model proposals cannot authorize execution. Recipients authenticate separately and redeem short-lived one-use key tickets. Download reports are client assertions, not proof of reading.
+The model and coordinator receive allowlisted metadata only, in two separate projections: one for routing and one for delivery follow-up. Model proposals cannot authorize execution. Two further ceilings are enforced in code rather than asked for in a prompt: a delivery is reminded at most twice, and a fully collected delivery cannot be chased at all. Who a reminder reaches is resolved by fixed code from receipts no adviser sees. Recipients authenticate separately and redeem short-lived one-use key tickets. Download reports are client assertions, not proof of reading.
 
 ## Key Custody
 

@@ -1,13 +1,15 @@
 <!--
   Zero-Trust Edge Enclave — architecture diagram
-  Generated 2026-09-18. Purpose: README and hackathon submission material.
+  Generated 2026-09-18, revised 2026-09-19 for the delivery follow-up loop.
+  Purpose: README and hackathon submission material.
   Sources of truth: audit-boundary.js (state allowlist), task-operations.js (resumable reason
-  codes), file-routing.js (five-field projection), private-mapping.js (group codes).
+  codes), file-routing.js and delivery-followup.js (the two five-field projections),
+  file-worker.js (both worker passes), private-mapping.js (group codes).
   This depicts the implementation as built; it does not show mechanisms that do not exist.
 -->
-<svg width="100%" viewBox="0 0 680 620" xmlns="http://www.w3.org/2000/svg" role="img">
+<svg width="100%" viewBox="0 0 680 736" xmlns="http://www.w3.org/2000/svg" role="img">
   <title>Task state machine</title>
-  <desc>Spine: DRAFT to LOCKED on first confirmation, to APPROVED on second confirmation, then PENDING_CHECK once a delivery job exists. Side exits: INVALIDATED on revision, REVOKED on revocation. PENDING_CHECK branches to DRY_RUN_PREPARED, OUTCOME_UNKNOWN, RETRY_WAIT or PAUSED. PAUSED returns to PENDING_CHECK only for five resumable reason codes. All ten states come from the audit allowlist.</desc>
+  <desc>Spine: DRAFT to LOCKED on first confirmation, to APPROVED on second confirmation, then PENDING_CHECK once a delivery job exists. Side exits: INVALIDATED on revision, REVOKED on revocation. PENDING_CHECK branches to DRY_RUN_PREPARED, OUTCOME_UNKNOWN, RETRY_WAIT or PAUSED. PAUSED returns to PENDING_CHECK only for five resumable reason codes. DRY_RUN_PREPARED is not terminal for a delivery that must be acknowledged: while its deadline has not passed it is reconsidered, and the answer, WAIT, REMIND or ESCALATE, returns it to the same state. All ten states come from the audit allowlist; the follow-up pass adds audit event types and reason codes, not states.</desc>
   <style>
     text { font-family: -apple-system, "Helvetica Neue", Inter, system-ui, sans-serif; }
     .ts { font-size: 12px; fill: #5f5e5a; }
@@ -63,13 +65,24 @@
     <text class="th" x="534" y="390" text-anchor="middle" dominant-baseline="central">PAUSED</text>
     <text class="ts" x="534" y="412" text-anchor="middle" dominant-baseline="central">Reason logged</text></g>
 
+  <path d="M78 430 L78 468" class="arr" marker-end="url(#a)"/>
+  <path d="M126 468 L126 434" class="arr" marker-end="url(#a)"/>
+  <text class="ts" x="150" y="452">Still to be acknowledged, deadline not passed</text>
+
+  <g class="c-purple"><rect x="40" y="470" width="600" height="98" rx="8" stroke-width="0.5"/>
+    <text class="th" x="340" y="490" text-anchor="middle" dominant-baseline="central">Follow-up reconsideration — a second adviser, a second projection</text>
+    <text class="ts" x="340" y="512" text-anchor="middle" dominant-baseline="central">In: taskAlias · snapshotVersion · timeCode · nudgeCount · pickupCode</text>
+    <text class="ts" x="340" y="530" text-anchor="middle" dominant-baseline="central">Out: WAIT, REMIND or ESCALATE. The state does not move.</text>
+    <text class="ts" x="340" y="548" text-anchor="middle" dominant-baseline="central">A reminder reaches only those who have not collected, resolved by fixed code</text></g>
+
   <line x1="452" y1="400" x2="466" y2="400" class="arr" marker-end="url(#a)"/>
   <path d="M596 400 L616 400 L616 300 L350 300" class="arr" marker-end="url(#a)"/>
   <text class="ts" x="480" y="292" text-anchor="middle">Manual resume (five reason codes only)</text>
 
-  <g class="c-gray"><rect x="40" y="466" width="600" height="98" rx="8" stroke-width="0.5"/>
-    <text class="th" x="340" y="488" text-anchor="middle" dominant-baseline="central">The reason code decides whether PAUSED can resume</text>
-    <text class="ts" x="340" y="512" text-anchor="middle" dominant-baseline="central">Resumable: ADVISER_UNAVAILABLE · ADVICE_INVALID · ADVICE_PAUSED</text>
-    <text class="ts" x="340" y="530" text-anchor="middle" dominant-baseline="central">RECIPIENT_DISABLED · ACTOR_DISABLED</text>
-    <text class="ts" x="340" y="548" text-anchor="middle" dominant-baseline="central">Not resumable: RETRY_EXHAUSTED · DELIVERY_WINDOW_CLOSED</text></g>
+  <g class="c-gray"><rect x="40" y="592" width="600" height="122" rx="8" stroke-width="0.5"/>
+    <text class="th" x="340" y="614" text-anchor="middle" dominant-baseline="central">The reason code decides whether PAUSED can resume</text>
+    <text class="ts" x="340" y="638" text-anchor="middle" dominant-baseline="central">Resumable: ADVISER_UNAVAILABLE · ADVICE_INVALID · ADVICE_PAUSED</text>
+    <text class="ts" x="340" y="656" text-anchor="middle" dominant-baseline="central">RECIPIENT_DISABLED · ACTOR_DISABLED</text>
+    <text class="ts" x="340" y="674" text-anchor="middle" dominant-baseline="central">Not resumable: RETRY_EXHAUSTED · DELIVERY_WINDOW_CLOSED</text>
+    <text class="ts" x="340" y="696" text-anchor="middle" dominant-baseline="central">A refused follow-up does not pause the job: it is recorded and reconsidered later</text></g>
 </svg>

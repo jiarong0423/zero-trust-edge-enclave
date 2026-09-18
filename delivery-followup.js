@@ -5,9 +5,10 @@ import { normalizeDownloadPolicy } from './download-policy.js';
 /**
  * The delivery loop as built handles a notice that could not be prepared: a transient failure
  * becomes RETRY_WAIT and is retried under a bounded backoff. It does not handle the other half,
- * which is a notice that was prepared and that nobody acted on. DRY_RUN_PREPARED is terminal in
- * the worker, so a REQUIRED_ACK task can sit untouched until its deadline passes and a single
- * overdue record is written — by which time the delivery that had to happen has not happened.
+ * which is a notice that was prepared and that nobody acted on. DRY_RUN_PREPARED used to be the end
+ * of the worker's interest, so a REQUIRED_ACK task sat untouched until its deadline passed and a
+ * single overdue record was written — by which time the delivery that had to happen had not
+ * happened. This module is what makes that state non-terminal.
  *
  * This module closes that half. It only applies to REQUIRED_ACK, because TIME_LIMITED answers the
  * question by itself: the window shuts and there is nothing left to chase.
