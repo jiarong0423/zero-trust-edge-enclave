@@ -1,159 +1,119 @@
 # Zero-Trust Edge Enclave
 
-AI-native policy control plane for encrypted internal data delivery.
+MIT-licensed local hackathon prototype for encrypted document handoff with a restricted AI adviser. Extracted from the Shared Room MCP direction; not a production security certification.
 
-This project is a new hackathon-oriented framework extracted from the Shared Room MCP direction. The original project focused on shared commercial intake rooms. This project focuses on enterprise internal data delivery: client-side encryption, ciphertext-only relay storage, policy-bound decode gates, and audit evidence.
+## Why This Boundary
 
-## Hackathon Fit
+Data residency rules, the US CLOUD Act and EU AI Act Article 10 make "send the document
+to an API" the wrong answer for regulated material. The usual response is to move every
+workload on-premises. This prototype takes the other route: keep the workload where it
+is and bound what crosses.
 
-- Track: Best Apps and Agents Track.
-- Nebius role: Token Factory inference endpoint for policy recommendation.
-- NVIDIA role: Nemotron model for permission routing and access-policy suggestions from non-content metadata.
-- Security boundary: AI suggests policy but never receives plaintext, content summaries, snippets, or payload encryption keys.
+What crosses to the model: `taskAlias`, `snapshotVersion`, `channels`, `state`,
+`attempts`. Five pseudonymous workflow fields, validated by exact-key and format checks;
+anything else is rejected before dispatch.
 
-## MVP Pages
+What never crosses: the document, the recipient, the address, the key.
 
-1. Sender Enclave: stage internal content, send only non-content policy metadata to the policy assistant, encrypt locally in the browser, then create a sealed package.
-2. Recipient Decode Gate: open a sealed package as an authorized or unauthorized recipient, validate policy claims, and decrypt locally only when allowed.
-3. SOC Audit Dashboard: inspect ALLOW and DENY events, package hashes, policy summaries, and runtime mode.
+The adviser's small surface is the design, not an unfinished part. A model is the
+component an injected instruction attacks, so it cannot also be the component that
+enforces the boundary. Work on tool-using agents converged on the same answer between
+2024 and 2026 — enforce with deterministic policy outside the model rather than training
+it to refuse — and supervision is moving the same way, with FINRA treating AI agents as a
+distinct risk category and the AI AGENT Act of 2026 requiring human approval for
+sensitive transactions. The backend here re-verifies identity, authorization, revocation,
+snapshot version, channel allowlist, expiry and retry budget on every dispatch, and the
+whole workflow completes with `COORDINATOR_PROVIDER=synthetic_fixture` and no model at
+all.
 
-## Timed Access Credential
+Limits: this is a local prototype, not a certified deployment. There is no independent
+KMS or TEE. The five metadata fields do reach Nebius Token Factory; only the document
+content, recipient identity, address and keys are kept inside the boundary.
 
-The decode path uses a signed timed credential instead of a permanent password or direct role check. The credential binds:
+## Current Workflow
 
-- package id
-- package hash
-- policy hash
-- recipient role
-- device claim
-- expiry
-- one-use claim
-- revocation version
+1. Import a sender credential and choose an existing authorization.
+2. Select DOCX, PDF or CSV bytes (up to 5 MiB). Browser encryption happens without a document-content preview.
+3. Review department-filtered recipients and channels. Confirm twice against the same immutable snapshot; changes require fresh confirmation.
+4. A backend worker prepares simulated email notices with bounded retries. AI advice passes fixed authorization checks.
+5. The authenticated recipient obtains ciphertext and a separate short-lived, one-use key ticket, decrypts in the browser and downloads the original file.
+6. Receipt reports distinguish verification, download request and acknowledgement. None proves reading or legally effective delivery.
 
-The server releases ciphertext to the local decryption runtime only after the signed credential passes validation. The demo passphrase is only for browser-side AES-GCM key derivation during the local MVP; it is not a production KMS design.
-
-## MCP Transport Shell
-
-The MCP-style shell is a secure package transport layer. It can route and monitor sealed packages, but it cannot inspect plaintext, decrypt content, hold keys, or approve final access.
-
-Current local tool surface:
-
-- `create_sealed_package`
-- `route_package`
-- `prepare_email_delivery`
-- `check_endpoint_receipt`
-- `issue_timed_credential`
-- `read_fallback_status`
-- `read_audit_log`
-
-Tool schemas are exposed at `GET /api/mcp/tools`. Tools are called through `POST /api/mcp/call`.
-
-## One-Way Email Dry Run
-
-The local MVP prepares an email-safe delivery notice but does not send mail. The generated notice includes only:
-
-- sealed package id
-- classification and risk level
-- expiry
-- allowed roles
-- Decode Gate link
-
-It does not include protected content, ciphertext, cryptographic keys, IV, or salt. Real email delivery must be added later behind a separate secret-handling and outbound-review gate.
-
-## Architecture
-
-```mermaid
-flowchart TD
-  A[Internal Sender] --> B[Browser Staging Enclave]
-  B --> C[Non-Content Policy Metadata]
-  B --> D[Client-Side Encryption]
-  D --> D1[AES-256-GCM via Web Crypto API]
-  D --> D2[Content Key Generated Locally]
-  D --> D3[Plaintext Never Sent to Server]
-
-  C --> E[Nebius Token Factory]
-  E --> F[NVIDIA Nemotron]
-  F --> G[AI Permission Routing Recommendation]
-
-  G --> H[Deterministic Policy Validator]
-  H --> H1[JSON Schema Check]
-  H --> H2[Allowed Policy Values]
-  H --> H3[Reject Invalid AI Output]
-  H --> H4[Human Approval Before Seal]
-
-  H --> I[Policy Compiler and Signer]
-  I --> J[Signed Policy Envelope]
-
-  D --> K[Ciphertext Package]
-  J --> K
-
-  K --> L[Ciphertext-Only Backend]
-  L --> M[MCP Transport Shell]
-  M --> M1[create_sealed_package]
-  M --> M2[route_package]
-  M --> M3[prepare_email_delivery]
-  M --> M4[check_endpoint_receipt]
-  M --> M5[issue_timed_credential]
-  M --> M6[read_fallback_status]
-  M --> M7[read_audit_log]
-
-  M --> X[One-Way Delivery Channel]
-  X --> X1[Email Link]
-  X --> X2[Internal Queue]
-  X --> X3[Edge Endpoint]
-  X --> X4[Offline Package]
-  X --> X5[Cross-Region Relay]
-
-  X --> N[Recipient Decode Gate]
-  N --> N1[Issue Signed Timed Credential]
-  N1 --> N2[Recipient Role Binding]
-  N1 --> N3[Device Claim Binding]
-  N1 --> N4[Expiry Binding]
-  N1 --> N5[Policy Hash Binding]
-  N1 --> N6[Revocation Version Binding]
-  N --> N7[Verify Credential Signature]
-  N --> N8[Verify Open Count]
-
-  N --> O{Access Allowed?}
-  O -- No --> P[Deny Access]
-  O -- Yes --> Q[Local Decryption Runtime]
-
-  Q --> Q1[Decrypt In Browser Memory]
-  Q --> Q2[Apply Role-Based Redaction]
-  Q --> Q3[Apply Dynamic Watermark]
-  Q --> Q4[Render Approved View]
-
-  P --> R[Audit Dashboard]
-  Q --> R
-```
+REQUIRED_ACK adds no extra file cutoff but never bypasses grant expiry or revocation. TIME_LIMITED rejects new access at its approved deadline. Released bytes, keys and plaintext cannot be recalled.
 
 ## Run Locally
 
+Requires Node.js 20.11 or newer; no third-party Node runtime packages.
+
+```bash
+npm run setup:local
+npm test
+SKIP_LOCAL_ENV=true LOCAL_ONLY=true npm run dev
+```
+
+Open http://127.0.0.1:3344/ or http://127.0.0.1:3344/zh-TW/. The language button switches the current page without reloading.
+
+Import generated operator.token on the sender page and select local-review. Import recipient-a.token on the recipient page; recipient-b is intentionally unauthorized. Setup generates private random tokens and refuses existing files. These are local bearer identities, not enterprise SSO.
+
+For a separate departmental demo with an administrator:
+
+```bash
+node scripts/setup-local.mjs data-business --business
+SKIP_LOCAL_ENV=true LOCAL_ONLY=true DATA_DIR=data-business npm run dev
+```
+
+Use a new private directory and a free port. Do not share a running server's data directory. Import admin.token only on admin.html for department, person and grant administration. Business setup provides procurement and audit grants.
+
+## NVIDIA / Nebius
+
+Default mode is synthetic_fixture with no model request. Real file-task advice requires LOCAL_ONLY=false, COORDINATOR_PROVIDER=nebius and a backend NEBIUS_API_KEY. A key alone does not enable it. Configure an untracked environment file using env.sample; never place secrets in Git, browser code or model context. Start without SKIP_LOCAL_ENV=true only when deliberately loading that private configuration.
+
+The configured model is nvidia/nemotron-3-super-120b-a12b through Nebius Token Factory. The file adviser receives exactly taskAlias, snapshotVersion, channels, state and attempts. It cannot read documents, addresses, real identities or keys, change recipients, extend expiry or authorize execution.
+
+[Red/white defense material](docs/ai-generated/2026Q3/human-ai-boundary-material_20260907.md) separates real model calls, input rejection and injected-output gate tests. Earlier failed calls remain disclosed. These results do not prove superiority to deterministic routing, general injection resistance or compatibility with an untested local model.
+
+## Architecture
+
+Three views. Each is drawn from the implementation, not from intent: the state names come from the
+audit allowlist in `audit-boundary.js`, the resumable reason codes from `task-operations.js`, and the
+adviser projection from `file-routing.js`.
+
+**What each party can reach.** Plaintext exists only on the two human devices. The adviser sits
+outside the boundary and is reached by two dashed edges and nothing else.
+
+![Trust boundary](docs/assets/architecture-trust-boundary.svg)
+
+**The order things happen in.** Sixteen messages from browser-side encryption to receipt reporting.
+The adviser lifeline ends at step 5: it is absent for the key exchange, the decryption and the
+reporting that follow.
+
+![Delivery sequence](docs/assets/architecture-sequence.svg)
+
+**What a task can do next.** Ten states and the reason codes that decide whether a paused job may
+resume. `RETRY_EXHAUSTED` and `DELIVERY_WINDOW_CLOSED` both stop a job, for different reasons: the
+first has spent its attempts, the second still has attempts but the download window closed first.
+
+![Task state machine](docs/assets/architecture-state-machine.svg)
+
+Polling is drawn as polling. The sender's page asks the backend once a second; there is no push
+channel, and none is claimed.
+
+The stdio MCP adapter exposes metadata-only file_status/file_recommend and legacy compatibility tools. It cannot deliver file bytes or release credentials. See [MCP permissions](MCP_SERVER_ALLOWLIST.md).
+
+Backend storage includes ciphertext AND wrapped keys. The key service shares the app host and process: a compromised backend is outside this prototype's protection boundary. No independent KMS or hardware enclave is claimed.
+
+## Verification And Limits
+
 ```bash
 npm run check
-npm run dev
+npm test
+node scripts/generate-business-fixtures.mjs
 ```
 
-Open `http://127.0.0.1:3344`.
+Tests use isolated synthetic stores and no provider requests. The fixture generator creates synthetic CSV and native-document source data, never reads user documents, and refuses differing existing outputs. Optional native rendering/browser testing is documented in [local workflow](docs/agent/local-workflow.md).
 
-## Nebius Configuration
+Email remains dry-run. No enterprise identity, malware inspection of ciphertext, legal signature or multi-host delivery guarantee is implemented. Legacy text/passphrase endpoints are compatibility paths, not this file workflow.
 
-Copy `env.sample` to `.env` or export equivalent variables in the shell.
+[Security](SECURITY.md) | [Threat model](THREAT_MODEL.md) | [Release review](docs/agent/security-gate-summary.md) | [Export manifest](public-export-manifest.md)
 
-```bash
-export NEBIUS_API_KEY="your_token_factory_key"
-export NEBIUS_BASE_URL="https://api.tokenfactory.nebius.com/v1"
-export NEBIUS_MODEL="nvidia/nemotron-3-super-120b-a12b"
-```
-
-When `NEBIUS_API_KEY` is missing, the app uses an explicit local demo fallback and labels the result as `demo_fallback`. This is useful for UI development but is not submission evidence.
-
-The server loads `.env` from the project directory first, then from the parent workspace directory when a variable is still missing. Keep both `.env` locations untracked and never commit secrets.
-
-For production-like runs, set `TOKEN_SIGNING_SECRET`. Local development without this variable uses an ephemeral per-process signing secret so demo credentials expire when the server restarts.
-
-## Public Submission Boundary
-
-The repository should stay private during build work and become public only for Devpost review. Public export allows source code, architecture, threat model, and security evidence files. Public export denies `.env`, `.env.*`, runtime `data/*.json`, local `logs/`, signed credentials, provider keys, and confidential payload samples.
-
-See `public-export-manifest.md`, `SECURITY.md`, `THREAT_MODEL.md`, and `MCP_SERVER_ALLOWLIST.md` before changing repository visibility.
+Publication and free judge access remain pending release review and organizer clarification.

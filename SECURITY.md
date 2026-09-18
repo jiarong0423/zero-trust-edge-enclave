@@ -1,49 +1,25 @@
 # Security Policy
 
-Review date: 2026-09-07
-Owner: project maintainer
+Review date: 2026-09-08. Scope: local hackathon prototype, synthetic documents only.
 
-## Supported Scope
+## Boundaries
 
-This repository is a hackathon MVP for a zero-trust, edge-sealed internal data delivery workflow. It demonstrates:
+Humans configure grants and confirm each snapshot twice. Browser cryptography encrypts file bytes; AI does not perform encryption. Fixed backend checks enforce current identity, grant version, snapshot, recipient membership, expiry, channels and replay limits.
 
-- browser-side encryption before package creation;
-- metadata-only AI policy recommendation through Nebius Token Factory and NVIDIA Nemotron;
-- ciphertext-only backend storage;
-- signed timed access credentials;
-- MCP-style transport shell for create, route, receipt, credential, fallback, and audit flows;
-- one-way email delivery dry-run notices that do not include plaintext, keys, IV, or salt.
+The model and coordinator receive allowlisted metadata only. Model proposals cannot authorize execution. Recipients authenticate separately and redeem short-lived one-use key tickets. Download reports are client assertions, not proof of reading.
 
-## Secret Boundary
+## Key Custody
 
-Secrets must stay outside Git.
+The backend stores ciphertext, wrapped document keys and private authorization/mapping records. Its key service shares the application host and process. A compromised backend can access cryptographic material: this is not ciphertext-only storage or independently administered KMS.
 
-Required local environment names:
+Provider credentials, signing material, bearer credentials, key-vault material and runtime stores stay outside Git. Rotate provider credentials at the provider; rotate principals through authenticated administration. Explicit revocation denies future access but cannot recall released keys or plaintext. Do not delete runtime or audit history as a substitute for revocation.
 
-- `NEBIUS_API_KEY`
-- `TOKEN_SIGNING_SECRET`
+## Limits
 
-Storage location:
+No enterprise SSO, device attestation, TEE, ciphertext malware inspection, compliance certification, real mail or legal-signature guarantee is claimed. The current file workflow does not use a shared passphrase; legacy compatibility endpoints are separately scoped.
 
-- local `.env` during development;
-- platform secret manager for any deployed environment.
+Single-process serialization is not a distributed transaction. Retention inventory is read-only. Capacity exhaustion requires operator handling. Production rate limiting, independently administered keys and deployment hardening require separate review.
 
-Rotation path:
+## Reporting
 
-- rotate `NEBIUS_API_KEY` in the Nebius console or Token Factory key management surface;
-- rotate `TOKEN_SIGNING_SECRET` by replacing the environment value and invalidating existing timed credentials.
-
-Revoke path:
-
-- revoke provider keys at the provider account level;
-- increment package revocation version or clear active demo data for local MVP credentials.
-
-The browser bundle must never contain provider API keys or signing secrets. The server is the only component allowed to call Nebius Token Factory.
-
-## Production Limits
-
-This MVP does not claim production-grade KMS, device attestation, TEE isolation, eDiscovery retention, or compliance certification. The demo passphrase exists only to make the browser-side AES-GCM flow inspectable during the hackathon.
-
-## Public Reporting
-
-Do not include private data, customer documents, plaintext samples, `.env` contents, provider keys, signed credentials, or runtime package stores in issues, pull requests, screenshots, or demo submissions.
+Use minimal synthetic reproductions. Never include documents, real identities, credentials, raw provider responses or private logs in public reports. Current finding dispositions are in docs/agent/security-gate-summary.md. Historical passes are not current clearance; publication still requires owner review.

@@ -5,9 +5,11 @@ Owner: project maintainer
 
 ## Dependency Review
 
-Status: pass
+Status: Node runtime dependency inventory only, not blanket supply-chain approval.
 
 The current MVP uses native Node.js modules only and does not declare third-party runtime dependencies in `package.json`.
+
+Optional browser acceptance uses separately installed Playwright and Chromium. Optional DOCX/PDF fixture rendering uses python-docx and reportlab. Architecture rendering may use Mermaid. These tools are not included in the runtime dependency claim and are not downloaded automatically by setup or npm test. Their installed versions and provenance require separate review before distributing a bundled toolchain.
 
 ## Registry Existence
 

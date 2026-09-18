@@ -1,0 +1,62 @@
+<!--
+  Zero-Trust Edge Enclave — architecture diagram
+  Generated 2026-09-18. Purpose: README and hackathon submission material.
+  Sources of truth: audit-boundary.js (state allowlist), task-operations.js (resumable reason
+  codes), file-routing.js (five-field projection), private-mapping.js (group codes).
+  This depicts the implementation as built; it does not show mechanisms that do not exist.
+-->
+<svg width="100%" viewBox="0 0 680 562" xmlns="http://www.w3.org/2000/svg" role="img">
+  <title>Trust boundary: what each party can reach</title>
+  <desc>Three bands. Human devices hold plaintext. The local backend inside the trust boundary holds the immutable snapshot, the private mapping, the key vault and the fixed-code gate. The adviser model sits outside the boundary, connected only by dashed lines.</desc>
+  <style>
+    text { font-family: -apple-system, "Helvetica Neue", Inter, system-ui, sans-serif; }
+    .ts { font-size: 12px; fill: #5f5e5a; }
+    .th { font-size: 14px; font-weight: 500; fill: #1a1a1a; }
+    .box { fill: #ffffff; stroke: #888880; stroke-width: 0.5; }
+    .arr { stroke: #5f5e5a; stroke-width: 1.5; fill: none; }
+    .leader { stroke: #b4b2a9; stroke-width: 0.5; stroke-dasharray: 4 3; fill: none; }
+    .c-teal   > rect { fill: #E1F5EE; stroke: #0F6E56; } .c-teal   > text { fill: #085041; }
+    .c-coral  > rect { fill: #FAECE7; stroke: #993C1D; } .c-coral  > text { fill: #712B13; }
+    .c-purple > rect { fill: #EEEDFE; stroke: #534AB7; } .c-purple > text { fill: #3C3489; }
+    .c-gray   > rect { fill: #F1EFE8; stroke: #5F5E5A; } .c-gray   > text { fill: #444441; }
+    .c-amber  > rect { fill: #FAEEDA; stroke: #854F0B; } .c-amber  > text { fill: #633806; }
+    .c-red    > rect { fill: #FCEBEB; stroke: #A32D2D; } .c-red    > text { fill: #791F1F; }
+  </style>
+  <defs><marker id="a" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse"><path d="M2 1L8 5L2 9" fill="none" stroke="context-stroke" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></marker></defs>
+
+  <g class="c-coral"><rect x="40" y="40" width="600" height="110" rx="20" stroke-width="0.5" stroke-dasharray="6 4"/>
+    <text class="th" x="56" y="62" dominant-baseline="central">Human devices — plaintext lives only here</text></g>
+  <g><rect class="box" x="56" y="78" width="272" height="56" rx="8"/>
+    <text class="th" x="192" y="96" text-anchor="middle" dominant-baseline="central">Sender laptop</text>
+    <text class="ts" x="192" y="116" text-anchor="middle" dominant-baseline="central">Encrypt, then confirm twice</text></g>
+  <g><rect class="box" x="352" y="78" width="272" height="56" rx="8"/>
+    <text class="th" x="488" y="96" text-anchor="middle" dominant-baseline="central">Recipient phone</text>
+    <text class="ts" x="488" y="116" text-anchor="middle" dominant-baseline="central">Authenticate, decrypt on device</text></g>
+
+  <line x1="192" y1="155" x2="192" y2="182" class="arr" marker-end="url(#a)"/>
+  <line x1="488" y1="182" x2="488" y2="155" class="arr" marker-end="url(#a)"/>
+
+  <g class="c-teal"><rect x="40" y="192" width="600" height="178" rx="20" stroke-width="0.5" stroke-dasharray="6 4"/>
+    <text class="th" x="56" y="214" dominant-baseline="central">Inside the trust boundary — local backend</text></g>
+  <g><rect class="box" x="56" y="230" width="180" height="56" rx="8"/>
+    <text class="th" x="146" y="248" text-anchor="middle" dominant-baseline="central">Immutable snapshot</text>
+    <text class="ts" x="146" y="268" text-anchor="middle" dominant-baseline="central">Recipients and expiry</text></g>
+  <g><rect class="box" x="250" y="230" width="180" height="56" rx="8"/>
+    <text class="th" x="340" y="248" text-anchor="middle" dominant-baseline="central">Private mapping</text>
+    <text class="ts" x="340" y="268" text-anchor="middle" dominant-baseline="central">Real id to group code</text></g>
+  <g><rect class="box" x="444" y="230" width="180" height="56" rx="8"/>
+    <text class="th" x="534" y="248" text-anchor="middle" dominant-baseline="central">Key vault</text>
+    <text class="ts" x="534" y="268" text-anchor="middle" dominant-baseline="central">Wrapped per document</text></g>
+  <g><rect class="box" x="56" y="298" width="568" height="56" rx="8"/>
+    <text class="th" x="340" y="316" text-anchor="middle" dominant-baseline="central">Fixed-code gate</text>
+    <text class="ts" x="340" y="336" text-anchor="middle" dominant-baseline="central">The only authorizer and executor; re-verifies authority before dispatch</text></g>
+
+  <path d="M300 375 L300 402" class="arr" stroke-dasharray="5 4" marker-end="url(#a)"/>
+  <path d="M380 402 L380 375" class="arr" stroke-dasharray="5 4" marker-end="url(#a)"/>
+
+  <g class="c-purple"><rect x="40" y="412" width="600" height="110" rx="20" stroke-width="0.5" stroke-dasharray="6 4"/>
+    <text class="th" x="56" y="434" dominant-baseline="central">Outside the boundary — adviser model</text></g>
+  <g><rect class="box" x="56" y="450" width="568" height="56" rx="8"/>
+    <text class="th" x="340" y="468" text-anchor="middle" dominant-baseline="central">Nemotron | Nebius cloud or local loopback</text>
+    <text class="ts" x="340" y="488" text-anchor="middle" dominant-baseline="central">Five anonymous fields in, advice out — output is data, never permission</text></g>
+</svg>
