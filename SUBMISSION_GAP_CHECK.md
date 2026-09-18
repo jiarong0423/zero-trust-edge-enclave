@@ -67,7 +67,7 @@ by whether a reader would be misled or merely under-informed.
 | `docs/agent/local-workflow.md:13` | "AI may recommend only approved routes" | Same exclusivity claim as the landing page. |
 | `docs/agent/local-workflow.md:41` | "strict task/version/channel response validation" | `validateFollowupAdvice` forbids a `channel` key. |
 | `docs/agent/zeabur-deployment.md:65,68` | Provider-quota bound | Counts the routing pass only; the follow-up pass issues calls on a separate schedule, so the stated worst case is arithmetically wrong. |
-| `docs/agent/security-gate-summary.md:58,64` | "all 71 npm tests", "the manifest is now 89" | Now 93 tests and 104 manifest entries. |
+| `docs/agent/security-gate-summary.md:58,64` | "all 71 npm tests", "the manifest is now 89" | Now 93 tests and 105 manifest entries. |
 
 ### Incomplete: true but omits the second adviser
 
