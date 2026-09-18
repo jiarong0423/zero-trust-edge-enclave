@@ -1,24 +1,54 @@
 import http from 'node:http';
+import https from 'node:https';
 import { promises as fs } from 'node:fs';
 import path from 'node:path';
 import crypto from 'node:crypto';
 import { fileURLToPath } from 'node:url';
+import { AsyncLocalStorage } from 'node:async_hooks';
+import { auditProjection } from './audit-boundary.js';
+import { queueAudit, flushAuditOutbox } from './audit-outbox.js';
+import { newTask, reviseTask, confirmFirst, confirmSecond, revokeSnapshot, dispatchSnapshot, invalidatePending } from './snapshot-lifecycle.js';
+import { listRecipients } from './recipient-directory.js';
+import { principalEnabled, departmentMap } from './registry-schema.js';
+import { adminDirectory, changeDirectory } from './directory-admin.js';
+import { saveRegistry } from './registry-store.js';
+import { resumeFileTask, resumableReasons } from './task-operations.js';
+import { resolvePrivateRoute } from './private-mapping.js';
+import { packetCommitment } from './public/file-envelope.js';
+import { openLocalKeyVault } from './local-key-vault.js';
+import { advanceFileJobs } from './file-worker.js';
+import { fileRoutingMetadata } from './file-routing.js';
+import { requestFileAdvice } from './file-adviser.js';
+import { receiptSummary, recordFileReceipt, recordOverdueDeliveries, recipientReceiptStatus } from './file-receipts.js';
+import { initializeArrays, readArray, writeArray } from './local-array-store.js';
+import { findArchivedAudit, retainAuditWindow, auditArchiveIndex } from './audit-retention.js';
+import { checkDownloadAccess, sendDeadlineJson } from './download-policy.js';
+import { retentionInventory } from './retention-policy.js';
+import { loadAccess, authenticate, activeGrant, authorizeRecord, safeMetadata, validateAdvice, advanceDelivery, exact, fail } from './access-control.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
-await loadLocalEnv(path.join(__dirname, '.env'));
-await loadLocalEnv(path.join(__dirname, '..', '.env'));
+if (process.env.SKIP_LOCAL_ENV !== 'true') {
+  await loadLocalEnv(path.join(__dirname, '.env'));
+  await loadLocalEnv(path.join(__dirname, '..', '.env'));
+}
 
 const publicDir = path.join(__dirname, 'public');
-const dataDir = path.join(__dirname, process.env.DATA_DIR || 'data');
+const dataDir = path.resolve(__dirname, process.env.DATA_DIR || 'data');
+const accessPath = path.join(dataDir, 'access.json');
+const requestContext = new AsyncLocalStorage();
 const packagesPath = path.join(dataDir, 'packages.json');
 const auditsPath = path.join(dataDir, 'audit.json');
+const tasksPath = path.join(dataDir, 'tasks.json');
 
 const host = process.env.HOST || '127.0.0.1';
 const port = Number(process.env.PORT || 3344);
 const nebiusBaseUrl = process.env.NEBIUS_BASE_URL || 'https://api.tokenfactory.nebius.com/v1';
+const localModelBaseUrl = process.env.LOCAL_MODEL_BASE_URL || 'http://127.0.0.1:1234/v1';
+const localModelName = process.env.LOCAL_MODEL_NAME || 'nvidia-nemotron-3-nano-4b';
 const nebiusModel = process.env.NEBIUS_MODEL || 'nvidia/nemotron-3-super-120b-a12b';
+const localOnly = process.env.LOCAL_ONLY !== 'false';
 const demoFallbackEnabled = process.env.DEMO_FALLBACK_ENABLED !== 'false';
 const tokenSigningSecret = resolveTokenSigningSecret();
 
@@ -65,60 +95,87 @@ function resolveTokenSigningSecret() {
 }
 
 async function ensureStore() {
-  await fs.mkdir(dataDir, { recursive: true });
-  await ensureJson(packagesPath, []);
-  await ensureJson(auditsPath, []);
-}
-
-async function ensureJson(filePath, fallback) {
-  try {
-    await fs.access(filePath);
-  } catch {
-    await fs.writeFile(filePath, `${JSON.stringify(fallback, null, 2)}\n`, 'utf8');
-  }
+  await fs.mkdir(dataDir, { recursive: true, mode: 0o700 });
+  await initializeArrays([packagesPath, auditsPath, tasksPath]);
 }
 
 async function readJson(filePath, fallback) {
-  await ensureStore();
-  try {
-    const raw = await fs.readFile(filePath, 'utf8');
-    return JSON.parse(raw);
-  } catch {
-    return fallback;
-  }
+  return readArray(filePath);
 }
 
 async function writeJson(filePath, value) {
-  await fs.mkdir(path.dirname(filePath), { recursive: true });
-  const tempPath = `${filePath}.${process.pid}.tmp`;
-  await fs.writeFile(tempPath, `${JSON.stringify(value, null, 2)}\n`, 'utf8');
-  await fs.rename(tempPath, filePath);
+  return writeArray(filePath, value);
+}
+
+// The pages carry no inline script, no inline style, no event attributes and no external origin,
+// so the strictest policy is also the accurate one. Plaintext and document keys exist only inside
+// these pages, which makes the browser layer part of the boundary rather than decoration.
+function securityHeaders(req) {
+  const forwarded = String(req.headers['x-forwarded-proto'] || '').split(',')[0].trim();
+  // Either TLS terminated in front of this process, or terminated by it. Browsers ignore HSTS on an
+  // IP literal, so a LAN demo address simply does not receive it.
+  const overTls = forwarded === 'https' || Boolean(req.socket?.encrypted);
+  const hostHeader = String(req.headers.host || '').replace(/:\d+$/, '').replace(/^\[|\]$/g, '');
+  const isIpLiteral = /^\d{1,3}(\.\d{1,3}){3}$/.test(hostHeader) || hostHeader.includes(':');
+  return {
+    'content-security-policy': "default-src 'self'; base-uri 'none'; form-action 'none'; " +
+      "frame-ancestors 'none'; object-src 'none'; script-src 'self'; style-src 'self'",
+    'x-content-type-options': 'nosniff',
+    'x-frame-options': 'DENY',
+    'referrer-policy': 'no-referrer',
+    'permissions-policy': 'camera=(), microphone=(), geolocation=(), payment=(), usb=(), interest-cohort=()',
+    'cross-origin-opener-policy': 'same-origin',
+    'cross-origin-resource-policy': 'same-origin',
+    'cross-origin-embedder-policy': 'require-corp',
+    ...(overTls && !isIpLiteral ? { 'strict-transport-security': 'max-age=31536000; includeSubDomains' } : {})
+  };
 }
 
 function sendJson(res, status, payload) {
   const body = JSON.stringify(payload, null, 2);
   res.writeHead(status, {
     'content-type': 'application/json; charset=utf-8',
-    'cache-control': 'no-store'
+    'cache-control': 'no-store',
+    ...securityHeaders(res.req)
   });
   res.end(body);
 }
 
-function readBody(req) {
+function senderTask(task) {
+  return { id: task.id, authorizationId: task.grantId, hasFile: Boolean(task.file), snapshots: task.snapshots.map(snapshot => ({
+    taskAlias: snapshot.privateMapping?.taskAlias,
+    version: snapshot.version, status: snapshot.status, content: snapshot.content,
+    hash: snapshot.hash, confirmedAt: snapshot.confirmedAt, approvedAt: snapshot.approvedAt,
+    revokedAt: snapshot.revokedAt
+  })), jobs: task.jobs.map(job => ({ version: job.version, status: job.status, attempts: job.attempts,
+    revision: job.revision || 0, reasonCode: job.reasonCode || null, updatedAt: job.updatedAt || null,
+    canRequestResume: Boolean(task.file && job.status === 'PAUSED' && resumableReasons.has(job.reasonCode)),
+    ...(task.file ? { receiptSummary: receiptSummary(task, job.version) } : {}) })) };
+}
+
+function readBody(req, limit = 1_000_000) {
   return new Promise((resolve, reject) => {
-    let body = '';
+    const chunks = [];
+    let size = 0;
+    let failed = false;
     req.on('data', chunk => {
-      body += chunk;
-      if (body.length > 1_000_000) {
-        reject(new Error('request body too large'));
-        req.destroy();
+      if (failed) return;
+      size += chunk.length;
+      if (size > limit) {
+        failed = true;
+        chunks.length = 0;
+        reject(Object.assign(new Error('Request body too large'), { status: 413 }));
+        return;
       }
+      chunks.push(chunk);
     });
     req.on('end', () => {
+      if (failed) return;
       try {
+        const body = Buffer.concat(chunks).toString('utf8');
         resolve(body ? JSON.parse(body) : {});
       } catch {
-        reject(new Error('invalid JSON body'));
+        reject(Object.assign(new Error('Invalid JSON body'), { status: 422 }));
       }
     });
     req.on('error', reject);
@@ -186,6 +243,18 @@ function normalizeArray(value, fallback) {
 
 function normalizePolicyMetadata(value) {
   const metadata = value && typeof value === 'object' ? value : {};
+  const allowed = {
+    dataCategory: ['finance', 'legal', 'hr', 'engineering'],
+    confidentiality: ['confidential', 'restricted', 'internal'],
+    businessPurpose: ['approval', 'review', 'archive'],
+    requestedExpiry: ['1h', '4h', '24h'],
+    devicePolicy: ['managed_device_only', 'registered_device', 'any_authenticated_device'],
+    openLimit: ['single_use', 'limited_use']
+  };
+  exact(metadata, Object.keys(allowed));
+  for (const [key, options] of Object.entries(allowed)) {
+    if (metadata[key] !== undefined && !options.includes(metadata[key])) fail('Unsupported policy metadata', 422);
+  }
   return {
     dataCategory: normalizeString(metadata.dataCategory, 'finance').toLowerCase(),
     confidentiality: normalizeString(metadata.confidentiality, 'confidential').toLowerCase(),
@@ -246,6 +315,7 @@ function validatePolicy(policy) {
 }
 
 async function callNebiusPolicy(input) {
+  if (localOnly) return validatePolicy(buildFallbackPolicy(input));
   const apiKey = process.env.NEBIUS_API_KEY;
   if (!apiKey) {
     if (!demoFallbackEnabled) {
@@ -269,9 +339,6 @@ async function callNebiusPolicy(input) {
     {
       role: 'user',
       content: JSON.stringify({
-        fileName: input.fileName,
-        senderRole: input.senderRole,
-        intendedRecipientRole: input.intendedRecipientRole,
         policyMetadata: normalizePolicyMetadata(input.policyMetadata)
       })
     }
@@ -347,6 +414,10 @@ function compileEnvelope(policy, input) {
 }
 
 function createTimedCredential(record, input) {
+  const { config, principal } = requestContext.getStore();
+  if (principal.kind !== 'recipient') fail('Only authenticated recipients may request credentials');
+  authorizeRecord(config, principal, record);
+  if (Object.keys(input).length) fail('Recipient role and device claims are not accepted', 422);
   const now = Date.now();
   const envelopeTtl = Math.max(Date.parse(record.envelope.expiresAt) - now, 0);
   const credentialTtl = Math.min(envelopeTtl, 5 * 60_000);
@@ -357,8 +428,10 @@ function createTimedCredential(record, input) {
     packageId: record.id,
     packageHash: record.packageHash,
     policyHash: record.envelope.signature,
-    role: normalizeString(input.role, 'employee').toLowerCase(),
-    deviceClaim: normalizeString(input.deviceClaim, 'unknown-device'),
+    subject: principal.id,
+    authorizationVersion: record.authorization.version,
+    role: principal.role || principal.id,
+    deviceClaim: 'local-token-no-attestation',
     issuedAt,
     expiresAt,
     maxUses: 1,
@@ -374,6 +447,12 @@ function evaluateDecodeAttempt(record, credential) {
   const now = Date.now();
   const allowed = [];
   const denied = [];
+  const { config, principal } = requestContext.getStore();
+  authorizeRecord(config, principal, record);
+  if (principal.kind !== 'recipient' || credential.subject !== principal.id) denied.push('credential subject mismatch');
+  if (credential.authorizationVersion !== record.authorization.version) denied.push('authorization version mismatch');
+  if ((record.usedCredentials || []).includes(credential.credentialId)) denied.push('credential already used');
+  if (!Number.isFinite(Date.parse(credential.expiresAt))) denied.push('invalid credential expiry');
   const role = normalizeString(credential.role, 'employee').toLowerCase();
   const deviceClaim = normalizeString(credential.deviceClaim, 'unknown-device');
 
@@ -393,7 +472,7 @@ function evaluateDecodeAttempt(record, credential) {
   if (denied.length === 0) {
     allowed.push('credential signature accepted');
     allowed.push('recipient role accepted');
-    allowed.push('device claim accepted');
+    allowed.push('registered recipient accepted; no device attestation');
     allowed.push('time window accepted');
   }
 
@@ -413,10 +492,11 @@ function getMcpToolSchemas() {
       description: 'Create a sealed package from ciphertext, crypto metadata, and a policy recommendation. Plaintext is not accepted.',
       inputSchema: {
         type: 'object',
-        required: ['fileName', 'senderRole', 'policy', 'ciphertext', 'iv', 'salt', 'packageHash'],
+        required: ['authorizationId', 'fileName', 'senderRole', 'policy', 'ciphertext', 'iv', 'salt', 'packageHash'],
         properties: {
           fileName: { type: 'string' },
           senderRole: { type: 'string' },
+          authorizationId: { type: 'string' },
           policy: { type: 'object' },
           ciphertext: { type: 'string' },
           iv: { type: 'string' },
@@ -434,8 +514,8 @@ function getMcpToolSchemas() {
         required: ['packageId', 'channel', 'endpoint'],
         properties: {
           packageId: { type: 'string' },
-          channel: { enum: ['email', 'internal_queue', 'edge_endpoint', 'offline_package', 'cross_region_relay'] },
-          endpoint: { type: 'string' }
+          channel: { enum: ['email', 'internal_queue'] },
+          requestId: { type: 'string' }
         }
       },
       outputBoundary: 'Returns delivery status and receipt id. Does not send plaintext.'
@@ -518,28 +598,11 @@ async function findPackage(packageId) {
 }
 
 function sanitizeAuditEvent(event) {
-  return {
-    id: event.id,
-    createdAt: event.createdAt,
-    type: event.type,
-    result: event.result,
-    packageId: event.packageId,
-    packageHash: event.packageHash,
-    role: event.role,
-    deviceClaim: event.deviceClaim,
-    credentialId: event.credentialId,
-    credentialExpiresAt: event.credentialExpiresAt,
-    deliveryReceiptId: event.deliveryReceiptId,
-    deliveryChannel: event.deliveryChannel,
-    deliveryEndpoint: event.deliveryEndpoint,
-    reasons: event.reasons,
-    eventHash: event.eventHash,
-    previousHash: event.previousHash
-  };
+  return auditProjection(event);
 }
 
 function fallbackMessageFromReasons(reasons) {
-  const joined = Array.isArray(reasons) ? reasons.join(' ') : '';
+  const joined = Array.isArray(reasons) ? reasons.join(' ').toLowerCase() : '';
   if (joined.includes('expired')) return 'This timed access credential is expired. Request a fresh sealed-package access grant.';
   if (joined.includes('device')) return 'This endpoint is not eligible for local decryption. Use a managed device or contact the sender.';
   if (joined.includes('role') || joined.includes('recipient')) return 'This recipient is not eligible for this sealed package.';
@@ -608,7 +671,35 @@ function buildDryRunEmailDraft(record, input) {
   return draft;
 }
 
+async function approvedPackage(record) {
+  const { config, principal } = requestContext.getStore();
+  requestContext.getStore().auditTarget = { packageId: record.id, taskId: record.snapshot?.taskId,
+    snapshotVersion: record.snapshot?.version, previousState: record.delivery?.status || 'PENDING_CHECK', attempts: record.delivery?.attempts || 0 };
+  const grant = authorizeRecord(config, principal, record);
+  const tasks = await readJson(tasksPath, []);
+  const task = tasks.find(item => item.id === record.snapshot?.taskId);
+  if (!task || task.grantId !== grant.id) fail('Approved snapshot required');
+  const snapshot = dispatchSnapshot(task, grant, record.snapshot.version);
+  if (snapshot.content.documentHash !== record.packageHash) fail('Snapshot document mismatch');
+  if (principal.kind === 'recipient' && !snapshot.content.recipients.includes(principal.id)) fail('Recipient outside approved snapshot');
+  return { ...grant, recipients: [...snapshot.content.recipients], channels: [...snapshot.content.channels],
+    privateMapping: snapshot.privateMapping };
+}
+
 async function createSealedPackageRecord(input, source = 'api') {
+  const { config, principal } = requestContext.getStore();
+  if (principal.kind !== 'operator') fail('Operator required');
+  const grant = activeGrant(config, input.authorizationId);
+  if (grant.operatorId !== principal.id) fail('Authorization owner mismatch');
+  const tasks = await readJson(tasksPath, []);
+  const task = tasks.find(item => item.id === input.taskId);
+  if (!task || task.ownerId !== principal.id || task.grantId !== grant.id) fail('Approved task binding required');
+  const requestedSnapshot = task.snapshots.find(item => item.version === input.snapshotVersion);
+  requestContext.getStore().auditTarget = { taskId: task.id, snapshotVersion: requestedSnapshot?.version,
+    previousState: requestedSnapshot?.status, attempts: 0 };
+  const snapshot = dispatchSnapshot(task, grant, input.snapshotVersion);
+  const commitment = crypto.createHash('sha256').update(`${input.ciphertext}.${input.iv}.${input.salt}`).digest('hex');
+  if (snapshot.content.documentHash !== commitment || input.packageHash !== commitment) fail('Snapshot document mismatch', 409);
   if (!input.ciphertext || !input.iv || !input.packageHash || !input.policy) {
     const error = new Error('ciphertext, iv, packageHash, and policy are required');
     error.status = 422;
@@ -620,14 +711,26 @@ async function createSealedPackageRecord(input, source = 'api') {
     throw error;
   }
   const policy = validatePolicy(input.policy);
+  policy.allowedRoles = snapshot.content.recipients.map(id => {
+    const recipient = config.principals.find(p => p.id === id);
+    return recipient.role || recipient.id;
+  });
+  policy.ttlMinutes = (Date.parse(snapshot.content.expiresAt) - Date.now()) / 60000;
+  policy.maxOpens = grant.maxOpens;
+  policy.deviceBindingRequired = false;
   const packageId = crypto.randomUUID();
   const envelope = compileEnvelope(policy, {
     packageHash: input.packageHash,
     fileName: input.fileName,
     senderRole: input.senderRole
   });
+  envelope.expiresAt = snapshot.content.expiresAt;
+  delete envelope.signature;
+  envelope.signature = hashJson(envelope);
   const record = {
     id: packageId,
+    authorization: { id: grant.id, version: grant.version },
+    snapshot: { taskId: task.id, version: snapshot.version },
     fileName: normalizeString(input.fileName, 'sealed-package.txt'),
     packageHash: normalizeString(input.packageHash),
     ciphertext: normalizeString(input.ciphertext),
@@ -641,6 +744,8 @@ async function createSealedPackageRecord(input, source = 'api') {
     createdAt: new Date().toISOString()
   };
   const packages = await readJson(packagesPath, []);
+  const existing = packages.find(item => item.snapshot?.taskId === task.id && item.snapshot.version === snapshot.version);
+  if (existing) return { ok: true, packageId: existing.id, sealedLink: `/decode.html?id=${existing.id}`, envelope: existing.envelope };
   packages.push(record);
   await writeJson(packagesPath, packages);
   await appendAudit({
@@ -660,54 +765,20 @@ async function createSealedPackageRecord(input, source = 'api') {
 }
 
 async function executeMcpTool(toolName, input) {
+  if (toolName === 'issue_timed_credential') fail('Credentials are available only through the recipient API');
+  if (toolName !== 'create_sealed_package') {
+    const { record } = await findPackage(normalizeString(input.packageId));
+    if (!record) fail('Package not found', 404);
+    const { config, principal } = requestContext.getStore();
+    authorizeRecord(config, principal, record);
+    await approvedPackage(record);
+  }
   if (toolName === 'create_sealed_package') {
     return createSealedPackageRecord(input, 'mcp');
   }
 
   if (toolName === 'route_package') {
-    const { packages, index, record } = await findPackage(normalizeString(input.packageId));
-    if (!record) {
-      const error = new Error('package not found');
-      error.status = 404;
-      throw error;
-    }
-    const allowedChannels = new Set(['email', 'internal_queue', 'edge_endpoint', 'offline_package', 'cross_region_relay']);
-    const channel = normalizeString(input.channel, 'internal_queue');
-    if (!allowedChannels.has(channel)) {
-      const error = new Error('unsupported route channel');
-      error.status = 422;
-      throw error;
-    }
-    const receipt = {
-      id: crypto.randomUUID(),
-      channel,
-      endpoint: normalizeString(input.endpoint, 'demo-endpoint'),
-      regionHint: normalizeString(input.regionHint, 'global'),
-      status: 'SENT',
-      sentAt: new Date().toISOString()
-    };
-    packages[index] = {
-      ...record,
-      deliveryReceipts: [...(record.deliveryReceipts || []), receipt].slice(-20)
-    };
-    await writeJson(packagesPath, packages);
-    await appendAudit({
-      type: 'PACKAGE_ROUTED',
-      result: 'INFO',
-      packageId: record.id,
-      packageHash: record.packageHash,
-      role: 'mcp-transport-shell',
-      deviceClaim: 'mcp-transport-shell',
-      deliveryReceiptId: receipt.id,
-      deliveryChannel: receipt.channel,
-      deliveryEndpoint: receipt.endpoint,
-      regionHint: receipt.regionHint
-    });
-    return {
-      ok: true,
-      packageId: record.id,
-      receipt
-    };
+    return performLocalDelivery(input);
   }
 
   if (toolName === 'prepare_email_delivery') {
@@ -717,7 +788,10 @@ async function executeMcpTool(toolName, input) {
       error.status = 404;
       throw error;
     }
-    const draft = buildDryRunEmailDraft(record, input);
+    const approved = await approvedPackage(record);
+    if (!approved.channels.includes('email')) fail('Email outside approved snapshot');
+    exact(input, ['packageId']);
+    const draft = buildDryRunEmailDraft(record, { recipientLabel: 'authorized-recipients' });
     const receipt = {
       id: crypto.randomUUID(),
       channel: 'email',
@@ -775,6 +849,7 @@ async function executeMcpTool(toolName, input) {
       error.status = 404;
       throw error;
     }
+    await approvedPackage(record);
     const credential = createTimedCredential(record, input);
     await appendAudit({
       type: 'TIMED_CREDENTIAL_ISSUED',
@@ -795,7 +870,7 @@ async function executeMcpTool(toolName, input) {
   if (toolName === 'read_fallback_status') {
     const packageId = normalizeString(input.packageId);
     const audits = await readJson(auditsPath, []);
-    const latestDenied = audits
+    const latestDenied = audits.map(sanitizeAuditEvent)
       .filter(event => event.packageId === packageId && event.type === 'DECODE_ATTEMPT' && event.result === 'DENY')
       .at(-1);
     return {
@@ -841,17 +916,116 @@ async function executeMcpTool(toolName, input) {
 
 async function appendAudit(event) {
   const audits = await readJson(auditsPath, []);
+  const prior = event.id && (audits.find(item => item.id === event.id) || await findArchivedAudit(auditsPath, event.id));
+  if (prior) return prior;
   const previousHash = audits.at(-1)?.eventHash || null;
   const entry = {
-    ...event,
-    id: crypto.randomUUID(),
-    createdAt: new Date().toISOString(),
+    ...auditProjection({ ...requestContext.getStore()?.auditTarget, ...event }),
+    id: event.id || crypto.randomUUID(),
+    createdAt: event.createdAt || new Date().toISOString(),
     previousHash
   };
   entry.eventHash = hashJson(entry);
   audits.push(entry);
-  await writeJson(auditsPath, audits.slice(-500));
+  await retainAuditWindow(auditsPath, audits);
   return entry;
+}
+
+async function recoverAudit(file) {
+  const records = await readJson(file, []);
+  await flushAuditOutbox(records, appendAudit, next => writeJson(file, next));
+}
+
+async function auditRejection(error) {
+  const target = requestContext.getStore()?.auditTarget || {};
+  if (!requestContext.getStore()?.principal || requestContext.getStore().rejectionRecorded) return;
+  requestContext.getStore().rejectionRecorded = true;
+  const reason = error.status === 409 ? 'STATE_CONFLICT' : error.status === 422 ? 'INVALID_REQUEST'
+    : error.status >= 500 ? 'SERVICE_UNAVAILABLE' : 'ACCESS_DENIED';
+  await appendAudit({ type: 'REQUEST_REJECTED', result: 'DENY', reasons: [reason], nextState: target.previousState });
+}
+
+async function performLocalDelivery(input) {
+  const { config, principal } = requestContext.getStore();
+  const { packages, index, record } = await findPackage(input.packageId);
+  if (!record) fail('Package not found', 404);
+  const grant = await approvedPackage(record);
+  if (Date.now() >= Date.parse(record.envelope.expiresAt)) fail('Package expired');
+  const destinations = resolvePrivateRoute(grant.privateMapping, { recipients: grant.recipients, channels: grant.channels }, input.channel);
+  if (destinations.some(destination => !config.principals.some(person =>
+    person.id === destination.recipientId && person.kind === 'recipient' && principalEnabled(config, person)))) {
+    fail('Recipient unavailable');
+  }
+  // Sealed packages carry no download cutoff of their own, so no deadline ceiling is passed here;
+  // the file workflow supplies one from downloadAccessDeadline in file-worker.js.
+  const delivery = advanceDelivery(record, grant, input);
+  const draft = delivery.status === 'DRY_RUN_PREPARED' && input.channel === 'email'
+    ? buildDryRunEmailDraft(record, { recipientLabel: 'authorized-recipients' }) : null;
+  packages[index] = queueAudit({ ...record, delivery, emailDraft: draft }, delivery !== record.delivery ? [{
+    ...requestContext.getStore().auditTarget, type: 'DELIVERY_TRANSITION', result: 'INFO',
+    reasons: ['DELIVERY_UPDATED'], nextState: delivery.status, attempts: delivery.attempts }] : []);
+  await writeJson(packagesPath, packages);
+  await recoverAudit(packagesPath);
+  return { ok: true, mode: 'dry_run_only', sendsEmail: false,
+    ...safeMetadata(packages[index], grant), nextAttemptAt: delivery.nextAttemptAt || null };
+}
+
+async function coordinatorCall(input) {
+  exact(input, ['tool', 'arguments']);
+  const args = input.arguments;
+  if (['file_status', 'file_recommend'].includes(input.tool)) {
+    exact(args, ['taskAlias', 'snapshotVersion']);
+    const { config, principal } = requestContext.getStore();
+    const tasks = await readJson(tasksPath, []);
+    const task = tasks.find(item => item.file && item.snapshots.some(snapshot =>
+      snapshot.version === args.snapshotVersion && snapshot.privateMapping?.taskAlias === args.taskAlias));
+    if (!task) fail('File task unavailable', 404);
+    const grant = activeGrant(config, task.grantId);
+    if ((principal.kind === 'coordinator' && principal.id !== grant.coordinatorId) ||
+        (principal.kind === 'operator' && principal.id !== task.ownerId)) fail('Task access denied');
+    const snapshot = dispatchSnapshot(task, grant, args.snapshotVersion);
+    const job = task.jobs.find(item => item.version === snapshot.version);
+    if (!job) fail('File task unavailable', 404);
+    const metadata = fileRoutingMetadata(snapshot, job);
+    if (input.tool === 'file_status') return { ok: true, metadata };
+    const recommendation = await fileAdviser(metadata);
+    return { ok: true, provider: recommendation.provider, metadata, recommendation: recommendation.advice };
+  }
+  exact(args, input.tool === 'deliver' ? ['taskAlias', 'snapshotVersion', 'requestId', 'channel'] : ['taskAlias', 'snapshotVersion']);
+  const { config, principal } = requestContext.getStore();
+  if (typeof args.taskAlias !== 'string' || !Number.isSafeInteger(args.snapshotVersion)) fail('Invalid routing reference', 422);
+  const tasks = await readJson(tasksPath, []);
+  const task = tasks.find(item => !item.file && item.snapshots.some(snapshot =>
+    snapshot.version === args.snapshotVersion && snapshot.privateMapping?.taskAlias === args.taskAlias));
+  if (!task) fail('Package not found', 404);
+  const packages = await readJson(packagesPath, []);
+  const record = packages.find(item => item.snapshot?.taskId === task.id && item.snapshot?.version === args.snapshotVersion);
+  if (!record) fail('Package not found', 404);
+  const grant = await approvedPackage(record);
+  if (input.tool === 'deliver') return performLocalDelivery({ packageId: record.id, requestId: args.requestId, channel: args.channel });
+  const metadata = safeMetadata(record, grant);
+  if (input.tool === 'status') return { ok: true, metadata };
+  if (input.tool !== 'recommend') fail('Coordinator tool not allowed', 422);
+  let provider = 'synthetic_fixture';
+  let advice = { action: 'DELIVER', channel: metadata.channels[0], reasonCode: 'CAPABILITY_MATCH' };
+  if (process.env.COORDINATOR_PROVIDER === 'nebius') {
+    if (localOnly) fail('External inference disabled in local-only mode', 503);
+    if (!process.env.NEBIUS_API_KEY) fail('Coordinator provider unavailable', 503);
+    const response = await fetch(`${nebiusBaseUrl.replace(/\/$/, '')}/chat/completions`, {
+      method: 'POST', signal: AbortSignal.timeout(15000),
+      headers: { 'content-type': 'application/json', authorization: `Bearer ${process.env.NEBIUS_API_KEY}` },
+      body: JSON.stringify({ model: nebiusModel, temperature: 0,
+        messages: [
+          { role: 'system', content: 'Return JSON only with action DELIVER or PAUSE, channel from channels, and reasonCode CAPABILITY_MATCH, INSUFFICIENT_INFORMATION, or CHANNEL_UNAVAILABLE. Compare requiredCapability against recipientCapabilities. Never grant access.' },
+          { role: 'user', content: JSON.stringify(metadata) }
+        ] })
+    });
+    if (!response.ok) fail('Coordinator provider failed', 502);
+    try { advice = JSON.parse((await response.json()).choices[0].message.content); }
+    catch { fail('Invalid provider response', 502); }
+    provider = 'nebius_token_factory';
+  }
+  return { ok: true, provider, metadata, recommendation: validateAdvice(advice, metadata) };
 }
 
 async function routeApi(req, res, pathname) {
@@ -859,11 +1033,254 @@ async function routeApi(req, res, pathname) {
     sendJson(res, 200, {
       ok: true,
       project: 'zero-trust-edge-enclave',
-      nebiusConfigured: Boolean(process.env.NEBIUS_API_KEY),
+      localOnly,
+      adviserProvider: process.env.COORDINATOR_PROVIDER || 'synthetic_fixture',
+      nebiusConfigured: !localOnly && Boolean(process.env.NEBIUS_API_KEY),
       nebiusBaseUrl,
       nebiusModel,
+      localOutletBaseUrl: localModelBaseUrl,
+      localOutletModel: localModelName,
       demoFallbackEnabled
     });
+    return;
+  }
+
+  const config = await loadAccess(accessPath);
+  const principal = authenticate(config, req.headers.authorization);
+  Object.assign(requestContext.getStore(), { config, principal });
+  if (pathname === '/api/admin/retention') {
+    if (principal.kind !== 'administrator') fail('Administrator required');
+    if (req.method !== 'GET') fail('Method not allowed', 405);
+    sendJson(res, 200, retentionInventory(await readJson(tasksPath, [])));
+    return;
+  }
+  if (pathname === '/api/admin/audit-retention') {
+    if (principal.kind !== 'administrator') fail('Administrator required');
+    if (req.method !== 'GET') fail('Method not allowed', 405);
+    sendJson(res, 200, await auditArchiveIndex(auditsPath));
+    return;
+  }
+  if (pathname === '/api/admin/directory') {
+    if (req.method === 'GET') {
+      sendJson(res, 200, adminDirectory(config, principal));
+      return;
+    }
+    if (req.method === 'POST') {
+      const input = await readBody(req);
+      const result = changeDirectory(config, principal, input);
+      await saveRegistry(accessPath, result.config, input.expectedRevision);
+      sendJson(res, 200, { ...adminDirectory(result.config, principal), credential: result.credential });
+      return;
+    }
+    fail('Method not allowed', 405);
+  }
+  if (principal.kind === 'administrator') fail('Administrator endpoint only');
+  await recoverAudit(tasksPath);
+  await recoverAudit(packagesPath);
+  if (principal.kind === 'coordinator' && pathname !== '/api/coordinator/call') fail('Coordinator endpoint only');
+  if (principal.kind === 'recipient' && !/^\/api\/packages\/[a-zA-Z0-9-]+\/(credential|verify)$/.test(pathname) &&
+      !/^\/api\/file-access\/[a-f0-9-]{36}\/(credential|packet|key|receipt|receipt-status)$/.test(pathname)) fail('Recipient endpoint only');
+  const fileAccessRoute = pathname.match(/^\/api\/file-access\/([a-f0-9-]{36})\/(credential|packet|key|receipt|receipt-status)$/);
+  if (fileAccessRoute && req.method === 'POST') {
+    if (principal.kind !== 'recipient') fail('Recipient required');
+    const input = await readBody(req);
+    exact(input, fileAccessRoute[2] === 'key' ? ['version', 'credential'] :
+      fileAccessRoute[2] === 'receipt' ? ['version', 'code'] : ['version']);
+    const tasks = await readJson(tasksPath, []);
+    const index = tasks.findIndex(task => task.id === fileAccessRoute[1]);
+    const task = tasks[index];
+    if (!task?.file) fail('File unavailable', 404);
+    if (fileAccessRoute[2] === 'receipt-status') {
+      sendJson(res, 200, recipientReceiptStatus(task, principal, input.version));
+      return;
+    }
+    if (fileAccessRoute[2] === 'receipt') {
+      const result = recordFileReceipt(task, principal, input.version, input.code);
+      if (result.task !== task) {
+        tasks[index] = queueAudit(result.task, [{ taskId: task.id, snapshotVersion: input.version,
+          type: 'DECODE_ATTEMPT', result: 'INFO', reasons: [input.code === 'ACKNOWLEDGED' ? 'RECIPIENT_ACKNOWLEDGED'
+            : input.code === 'FILE_VERIFIED' ? 'CLIENT_FILE_VERIFIED' : 'CLIENT_DOWNLOAD_REPORTED'] }]);
+        await writeJson(tasksPath, tasks); await recoverAudit(tasksPath);
+      }
+      sendJson(res, 200, { ok: true, code: result.receipt.code, evidence: result.receipt.evidence, reportedAt: result.receipt.reportedAt });
+      return;
+    }
+    const grant = activeGrant(config, task.grantId);
+    const snapshot = dispatchSnapshot(task, grant, input.version);
+    const downloadDeadline = checkDownloadAccess(snapshot.content);
+    if (!snapshot.content.recipients.includes(principal.id)) fail('Recipient outside approved snapshot');
+    if (task.jobs.find(job => job.version === input.version)?.status !== 'DRY_RUN_PREPARED') fail('File delivery not prepared', 409);
+    const commitment = await packetCommitment(task.file.packet);
+    if (commitment !== snapshot.content.documentHash) fail('File integrity rejected', 409);
+    const target = { taskId: task.id, snapshotVersion: snapshot.version, previousState: 'DRY_RUN_PREPARED' };
+    requestContext.getStore().auditTarget = target;
+    if (fileAccessRoute[2] === 'packet') {
+      await appendAudit({ ...target, type: 'DECODE_ATTEMPT', result: 'INFO', reasons: ['RECIPIENT_ACCEPTED'] });
+      sendDeadlineJson(res, 200, { packet: task.file.packet }, downloadDeadline);
+      return;
+    }
+    const released = (task.fileKeyReleases || []).filter(entry => entry.version === snapshot.version && entry.subject === principal.id).length;
+    if (released >= grant.maxOpens) fail('File key release limit reached');
+    if (fileAccessRoute[2] === 'credential') {
+      const credential = crypto.randomBytes(32).toString('base64url');
+      const expiresAt = Math.min(Date.now() + 5 * 60000, downloadDeadline);
+      const tickets = (task.fileAccessTickets || []).filter(ticket => ticket.expiresAt > Date.now() && !ticket.used);
+      if (tickets.length >= 50) fail('Too many pending credentials', 429);
+      tickets.push({ hash: hashJson(credential), subject: principal.id, version: snapshot.version, expiresAt, used: false });
+      tasks[index] = queueAudit({ ...task, fileAccessTickets: tickets }, [{ ...target, type: 'TIMED_CREDENTIAL_ISSUED', result: 'ALLOW', reasons: ['RECIPIENT_ACCEPTED'] }]);
+      await writeJson(tasksPath, tasks);
+      await recoverAudit(tasksPath);
+      sendDeadlineJson(res, 201, { credential, expiresAt: new Date(expiresAt).toISOString() }, downloadDeadline);
+      return;
+    }
+    if (typeof input.credential !== 'string' || !/^[A-Za-z0-9_-]{43}$/.test(input.credential)) fail('Invalid file credential');
+    const ticket = task.fileAccessTickets?.find(entry => entry.hash === hashJson(input.credential));
+    if (!ticket || ticket.used || ticket.subject !== principal.id || ticket.version !== snapshot.version || ticket.expiresAt <= Date.now()) fail('File credential rejected');
+    const vault = await openLocalKeyVault(path.join(await fs.realpath(dataDir), 'private-keys'));
+    let key;
+    try {
+      key = vault.unwrap(task.file.wrappedKey, { taskId: task.id, version: task.file.keyVersion, commitment });
+      ticket.used = true;
+      tasks[index] = queueAudit({ ...task, fileKeyReleases: [...(task.fileKeyReleases || []),
+        { subject: principal.id, version: snapshot.version, at: new Date().toISOString() }] },
+        [{ ...target, type: 'DECODE_ATTEMPT', result: 'ALLOW', reasons: ['RECIPIENT_ACCEPTED'] }]);
+      await writeJson(tasksPath, tasks);
+      await recoverAudit(tasksPath);
+      sendDeadlineJson(res, 200, { key: key.toString('hex') }, downloadDeadline);
+    } finally { key?.fill(0); vault.close(); }
+    return;
+  }
+  if (pathname === '/api/file-tasks' && req.method === 'POST') {
+    if (principal.kind !== 'operator') fail('Operator required');
+    const input = await readBody(req, 7_100_000);
+    exact(input, ['authorizationId', 'recipients', 'channels', 'expiresAt', 'deliveryDeadline', 'deliveryMode', 'downloadUntil', 'packet', 'documentKey']);
+    let commitment;
+    try { commitment = await packetCommitment(input.packet); }
+    catch { fail('Invalid file packet', 422); }
+    if (typeof input.documentKey !== 'string' || !/^[a-f0-9]{64}$/.test(input.documentKey)) fail('Invalid document key', 422);
+    const grant = activeGrant(config, input.authorizationId);
+    const task = newTask(principal, grant, { documentHash: commitment, recipients: input.recipients,
+      channels: input.channels, expiresAt: input.expiresAt, deliveryDeadline: input.deliveryDeadline,
+      deliveryMode: input.deliveryMode, downloadUntil: input.downloadUntil }, Date.now(), departmentMap(config));
+    const tasks = await readJson(tasksPath, []);
+    if (tasks.some(item => item.file?.packet.context === input.packet.context && item.ownerId === principal.id)) fail('File intake already exists', 409);
+    if (tasks.filter(item => item.file).length >= 50) fail('Local file staging quota reached', 507);
+    const keyBytes = Buffer.from(input.documentKey, 'hex');
+    delete input.documentKey;
+    let vault;
+    try {
+      vault = await openLocalKeyVault(path.join(await fs.realpath(dataDir), 'private-keys'));
+      task.file = { packet: input.packet, wrappedKey: vault.wrap(keyBytes, { taskId: task.id, version: 1, commitment }),
+        stagedAt: new Date().toISOString(), keyVersion: 1 };
+    } finally { keyBytes.fill(0); vault?.close(); }
+    tasks.push(queueAudit(task, [{ taskId: task.id, snapshotVersion: 1, type: 'SNAPSHOT_TRANSITION', result: 'INFO',
+      previousState: null, nextState: 'DRAFT', attempts: 0, reasons: ['STATE_CHANGED'] }]));
+    await writeJson(tasksPath, tasks);
+    await recoverAudit(tasksPath);
+    sendJson(res, 201, { task: senderTask(task), mode: 'local_encrypted_staging', sendsEmail: false });
+    return;
+  }
+  if (pathname === '/api/tasks' && req.method === 'GET') {
+    if (principal.kind !== 'operator') fail('Operator required');
+    const tasks = await readJson(tasksPath, []);
+    sendJson(res, 200, { tasks: tasks.filter(task => task.ownerId === principal.id).map(task => ({
+      id: task.id, authorizationId: task.grantId, hasFile: Boolean(task.file), stagedAt: task.file?.stagedAt || null,
+      snapshots: task.snapshots.map(snapshot => ({ version: snapshot.version, status: snapshot.status, revokedAt: snapshot.revokedAt })),
+      jobs: senderTask(task).jobs })) });
+    return;
+  }
+  if (pathname === '/api/tasks' && req.method === 'POST') {
+    if (principal.kind !== 'operator') fail('Operator required');
+    const input = await readBody(req);
+    exact(input, ['authorizationId', 'content']);
+    const grant = activeGrant(config, input.authorizationId);
+    const task = newTask(principal, grant, input.content, Date.now(), departmentMap(config));
+    const tasks = await readJson(tasksPath, []);
+    tasks.push(queueAudit(task, [{ taskId: task.id, snapshotVersion: 1, type: 'SNAPSHOT_TRANSITION', result: 'INFO',
+      previousState: null, nextState: 'DRAFT', attempts: 0, reasons: ['STATE_CHANGED'] }]));
+    await writeJson(tasksPath, tasks);
+    await recoverAudit(tasksPath);
+    sendJson(res, 201, { task: senderTask(task) });
+    return;
+  }
+  const taskRoute = pathname.match(/^\/api\/tasks\/([a-f0-9-]{36})(?:\/(revise|confirm-first|confirm-second|revoke|invalidate|resume))?$/);
+  if (taskRoute) {
+    if (principal.kind !== 'operator') fail('Operator required');
+    const tasks = await readJson(tasksPath, []);
+    const index = tasks.findIndex(task => task.id === taskRoute[1]);
+    if (index < 0 || tasks[index].ownerId !== principal.id) fail('Task unavailable', 404);
+    const task = tasks[index];
+    if (req.method === 'GET' && !taskRoute[2]) {
+      sendJson(res, 200, { task: senderTask(task) });
+      return;
+    }
+    if (req.method !== 'POST' || !taskRoute[2]) fail('Unsupported task operation', 405);
+    const input = await readBody(req);
+    const previousSnapshot = task.snapshots.find(item => item.version === input.version);
+    requestContext.getStore().auditTarget = { taskId: task.id, snapshotVersion: previousSnapshot?.version,
+      previousState: previousSnapshot?.status, attempts: task.jobs.find(job => job.version === input.version)?.attempts || 0 };
+    exact(input, ['version', 'content', 'token', 'expectedRevision']);
+    let next;
+    let token;
+    if (taskRoute[2] === 'resume') {
+      exact(input, ['version', 'expectedRevision']);
+      next = await resumeFileTask(task, principal, config, input.version, input.expectedRevision);
+    } else if (['revoke', 'invalidate'].includes(taskRoute[2])) {
+      exact(input, ['version']);
+      next = taskRoute[2] === 'revoke' ? revokeSnapshot(task, principal, input.version) : invalidatePending(task, principal, input.version);
+    } else {
+      const grant = activeGrant(config, task.grantId);
+      if (taskRoute[2] === 'revise') {
+        exact(input, ['version', 'content']);
+        if (input.version !== task.snapshots.at(-1).version) fail('Stale task revision', 409);
+        next = reviseTask(task, principal, grant, input.content, Date.now(), departmentMap(config));
+        if (task.file) {
+          const commitment = await packetCommitment(task.file.packet);
+          if (input.content.documentHash !== commitment) fail('Replace file through new intake', 409);
+          const vault = await openLocalKeyVault(path.join(await fs.realpath(dataDir), 'private-keys'));
+          let key;
+          try {
+            key = vault.unwrap(task.file.wrappedKey, { taskId: task.id, version: task.file.keyVersion, commitment });
+            next.file = { ...task.file, keyVersion: next.snapshots.at(-1).version,
+              wrappedKey: vault.wrap(key, { taskId: task.id, version: next.snapshots.at(-1).version, commitment }) };
+          } finally { key?.fill(0); vault.close(); }
+        }
+      } else if (taskRoute[2] === 'confirm-first') {
+        exact(input, ['version']);
+        ({ task: next, token } = confirmFirst(task, principal, grant, input.version));
+      } else {
+        exact(input, ['version', 'token']);
+        next = confirmSecond(task, principal, grant, input.version, input.token);
+      }
+    }
+    const events = [];
+    for (const snapshot of next.snapshots) {
+      const previous = task.snapshots.find(item => item.version === snapshot.version);
+      if (previous?.status === snapshot.status && previous?.revokedAt === snapshot.revokedAt) continue;
+      events.push({ taskId: task.id, snapshotVersion: snapshot.version, type: 'SNAPSHOT_TRANSITION', result: 'INFO',
+        previousState: previous?.status || null, nextState: snapshot.revokedAt ? 'REVOKED' : snapshot.status,
+        attempts: next.jobs.find(job => job.version === snapshot.version)?.attempts || 0, reasons: ['STATE_CHANGED'] });
+    }
+    tasks[index] = queueAudit(next, events);
+    await writeJson(tasksPath, tasks);
+    await recoverAudit(tasksPath);
+    sendJson(res, 200, { task: senderTask(next), ...(token ? { token } : {}) });
+    return;
+  }
+  if (pathname === '/api/coordinator/call' && req.method === 'POST') {
+    if (!['operator', 'coordinator'].includes(principal.kind)) fail('Coordinator required');
+    sendJson(res, 200, await coordinatorCall(await readBody(req)));
+    return;
+  }
+  if (pathname === '/api/authorizations' && req.method === 'GET') {
+    sendJson(res, 200, { grants: config.grants.filter(g => g.operatorId === principal.id && !g.revoked && Date.parse(g.expiresAt) > Date.now()).map(g => ({ id: g.id, version: g.version, recipients: g.recipients, channels: g.channels, expiresAt: g.expiresAt })) });
+    return;
+  }
+
+  if (pathname === '/api/directory' && req.method === 'POST') {
+    const input = await readBody(req);
+    exact(input, ['authorizationId', 'department', 'query']);
+    sendJson(res, 200, listRecipients(config, principal, input.authorizationId, input.department, input.query));
     return;
   }
 
@@ -873,7 +1290,7 @@ async function routeApi(req, res, pathname) {
       name: 'zero-trust-edge-enclave-transport-shell',
       description: 'MCP-style secure package transport shell for globally portable sealed data delivery.',
       contentBoundary: 'No plaintext, document summaries, snippets, encryption keys, IV, or salt are returned by read tools.',
-      tools: getMcpToolSchemas()
+      tools: getMcpToolSchemas().filter(tool => tool.name !== 'issue_timed_credential')
     });
     return;
   }
@@ -889,6 +1306,7 @@ async function routeApi(req, res, pathname) {
         result
       });
     } catch (error) {
+      await auditRejection(error);
       sendJson(res, error.status || 500, {
         ok: false,
         tool: toolName,
@@ -904,6 +1322,7 @@ async function routeApi(req, res, pathname) {
       const result = await executeMcpTool('prepare_email_delivery', input);
       sendJson(res, 200, result);
     } catch (error) {
+      await auditRejection(error);
       sendJson(res, error.status || 500, {
         ok: false,
         error: error instanceof Error ? error.message : 'email dry-run failed'
@@ -914,6 +1333,7 @@ async function routeApi(req, res, pathname) {
 
   if (req.method === 'POST' && pathname === '/api/policy/recommend') {
     const input = await readBody(req);
+    exact(input, ['fileName', 'senderRole', 'intendedRecipientRole', 'policyMetadata', 'packageHash']);
     const policy = await callNebiusPolicy({
       fileName: normalizeString(input.fileName, 'internal-document.txt'),
       senderRole: normalizeString(input.senderRole, 'employee'),
@@ -941,6 +1361,7 @@ async function routeApi(req, res, pathname) {
       const created = await createSealedPackageRecord(input, 'api');
       sendJson(res, 201, created);
     } catch (error) {
+      await auditRejection(error);
       sendJson(res, error.status || 500, {
         ok: false,
         error: error instanceof Error ? error.message : 'package creation failed'
@@ -957,6 +1378,7 @@ async function routeApi(req, res, pathname) {
       sendJson(res, 404, { ok: false, error: 'package not found' });
       return;
     }
+    authorizeRecord(config, principal, record);
     sendJson(res, 200, {
       id: record.id,
       fileName: record.fileName,
@@ -978,6 +1400,7 @@ async function routeApi(req, res, pathname) {
       sendJson(res, 404, { ok: false, error: 'package not found' });
       return;
     }
+    await approvedPackage(record);
     const credential = createTimedCredential(record, input);
     const audit = await appendAudit({
       type: 'TIMED_CREDENTIAL_ISSUED',
@@ -1007,6 +1430,7 @@ async function routeApi(req, res, pathname) {
       return;
     }
     const record = packages[index];
+    await approvedPackage(record);
     let credential;
     try {
       credential = readSignedCredential(input.credential);
@@ -1041,7 +1465,8 @@ async function routeApi(req, res, pathname) {
     if (decision.ok) {
       packages[index] = {
         ...record,
-        openCount: record.openCount + 1
+        openCount: record.openCount + 1,
+        usedCredentials: [...(record.usedCredentials || []), credential.credentialId]
       };
       await writeJson(packagesPath, packages);
     }
@@ -1083,6 +1508,8 @@ async function routeApi(req, res, pathname) {
       sendJson(res, 404, { ok: false, error: 'package not found' });
       return;
     }
+    if (principal.kind !== 'operator') fail('Operator required');
+    authorizeRecord(config, principal, packages[index]);
     packages[index].revoked = true;
     packages[index].revocationVersion = (packages[index].revocationVersion || 0) + 1;
     await writeJson(packagesPath, packages);
@@ -1100,7 +1527,11 @@ async function routeApi(req, res, pathname) {
 
   if (req.method === 'GET' && pathname === '/api/audit') {
     const audits = await readJson(auditsPath, []);
-    sendJson(res, 200, { events: audits.slice().reverse() });
+    const records = await readJson(packagesPath, []);
+    const owned = new Set(records.filter(r => config.grants.some(g => g.id === r.authorization?.id && g.operatorId === principal.id)).map(r => r.id));
+    const tasks = await readJson(tasksPath, []);
+    const ownedTasks = new Set(tasks.filter(task => task.ownerId === principal.id).map(task => task.id));
+    sendJson(res, 200, { events: audits.filter(event => owned.has(event.packageId) || ownedTasks.has(event.taskId)).map(sanitizeAuditEvent).reverse() });
     return;
   }
 
@@ -1108,7 +1539,10 @@ async function routeApi(req, res, pathname) {
 }
 
 async function serveStatic(req, res, pathname) {
-  const safePathname = pathname === '/' ? '/index.html' : pathname;
+  const localizedPages = { '/zh-TW/': '/index.html', '/zh-TW/index.html': '/index.html', '/zh-TW/decode.html': '/decode.html', '/zh-TW/audit.html': '/audit.html', '/zh-TW/admin.html': '/admin.html' };
+  if (pathname === '/zh-TW') { res.writeHead(302, { location: '/zh-TW/' }); res.end(); return; }
+  if (pathname.startsWith('/zh-TW/') && !localizedPages[pathname]) { res.writeHead(404); res.end('Not found'); return; }
+  const safePathname = localizedPages[pathname] || (pathname === '/' ? '/index.html' : pathname);
   const filePath = path.normalize(path.join(publicDir, safePathname));
   if (!filePath.startsWith(publicDir)) {
     res.writeHead(403);
@@ -1120,29 +1554,82 @@ async function serveStatic(req, res, pathname) {
     const ext = path.extname(filePath);
     res.writeHead(200, {
       'content-type': mimeTypes.get(ext) || 'application/octet-stream',
-      'cache-control': 'no-store'
+      'cache-control': 'no-store',
+      ...securityHeaders(req)
     });
     res.end(data);
   } catch {
     const fallback = await fs.readFile(path.join(publicDir, 'index.html'));
     res.writeHead(200, {
       'content-type': 'text/html; charset=utf-8',
-      'cache-control': 'no-store'
+      'cache-control': 'no-store',
+      ...securityHeaders(req)
     });
     res.end(fallback);
   }
 }
 
-const server = http.createServer(async (req, res) => {
+let apiQueue = Promise.resolve();
+// Each outlet is given its own endpoint and model. The loopback outlet is never handed the cloud
+// credential: it does not need one, and sending a provider key to a local endpoint would put that
+// key somewhere the boundary never intended it to go.
+function fileAdviser(metadata) {
+  const provider = process.env.COORDINATOR_PROVIDER || 'synthetic_fixture';
+  const outlet = provider === 'local_openai_compatible'
+    ? { baseUrl: localModelBaseUrl, model: localModelName }
+    : { baseUrl: nebiusBaseUrl, model: nebiusModel, apiKey: process.env.NEBIUS_API_KEY };
+  return requestFileAdvice(metadata, { provider, localOnly, ...outlet });
+}
+let workerBusy = false;
+let workerTimer;
+let workerFailureReported = false;
+function scheduleFileWork() {
+  if (workerBusy) return;
+  workerBusy = true;
+  const run = apiQueue.then(async () => {
+    const tasks = await readJson(tasksPath, []);
+    if (!tasks.some(task => task.file)) return;
+    const config = await loadAccess(accessPath);
+    let changed = false;
+    for (let index = 0; index < tasks.length; index++) {
+      const next = recordOverdueDeliveries(await advanceFileJobs(tasks[index], config, Date.now(),
+        async metadata => (await fileAdviser(metadata)).advice, () => loadAccess(accessPath)));
+      if (next !== tasks[index]) { tasks[index] = next; changed = true; }
+    }
+    if (changed) await writeJson(tasksPath, tasks);
+    await recoverAudit(tasksPath);
+    workerFailureReported = false;
+  });
+  apiQueue = run.catch(() => {
+    if (!workerFailureReported) console.error('FILE_WORKER_STORAGE_UNAVAILABLE');
+    workerFailureReported = true;
+  }).finally(() => { workerBusy = false; });
+}
+// Web Crypto only exists in a secure context, so a second device on the LAN needs https: a phone
+// reaching http://<lan-ip> connects and renders, then finds crypto.subtle undefined. Supplying a
+// certificate switches this listener to TLS; without one it stays plain http on loopback, which
+// browsers already treat as a secure context.
+const tlsCert = process.env.TLS_CERT_FILE;
+const tlsKey = process.env.TLS_KEY_FILE;
+const tlsOptions = tlsCert && tlsKey
+  ? { cert: await fs.readFile(tlsCert), key: await fs.readFile(tlsKey) }
+  : null;
+const createServer = handler => tlsOptions ? https.createServer(tlsOptions, handler) : http.createServer(handler);
+const server = createServer(async (req, res) => {
   try {
     const url = new URL(req.url || '/', `http://${req.headers.host || `${host}:${port}`}`);
     if (url.pathname.startsWith('/api/')) {
-      await routeApi(req, res, url.pathname);
+      const run = apiQueue.then(() => requestContext.run({}, async () => {
+        try { return await routeApi(req, res, url.pathname); }
+        catch (error) { await auditRejection(error); throw error; }
+      }));
+      apiQueue = run.catch(() => {});
+      await run;
       return;
     }
     await serveStatic(req, res, url.pathname);
   } catch (error) {
-    sendJson(res, 500, {
+    sendJson(res, error.status || 500, {
       ok: false,
       error: error instanceof Error ? error.message : 'unknown error'
     });
@@ -1150,6 +1637,29 @@ const server = http.createServer(async (req, res) => {
 });
 
 await ensureStore();
+const lockPath = path.join(dataDir, 'server.lock');
+const lock = await fs.open(lockPath, 'wx', 0o600);
+await lock.writeFile(String(process.pid));
+await lock.close();
+for (const signal of ['SIGTERM', 'SIGINT']) {
+  process.once(signal, () => {
+    clearInterval(workerTimer);
+    server.close(async () => {
+      await apiQueue;
+      await fs.unlink(lockPath);
+      process.exit(0);
+    });
+    server.closeAllConnections();
+  });
+}
+server.on('error', async () => {
+  clearInterval(workerTimer);
+  await fs.unlink(lockPath).catch(() => {});
+  process.exitCode = 1;
+});
 server.listen(port, host, () => {
-  console.log(`Zero-Trust Edge Enclave listening at http://${host}:${port}`);
+  workerTimer = setInterval(scheduleFileWork, 250);
+  workerTimer.unref();
+  scheduleFileWork();
+  console.log(`Zero-Trust Edge Enclave listening at http://${host}:${server.address().port}`);
 });

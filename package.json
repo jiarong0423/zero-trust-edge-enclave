@@ -8,9 +8,11 @@
   "scripts": {
     "start": "node server.js",
     "dev": "node server.js",
-    "check": "node --check server.js && node --check scripts/smoke-test.mjs"
+    "check": "node --check server.js && node --check access-control.js && node --check scripts/smoke-test.mjs",
+    "setup:local": "node scripts/setup-local.mjs",
+    "test": "node --test scripts/local-workflow.test.mjs"
   },
   "engines": {
-    "node": ">=20.9.0"
+    "node": ">=20.11.0"
   }
 }
