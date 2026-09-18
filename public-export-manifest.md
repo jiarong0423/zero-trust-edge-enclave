@@ -107,10 +107,12 @@ scripts/retention-policy.test.mjs
 scripts/setup-local.mjs
 scripts/smoke-test.mjs
 scripts/snapshot-lifecycle.test.mjs
+scripts/start-hosted.mjs
 scripts/task-operations.test.mjs
 server.js
 snapshot-lifecycle.js
 task-operations.js
+zbpack.json
 ```
 
 ## Release Conditions
