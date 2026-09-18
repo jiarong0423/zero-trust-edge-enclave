@@ -19,23 +19,31 @@ import { normalizeDownloadPolicy } from './download-policy.js';
  * projection is for.
  */
 
-// Four positions across the approved window. The adviser needs to know where in the window the
-// task sits, never when the window is in wall-clock terms: the boundaries are cut from each
-// task's own span, so an identical TIME_3 means a different hour on a two-day task and a
-// two-month one, and no sequence of calls reveals the sender's schedule.
-const TIME_CODES = ['TIME_1', 'TIME_2', 'TIME_3', 'TIME_4'];
+// A countdown of how much of the approved window is left, not a position in it, and carried by
+// words rather than digits. Published work on prompt framing finds that models anchor on a salient
+// number and then under-adjust, and a numbered label sitting beside the numeric nudge count invites
+// exactly that: two quantities in different units read as one scale. Ordinary words carry the order
+// without offering anything to arithmetic on. The boundaries are cut from each task's own span, so
+// an identical WINDOW_LITTLE means a different hour on a two-day task and a two-month one, and no
+// sequence of calls reveals the sender's schedule.
+const TIME_CODES = ['WINDOW_FULL', 'WINDOW_MOST', 'WINDOW_LITTLE', 'WINDOW_LAST'];
 // Ordinal, never a count. "Some" is the whole of what the adviser learns from a partial pickup;
 // how many of how many stays inside the boundary, as it does for every other projection here.
 const PICKUP_CODES = ['PICKUP_NONE', 'PICKUP_SOME', 'PICKUP_ALL'];
 const FOLLOWUP_ACTIONS = ['WAIT', 'REMIND', 'ESCALATE'];
 const FOLLOWUP_REASONS = ['WINDOW_EARLY', 'NO_PICKUP_YET', 'PARTIAL_PICKUP', 'DEADLINE_NEAR',
   'NUDGES_EXHAUSTED', 'INSUFFICIENT_INFORMATION'];
-export const MAX_NUDGES = 3;
+// Two reminders, so three contacts including the original notice. Reported effects of survey and
+// outreach reminders converge on the same shape: the first reminder carries most of the gain, a
+// third adds no measurable improvement over the second, and further ones measurably increase
+// disengagement. The ceiling is not about cost. A reminder that is ignored teaches the recipient
+// that reminders can be ignored, so spending them is spending the delivery's own credibility.
+export const MAX_NUDGES = 2;
 
 const timeCode = (approvedAt, deadline, now) => {
   const span = deadline - approvedAt;
-  // A window that has no positive span carries no position to report. Treating it as the last
-  // bucket is the fail-closed reading: there is no time left to wait out.
+  // A window with no positive span has nothing left to count down. Reporting the last bucket is the
+  // fail-closed reading: there is no time left to wait out.
   if (!(span > 0)) return TIME_CODES[TIME_CODES.length - 1];
   const index = Math.floor((Math.min(Math.max(now, approvedAt), deadline) - approvedAt) / span * TIME_CODES.length);
   return TIME_CODES[Math.min(index, TIME_CODES.length - 1)];
@@ -74,6 +82,19 @@ export function validateFollowupAdvice(advice, metadata) {
   // Everything has been collected, so there is nothing left to chase. Accepting a nudge here would
   // let the adviser generate traffic against a finished delivery.
   if (advice.action !== 'WAIT' && metadata.pickupCode === 'PICKUP_ALL') fail('FOLLOWUP_NOT_REQUIRED', 422);
+  // A reason that contradicts the input is a wrong answer wearing a valid label, and an operator
+  // reading the audit trail would be misled by it rather than merely uninformed. Rationales that
+  // disagree with the answer are a documented failure mode of this kind of model, so coherence is
+  // checked here instead of being asked for in the prompt and hoped for.
+  const coherent = {
+    NO_PICKUP_YET: metadata.pickupCode === 'PICKUP_NONE',
+    PARTIAL_PICKUP: metadata.pickupCode === 'PICKUP_SOME',
+    NUDGES_EXHAUSTED: metadata.nudges >= MAX_NUDGES,
+    DEADLINE_NEAR: metadata.timeCode === 'WINDOW_LAST',
+    WINDOW_EARLY: metadata.timeCode !== 'WINDOW_LAST',
+    INSUFFICIENT_INFORMATION: true,
+  }[advice.reasonCode];
+  if (!coherent) fail('FOLLOWUP_REASON_INCOHERENT', 422);
   return { taskAlias: advice.taskAlias, snapshotVersion: advice.snapshotVersion,
     action: advice.action, reasonCode: advice.reasonCode };
 }
@@ -83,10 +104,13 @@ export function validateFollowupAdvice(advice, metadata) {
 // fixture should be.
 export function syntheticFollowupAdvice(metadata) {
   const base = { taskAlias: metadata.taskAlias, snapshotVersion: metadata.snapshotVersion };
-  if (metadata.pickupCode === 'PICKUP_ALL') return { ...base, action: 'WAIT', reasonCode: 'WINDOW_EARLY' };
+  if (metadata.pickupCode === 'PICKUP_ALL') {
+    return { ...base, action: 'WAIT',
+      reasonCode: metadata.timeCode === 'WINDOW_LAST' ? 'INSUFFICIENT_INFORMATION' : 'WINDOW_EARLY' };
+  }
   if (metadata.nudges >= MAX_NUDGES) return { ...base, action: 'ESCALATE', reasonCode: 'NUDGES_EXHAUSTED' };
-  if (metadata.timeCode === 'TIME_4') return { ...base, action: 'ESCALATE', reasonCode: 'DEADLINE_NEAR' };
-  if (metadata.timeCode === 'TIME_1') return { ...base, action: 'WAIT', reasonCode: 'WINDOW_EARLY' };
+  if (metadata.timeCode === 'WINDOW_LAST') return { ...base, action: 'ESCALATE', reasonCode: 'DEADLINE_NEAR' };
+  if (metadata.timeCode === 'WINDOW_FULL') return { ...base, action: 'WAIT', reasonCode: 'WINDOW_EARLY' };
   return { ...base, action: 'REMIND',
     reasonCode: metadata.pickupCode === 'PICKUP_SOME' ? 'PARTIAL_PICKUP' : 'NO_PICKUP_YET' };
 }

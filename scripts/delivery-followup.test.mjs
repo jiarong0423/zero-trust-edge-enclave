@@ -58,19 +58,19 @@ test('an identical position in different windows yields the same code, so wall-c
   const short = followupMetadata(snapshotFor({ deadline: 48 * HOUR }), jobFor(0), summaryFor(0, 2), 36 * HOUR);
   const long = followupMetadata(snapshotFor({ deadline: 1440 * HOUR }), jobFor(0), summaryFor(0, 2), 1080 * HOUR);
   assert.equal(short.timeCode, long.timeCode);
-  assert.equal(short.timeCode, 'TIME_4');
+  assert.equal(short.timeCode, 'WINDOW_LAST');
 });
 
 test('time codes advance across the window and clamp at both ends', () => {
   const at = now => followupMetadata(snapshotFor({ deadline: 40 * HOUR }), jobFor(0), summaryFor(0, 2), now).timeCode;
-  assert.deepEqual([at(0), at(15 * HOUR), at(25 * HOUR), at(35 * HOUR)], ['TIME_1', 'TIME_2', 'TIME_3', 'TIME_4']);
-  assert.equal(at(-100 * HOUR), 'TIME_1', 'a clock before approval cannot report a negative position');
-  assert.equal(at(900 * HOUR), 'TIME_4', 'past the deadline stays in the final bucket');
+  assert.deepEqual([at(0), at(15 * HOUR), at(25 * HOUR), at(35 * HOUR)], ['WINDOW_FULL', 'WINDOW_MOST', 'WINDOW_LITTLE', 'WINDOW_LAST']);
+  assert.equal(at(-100 * HOUR), 'WINDOW_FULL', 'a clock before approval cannot report a negative position');
+  assert.equal(at(900 * HOUR), 'WINDOW_LAST', 'past the deadline stays in the final bucket');
 });
 
 test('a window with no positive span reports the final bucket rather than dividing by zero', () => {
   const metadata = followupMetadata(snapshotFor({ approvedAt: 5 * HOUR, deadline: 5 * HOUR }), jobFor(0), summaryFor(0, 2), 5 * HOUR);
-  assert.equal(metadata.timeCode, 'TIME_4');
+  assert.equal(metadata.timeCode, 'WINDOW_LAST');
 });
 
 test('an unparseable window is refused instead of producing a code', () => {

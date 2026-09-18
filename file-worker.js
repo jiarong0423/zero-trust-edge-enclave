@@ -133,7 +133,8 @@ export async function advanceFollowups(original, config, now = Date.now(), advis
       const snapshot = dispatchSnapshot(task, grant, job.version, now);
       const deadline = Date.parse(snapshot.content.deliveryDeadline);
       rejection = 'FOLLOWUP_METADATA_INVALID';
-      const metadata = followupMetadata(snapshot, job, receiptSummary(task, job.version, now), now);
+      const summary = receiptSummary(task, job.version, now);
+      const metadata = followupMetadata(snapshot, job, summary, now);
       rejection = 'ADVISER_UNAVAILABLE';
       const suggestion = await advise(structuredClone(metadata));
       rejection = 'ADVICE_INVALID';
@@ -155,8 +156,17 @@ export async function advanceFollowups(original, config, now = Date.now(), advis
       job.followupAdvice = advice;
       job.followups = [...(job.followups || []), { action: advice.action, reasonCode: advice.reasonCode, at: new Date(now).toISOString() }];
       if (advice.action === 'REMIND') {
+        // The adviser said to remind; who is reminded is resolved here from receipts the adviser
+        // never saw, exactly as the routing pass resolves recipients from the snapshot rather than
+        // from the advice. Anyone who already collected is passed over in silence: reminding them
+        // achieves nothing and spends the credibility of the next reminder on a finished errand.
+        const outstanding = summary.recipients.filter(entry => !entry.downloadReported);
+        if (!outstanding.length) throw new Error('FOLLOWUP_NOT_REQUIRED');
         job.notice = { kind: 'LOCAL_DRY_RUN', subjectCode: 'SEALED_DOCUMENT_REMINDER',
           taskAlias: snapshot.privateMapping.taskAlias, version: job.version,
+          // Group codes, not identifiers: this notice is read by the sender, who approved the list
+          // and already sees these codes on the receipt view.
+          targets: outstanding.map(entry => entry.groupCode).filter(Boolean).sort(),
           preparedAt: new Date(now).toISOString(), sendsEmail: false };
       }
       if (advice.action === 'ESCALATE' && !(task.deliveryEscalations || []).some(entry => entry.version === job.version)) {

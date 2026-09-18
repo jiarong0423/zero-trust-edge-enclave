@@ -3,7 +3,9 @@ import assert from 'node:assert/strict';
 import { advanceFileJobs, advanceFollowups } from '../file-worker.js';
 import { newTask, confirmFirst, confirmSecond } from '../snapshot-lifecycle.js';
 import { sealFileBytes } from '../public/file-envelope.js';
-import { syntheticFollowupAdvice, MAX_NUDGES } from '../delivery-followup.js';
+import { syntheticFollowupAdvice, followupMetadata, MAX_NUDGES } from '../delivery-followup.js';
+import { fileRoutingMetadata } from '../file-routing.js';
+import { receiptSummary } from '../file-receipts.js';
 import { auditProjection } from '../audit-boundary.js';
 
 const HOUR = 3600000;
@@ -130,7 +132,7 @@ test('an adviser cannot nudge past the budget however many times it is asked', a
 test('escalation is recorded once for a version', async () => {
   const { task, config, now } = await prepared({ span: 400 * HOUR });
   const escalate = metadata => ({ taskAlias: metadata.taskAlias, snapshotVersion: metadata.snapshotVersion,
-    action: 'ESCALATE', reasonCode: 'DEADLINE_NEAR' });
+    action: 'ESCALATE', reasonCode: 'INSUFFICIENT_INFORMATION' });
   let current = await advanceFollowups(task, config, now + HOUR, escalate);
   assert.equal(current.deliveryEscalations.length, 1);
   assert.equal(current.deliveryEscalations[0].code, 'FOLLOWUP_ESCALATED');
@@ -152,5 +154,46 @@ test('every follow-up event survives the audit projection with an allowlisted ty
     for (const leak of ['recipient', 'ciphertext', 'packet', 'sender', '@']) {
       assert.ok(!serialized.includes(leak), `audit event leaked ${leak}: ${serialized}`);
     }
+  }
+});
+
+test('a reminder passes over whoever already collected, in silence', async () => {
+  const { task, config, now } = await prepared();
+  // One of the two recipients collects; the other does not. Collected is true, outstanding is false.
+  const collected = { ...task,
+    fileKeyReleases: [{ version: 1, subject: 'a' }],
+    fileReceipts: [{ version: 1, subject: 'a', code: 'DOWNLOAD_REQUESTED',
+      evidence: 'CLIENT_REPORTED', reportedAt: new Date(now).toISOString() }] };
+  const reminded = await advanceFollowups(collected, config, now + 15 * HOUR,
+    metadata => ({ taskAlias: metadata.taskAlias, snapshotVersion: metadata.snapshotVersion,
+      action: 'REMIND', reasonCode: 'PARTIAL_PICKUP' }));
+  const notice = reminded.jobs[0].notice;
+  assert.equal(notice.subjectCode, 'SEALED_DOCUMENT_REMINDER');
+  const snapshot = reminded.snapshots.find(item => item.version === 1);
+  const codeOf = id => snapshot.privateMapping.recipients.find(entry => entry.recipientId === id).groupCode;
+  assert.deepEqual(notice.targets, [codeOf('b')], 'only the recipient who has not collected is targeted');
+  assert.ok(!notice.targets.includes(codeOf('a')), 'the one who collected is passed over');
+  assert.ok(!JSON.stringify(notice).includes('"a"') && !JSON.stringify(notice).includes('"b"'),
+    'the notice carries group codes, never recipient identifiers');
+});
+
+test('neither projection can carry the notice, so the outstanding headcount never reaches a model', async () => {
+  const { task, config, now } = await prepared();
+  const reminded = await advanceFollowups(task, config, now + 15 * HOUR,
+    metadata => ({ taskAlias: metadata.taskAlias, snapshotVersion: metadata.snapshotVersion,
+      action: 'REMIND', reasonCode: 'NO_PICKUP_YET' }));
+  const job = reminded.jobs[0];
+  assert.ok(job.notice.targets.length > 0);
+  // A per-recipient boolean list is a count by another name: the number of outstanding targets is
+  // exactly the figure both projections exist to withhold. This asserts neither can reach it.
+  const snapshot = reminded.snapshots.find(item => item.version === 1);
+  const summary = receiptSummary(reminded, 1, now + 15 * HOUR);
+  for (const projection of [fileRoutingMetadata(snapshot, job), followupMetadata(snapshot, job, summary, now + 15 * HOUR)]) {
+    const serialized = JSON.stringify(projection);
+    assert.ok(!serialized.includes('targets'), serialized);
+    assert.ok(!serialized.includes('notice'), serialized);
+    for (const code of job.notice.targets) assert.ok(!serialized.includes(code), `leaked ${code}: ${serialized}`);
+    assert.ok(!Object.values(projection).includes(job.notice.targets.length),
+      `leaked the outstanding count ${job.notice.targets.length}: ${serialized}`);
   }
 });
