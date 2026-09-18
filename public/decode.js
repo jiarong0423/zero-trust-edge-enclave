@@ -1,92 +1,173 @@
-import { decryptText } from './crypto-utils.js';
+import { openFileBytes } from './file-envelope.js';
+import { authenticatedFetch } from './auth.js';
+import { setText, initializeLanguage } from './i18n.js';
 
-const packageId = document.querySelector('#packageId');
-const decodeRole = document.querySelector('#decodeRole');
-const deviceClaim = document.querySelector('#deviceClaim');
-const passphrase = document.querySelector('#passphrase');
-const decodeBtn = document.querySelector('#decodeBtn');
-const decodeStatus = document.querySelector('#decodeStatus');
-const credentialView = document.querySelector('#credentialView');
-const protectedView = document.querySelector('#protectedView');
-
+const taskId = document.querySelector('#packageId');
+const version = document.querySelector('#snapshotVersion');
+const button = document.querySelector('#decodeBtn');
+const status = document.querySelector('#decodeStatus');
 const params = new URLSearchParams(location.search);
-if (params.get('id')) {
-  packageId.value = params.get('id');
+taskId.value = params.get('id') || '';
+version.value = params.get('version') || '1';
+let identityGeneration = 0;
+let verifiedDelivery = null;
+const acknowledge = document.querySelector('#acknowledgeFile');
+const retryReceipt = document.querySelector('#retryReceipt');
+const refreshReceipt = document.querySelector('#refreshReceipt');
+let refreshTimer;
+let receiptBusy = false;
+const clearVerification = () => { verifiedDelivery = null; acknowledge.disabled = true; retryReceipt.disabled = true; };
+function changed() {
+  identityGeneration += 1;
+  clearVerification();
+  clearTimeout(refreshTimer);
+  setText(status, 'No decode attempt yet.');
+  refreshTimer = setTimeout(() => { void restoreReceipt(); }, 250);
 }
-
-async function postJson(url, body) {
-  const response = await fetch(url, {
-    method: 'POST',
-    headers: {
-      'content-type': 'application/json'
-    },
-    body: JSON.stringify(body)
-  });
-  const json = await response.json();
-  if (!response.ok) {
-    throw new Error(json.error || `request failed with HTTP ${response.status}`);
-  }
-  return json;
-}
-
-function redactForRole(text, role) {
-  if (role === 'cfo') return text;
-  return text
-    .replace(/\bQ[1-4]\b/gi, '[quarter]')
-    .replace(/\b(revenue|profit|customer|renewal|board)\b/gi, '[redacted]')
-    .replace(/\$?\b\d{4,}\b/g, '[amount]');
-}
-
-decodeBtn.addEventListener('click', async () => {
-  decodeBtn.disabled = true;
-  decodeStatus.className = 'status-card';
-  decodeStatus.textContent = 'Issuing timed access credential...';
-  credentialView.textContent = 'No timed credential issued.';
-  protectedView.innerHTML = '<div class="empty-state">Waiting for policy decision.</div>';
-  try {
-    const credentialResponse = await postJson(`/api/packages/${encodeURIComponent(packageId.value)}/credential`, {
-      role: decodeRole.value,
-      deviceClaim: deviceClaim.value
-    });
-    credentialView.textContent = JSON.stringify({
-      credentialId: credentialResponse.credential.claims.credentialId,
-      packageId: credentialResponse.credential.claims.packageId,
-      role: credentialResponse.credential.claims.role,
-      deviceClaim: credentialResponse.credential.claims.deviceClaim,
-      expiresAt: credentialResponse.credential.claims.expiresAt,
-      maxUses: credentialResponse.credential.claims.maxUses,
-      policyHash: credentialResponse.credential.claims.policyHash
-    }, null, 2);
-    decodeStatus.textContent = 'Checking signed credential against decode policy...';
-
-    const response = await postJson(`/api/packages/${encodeURIComponent(packageId.value)}/verify`, {
-      credential: credentialResponse.credential.token
-    });
-    if (!response.ok) {
-      decodeStatus.className = 'status-card danger';
-      decodeStatus.textContent = `DENY: ${response.reasons.join(', ')}`;
-      protectedView.innerHTML = '<div class="empty-state">Ciphertext was not released to this decode path.</div>';
-      return;
+window.addEventListener('authenticationchange', changed);
+taskId.addEventListener('input', changed);
+version.addEventListener('input', changed);
+async function report(target, code) {
+  for (let attempt = 0; attempt < 3; attempt++) {
+    if (verifiedDelivery !== target) throw Error('Identity changed; try again');
+    let response;
+    try {
+      response = await authenticatedFetch('/api/file-access/' + target.id + '/receipt', { method: 'POST',
+        signal: AbortSignal.timeout(5000),
+        headers: { 'content-type': 'application/json' }, body: JSON.stringify({ version: target.version, code }) });
+      if (verifiedDelivery !== target) throw Error('Identity changed; try again');
+      if (response.ok) {
+        const body = await response.json();
+        if (verifiedDelivery !== target) throw Error('Identity changed; try again');
+        if (body.ok !== true || body.code !== code || body.evidence !== 'CLIENT_REPORTED') throw Error('Invalid receipt response');
+        return;
+      }
+    } catch {
+      if (verifiedDelivery !== target) throw Error('Identity changed; try again');
+      if (response?.ok) response = null;
     }
-    const sealed = response.package;
-    const plaintext = await decryptText(sealed.ciphertext, sealed.iv, sealed.salt, passphrase.value);
-    const renderedText = redactForRole(plaintext, decodeRole.value);
-    decodeStatus.className = 'status-card success';
-    decodeStatus.textContent = `ALLOW: ${response.reasons.join(', ')}`;
-    protectedView.innerHTML = `
-      <div class="watermark">Viewed by ${decodeRole.value} on ${new Date().toLocaleString()}</div>
-      <pre>${renderedText.replace(/[&<>"']/g, character => ({
-        '&': '&amp;',
-        '<': '&lt;',
-        '>': '&gt;',
-        '"': '&quot;',
-        "'": '&#39;'
-      })[character])}</pre>
-    `;
+    if (response && response.status < 500 && response.status !== 429) break;
+    if (attempt < 2) await new Promise(resolve => setTimeout(resolve, 150 * (attempt + 1)));
+  }
+  throw Error('Acknowledgement unconfirmed');
+}
+async function flushReports(target) {
+  retryReceipt.disabled = true;
+  try {
+    while (target.pending.length) { await report(target, target.pending[0]); target.pending.shift(); }
+    if (verifiedDelivery === target) {
+      acknowledge.disabled = false;
+      setText(status, 'File verified; confirm receipt');
+    }
+  } catch {
+    if (verifiedDelivery === target) { retryReceipt.disabled = false; setText(status, 'Download requested; receipt unconfirmed'); }
+  }
+}
+async function restoreReceipt() {
+  if (button.disabled || receiptBusy || verifiedDelivery?.pending?.length) return;
+  const id = taskId.value.trim(), number = Number(version.value), generation = identityGeneration;
+  if (!/^[a-f0-9-]{36}$/.test(id) || !Number.isSafeInteger(number) || number < 1 || !document.querySelector('#accessToken').value.trim()) return;
+  refreshReceipt.disabled = true;
+  try {
+    const response = await authenticatedFetch('/api/file-access/' + id + '/receipt-status', { method: 'POST',
+      headers: { 'content-type': 'application/json' }, body: JSON.stringify({ version: number }) });
+    const body = await response.json();
+    if (generation !== identityGeneration || button.disabled || receiptBusy || verifiedDelivery?.pending?.length) return;
+    if (!response.ok) throw Error('Receipt status unavailable');
+    if (body.acknowledged) {
+      clearVerification();
+      setText(status, 'Receipt acknowledged');
+    } else if (body.fileVerified) {
+      verifiedDelivery = { id, version: number, pending: [] };
+      acknowledge.disabled = false;
+      setText(status, 'File verified; confirm receipt');
+    }
+  } catch { if (generation === identityGeneration) setText(status, 'Receipt status unavailable'); }
+  finally { refreshReceipt.disabled = false; }
+}
+refreshReceipt.addEventListener('click', restoreReceipt);
+retryReceipt.addEventListener('click', () => { if (verifiedDelivery) void flushReports(verifiedDelivery); });
+acknowledge.addEventListener('click', async () => {
+  const verified = verifiedDelivery;
+  if (!verified) return;
+  acknowledge.disabled = true;
+  receiptBusy = true;
+  try {
+    await report(verified, 'ACKNOWLEDGED');
+    if (verifiedDelivery !== verified) return;
+    setText(status, 'Receipt acknowledged');
+  } catch { if (verifiedDelivery === verified) { acknowledge.disabled = false; setText(status, 'Acknowledgement unconfirmed'); } }
+  finally { receiptBusy = false; }
+});
+
+button.addEventListener('click', async () => {
+  const id = taskId.value.trim();
+  const snapshotVersion = Number(version.value);
+  const generation = ++identityGeneration;
+  const token = document.querySelector('#accessToken').value;
+  let key;
+  let recovered;
+  let objectUrl;
+  function checkIdentity() {
+    if (generation !== identityGeneration || token !== document.querySelector('#accessToken').value) {
+      throw new Error('Identity changed; try again');
+    }
+  }
+  async function post(action, extra = {}) {
+    checkIdentity();
+    const response = await authenticatedFetch('/api/file-access/' + id + '/' + action, {
+      method: 'POST', headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ version: snapshotVersion, ...extra })
+    });
+    const result = await response.json();
+    checkIdentity();
+    if (!response.ok) throw new Error(result.error || 'File access failed');
+    return result;
+  }
+  button.disabled = true;
+  clearTimeout(refreshTimer);
+  clearVerification();
+  taskId.disabled = true;
+  version.disabled = true;
+  status.className = 'status-card';
+  setText(status, 'Issuing timed access credential...');
+  try {
+    if (!/^[a-f0-9-]{36}$/.test(id) || !Number.isSafeInteger(snapshotVersion) || snapshotVersion < 1) {
+      throw new Error('Invalid task or version');
+    }
+    const packet = await post('packet');
+    const ticket = await post('credential');
+    const release = await post('key', { credential: ticket.credential });
+    ticket.credential = '';
+    if (!/^[a-f0-9]{64}$/.test(release.key)) throw new Error('File access failed');
+    key = Uint8Array.from(release.key.match(/../g), value => parseInt(value, 16));
+    release.key = '';
+    recovered = await openFileBytes(packet.packet, key);
+    checkIdentity();
+    objectUrl = URL.createObjectURL(new Blob([recovered.bytes], { type: recovered.type }));
+    const link = document.createElement('a');
+    link.href = objectUrl;
+    link.download = recovered.name;
+    document.body.append(link);
+    link.click();
+    link.remove();
+    status.className = 'status-card success';
+    setText(status, 'Original file download requested');
+    verifiedDelivery = { id, version: snapshotVersion, pending: ['FILE_VERIFIED', 'DOWNLOAD_REQUESTED'] };
+    await flushReports(verifiedDelivery);
   } catch (error) {
-    decodeStatus.className = 'status-card danger';
-    decodeStatus.textContent = error instanceof Error ? error.message : 'decode failed';
+    status.className = 'status-card danger';
+    setText(status, error instanceof Error ? error.message : 'File access failed');
   } finally {
-    decodeBtn.disabled = false;
+    key?.fill(0);
+    recovered?.bytes.fill(0);
+    if (objectUrl) {
+      const pendingUrl = objectUrl;
+      setTimeout(() => URL.revokeObjectURL(pendingUrl), 1000);
+    }
+    button.disabled = false;
+    taskId.disabled = false;
+    version.disabled = false;
   }
 });
+initializeLanguage();

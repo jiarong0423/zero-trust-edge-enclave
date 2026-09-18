@@ -1,0 +1,16 @@
+<!doctype html>
+<html lang="en">
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>Directory administration</title><link rel="stylesheet" href="/styles.css"></head>
+<body class="admin-page">
+<header class="topbar"><div><p class="eyebrow" data-i18n="Administration">Administration</p><h1 data-i18n="Directory administration">Directory administration</h1></div>
+<nav aria-label="Primary navigation"><a class="nav-link" href="/" data-i18n="Sender Enclave">Sender Enclave</a><a class="nav-link active" href="/admin.html" data-i18n="Administration">Administration</a></nav></header>
+<main class="layout">
+<section class="panel wide"><div class="button-row"><button id="loadDirectory" class="button" data-i18n="Load directory">Load directory</button><a id="downloadCredential" class="button" hidden data-i18n="Download credential">Download credential</a></div><p id="adminStatus" role="status"></p>
+<div id="adminWorkspace" hidden>
+<div class="form-grid"><label class="field"><span data-i18n="Category">Category</span><select id="adminCategory"><option value="department" data-i18n="Departments">Departments</option><option value="person" data-i18n="People">People</option><option value="grant" data-i18n="Authorizations">Authorizations</option></select></label>
+<label class="field"><span data-i18n="Record">Record</span><select id="adminRecord"></select></label></div>
+<form id="adminForm"><fieldset id="adminFields" class="admin-fields"></fieldset><div class="button-row"><button type="submit" class="button primary" data-i18n="Save changes">Save changes</button><button id="rotateCredential" type="button" class="button" hidden data-i18n="Rotate credential">Rotate credential</button></div></form>
+<div class="table-wrap"><table><thead><tr><th data-i18n="Code">Code</th><th data-i18n="Name">Name</th><th data-i18n="Department">Department</th><th data-i18n="Disabled">Disabled</th></tr></thead><tbody id="adminRows"></tbody></table></div>
+</div></section>
+<section class="panel wide"><h2 data-i18n="Retention inventory">Retention inventory</h2><button id="loadRetention" class="button" data-i18n="Check retention">Check retention</button><p id="retentionStatus" role="status"></p><div class="table-wrap"><table><thead><tr><th data-i18n="Task code">Task code</th><th data-i18n="Status">Status</th><th data-i18n="Reasons">Reasons</th></tr></thead><tbody id="retentionRows"></tbody></table></div></section>
+</main><script type="module" src="/admin.js"></script></body></html>

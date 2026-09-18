@@ -1,142 +1,44 @@
 <!doctype html>
 <html lang="en">
-  <head>
-    <meta charset="utf-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>Zero-Trust Edge Enclave</title>
-    <link rel="stylesheet" href="/styles.css">
-  </head>
-  <body>
-    <header class="topbar">
-      <div>
-        <p class="eyebrow">Nebius x NVIDIA Hackathon MVP</p>
-        <h1>Zero-Trust Edge Enclave</h1>
-      </div>
-      <nav aria-label="Primary navigation">
-        <a class="nav-link active" href="/">Sender Enclave</a>
-        <a class="nav-link" href="/decode.html">Recipient Decode Gate</a>
-        <a class="nav-link" href="/audit.html">SOC Audit Dashboard</a>
-      </nav>
-    </header>
-
-    <main class="layout">
-      <section class="panel primary-panel">
-        <div class="section-heading">
-          <p class="eyebrow">Sender Enclave</p>
-          <h2>Seal internal data before it leaves the browser</h2>
-        </div>
-
-        <label class="field">
-          <span>Document name</span>
-          <input id="fileName" value="Q3_Financial_Draft.txt" autocomplete="off">
-        </label>
-
-        <label class="field">
-          <span>Sender role</span>
-          <select id="senderRole">
-            <option value="finance">Finance</option>
-            <option value="cfo">CFO Office</option>
-            <option value="manager">Manager</option>
-          </select>
-        </label>
-
-        <label class="field">
-          <span>Intended recipient role</span>
-          <select id="recipientRole">
-            <option value="cfo">CFO Office</option>
-            <option value="manager">Manager</option>
-            <option value="marketing">Marketing</option>
-          </select>
-        </label>
-
-        <div class="metadata-grid" aria-label="Non-content policy metadata">
-          <label class="field">
-            <span>Data category</span>
-            <select id="dataCategory">
-              <option value="finance">Finance</option>
-              <option value="legal">Legal</option>
-              <option value="hr">HR</option>
-              <option value="engineering">Engineering</option>
-            </select>
-          </label>
-
-          <label class="field">
-            <span>Confidentiality</span>
-            <select id="confidentiality">
-              <option value="confidential">Confidential</option>
-              <option value="restricted">Restricted</option>
-              <option value="internal">Internal</option>
-            </select>
-          </label>
-
-          <label class="field">
-            <span>Business purpose</span>
-            <select id="businessPurpose">
-              <option value="approval">Approval</option>
-              <option value="review">Review</option>
-              <option value="archive">Archive</option>
-            </select>
-          </label>
-
-          <label class="field">
-            <span>Requested expiry</span>
-            <select id="requestedExpiry">
-              <option value="1h">1 hour</option>
-              <option value="4h">4 hours</option>
-              <option value="24h">24 hours</option>
-            </select>
-          </label>
-
-          <label class="field">
-            <span>Device policy</span>
-            <select id="devicePolicy">
-              <option value="managed_device_only">Managed device only</option>
-              <option value="registered_device">Registered device</option>
-              <option value="any_authenticated_device">Any authenticated device</option>
-            </select>
-          </label>
-
-          <label class="field">
-            <span>Open limit</span>
-            <select id="openLimit">
-              <option value="single_use">Single use</option>
-              <option value="limited_use">Limited use</option>
-            </select>
-          </label>
-        </div>
-
-        <label class="field">
-          <span>Internal payload</span>
-          <textarea id="payload" rows="10">Unreleased Q3 financial draft. Revenue targets, customer renewal list, and confidential board notes are included. This content should be limited to the CFO office and must not be forwarded as plaintext.</textarea>
-        </label>
-        <p class="boundary-note">Payload content is encrypted locally. AI receives only the non-content policy metadata above.</p>
-
-        <div class="button-row">
-          <button id="recommendBtn" class="button primary">Ask Nemotron for policy</button>
-          <button id="sealBtn" class="button" disabled>Encrypt and seal package</button>
-        </div>
-      </section>
-
-      <aside class="panel">
-        <div class="section-heading">
-          <p class="eyebrow">Policy Control Plane</p>
-          <h2>AI recommendation</h2>
-        </div>
-        <div id="health" class="status-card">Checking runtime...</div>
-        <pre id="policyOutput" class="code-block">No policy requested yet.</pre>
-      </aside>
-
-      <section class="panel wide">
-        <div class="section-heading">
-          <p class="eyebrow">Sealed Delivery</p>
-          <h2>Package result</h2>
-        </div>
-        <div id="packageResult" class="result-grid">
-          <div class="empty-state">Create a policy and seal a package to generate a one-way delivery link.</div>
-        </div>
-      </section>
-    </main>
-
-    <script src="/app.js" type="module"></script>
-  </body>
-</html>
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>Zero-Trust Edge Enclave</title><link rel="stylesheet" href="/styles.css"></head>
+<body>
+<header class="topbar"><div><p class="eyebrow" data-i18n="Sender Enclave">Sender Enclave</p><h1 data-i18n="Zero-Trust Edge Enclave">Zero-Trust Edge Enclave</h1></div>
+<nav aria-label="Primary navigation" data-i18n-aria-label="Primary navigation"><a class="nav-link active" href="/" data-i18n="Sender Enclave">Sender Enclave</a><a class="nav-link" href="/decode.html" data-i18n="Recipient Decode Gate">Recipient Decode Gate</a><a class="nav-link" href="/audit.html" data-i18n="SOC Audit Dashboard">SOC Audit Dashboard</a></nav></header>
+<main class="layout">
+<section class="wide runtime-notice" aria-labelledby="runtimeHeading">
+<h2 id="runtimeHeading" data-i18n="Model and responsibilities">Model and responsibilities</h2>
+<p id="modelRuntimeStatus" role="status" data-i18n="Model status unavailable">Model status unavailable</p>
+<p id="configuredModel"></p>
+<ul><li data-i18n="Human approves recipients and delivery limits twice.">Human approves recipients and delivery limits twice.</li>
+<li data-i18n="AI suggests approved routes only; it cannot read files or grant access.">AI suggests approved routes only; it cannot read files or grant access.</li>
+<li data-i18n="Browser encrypts files; backend validates authority, releases keys and records receipts.">Browser encrypts files; backend validates authority, releases keys and records receipts.</li>
+<li data-i18n="Delivery is simulated; no real email is sent.">Delivery is simulated; no real email is sent.</li></ul>
+</section>
+<a class="nav-link" href="/admin.html" data-localized-link data-i18n="Administration">Administration</a>
+<section class="panel primary-panel wide">
+<h2 data-i18n="Select document">Select document</h2>
+<input type="file" id="documentFile" accept=".docx,.pdf,.csv" hidden>
+<button type="button" class="button primary" id="chooseDocument" data-i18n="Choose document">Choose document</button>
+<p id="fileStatus" role="status" data-i18n="No document selected">No document selected</p>
+<div id="recipientReview" hidden>
+<label class="field"><span data-i18n="Authorization id">Authorization id</span><select id="authorizationId"></select></label>
+<button type="button" class="button" id="refreshAuthorizations" data-i18n="Refresh authorizations">Refresh authorizations</button>
+<p id="authorizationStatus" role="status" data-i18n="No active authorizations">No active authorizations</p>
+<fieldset id="recipientPicker"><legend data-i18n="Recipients">Recipients</legend>
+<button type="button" class="button" id="loadRecipients" data-i18n="Load authorized recipients">Load authorized recipients</button>
+<label class="field"><span data-i18n="Department">Department</span><select id="recipientDepartment"><option value="" data-i18n="All departments">All departments</option></select></label>
+<label class="field"><span data-i18n="Search name or email">Search name or email</span><input type="search" id="recipientQuery" autocomplete="off"></label>
+<div id="recipientList"></div><p id="recipientSelectionStatus" role="status" data-i18n="Load authorized recipients">Load authorized recipients</p></fieldset>
+<label class="field" id="requestedExpiryField" hidden><span data-i18n="Requested expiry">Requested expiry</span><select id="requestedExpiry"><option value="1" data-i18n="1 hour">1 hour</option><option value="4" data-i18n="4 hours">4 hours</option><option value="24" data-i18n="24 hours">24 hours</option></select></label>
+<label class="field"><span data-i18n="Delivery deadline minutes">Delivery deadline minutes</span><input id="requestedDeadline" type="number" min="1" max="1440" value="30" step="1"></label>
+<label class="field"><span data-i18n="Delivery mode">Delivery mode</span><select id="deliveryMode"><option value="REQUIRED_ACK" data-i18n="Designated recipient acknowledgement">Designated recipient acknowledgement</option><option value="TIME_LIMITED" data-i18n="Time-limited download">Time-limited download</option></select></label>
+<label class="field" id="downloadWindowField" hidden><span data-i18n="Download window minutes">Download window minutes</span><input id="downloadWindow" type="number" min="1" max="1440" value="60" step="1"></label>
+<div class="button-row"><button class="button" id="sealBtn" disabled data-i18n="Confirm 1: Lock draft">Confirm 1: Lock draft</button><button class="button primary" id="approveBtn" disabled data-i18n="Confirm 2: Approve delivery">Confirm 2: Approve delivery</button></div>
+<pre class="code-block" id="snapshotReview" aria-live="polite" data-i18n="No confirmed draft.">No confirmed draft.</pre>
+</div></section>
+<section class="panel wide"><h2 data-i18n="Package result">Package result</h2><pre class="code-block" id="packageResult"></pre><p id="deliveryStatus" role="status" data-i18n="No delivery task.">No delivery task.</p><p id="receiptSummary" role="status"></p><button id="refreshDelivery" class="button" disabled data-i18n="Refresh delivery status">Refresh delivery status</button><a id="recipientLink" hidden data-i18n="Recipient Decode Gate">Recipient Decode Gate</a></section>
+<section class="panel wide"><h2 data-i18n="Task history">Task history</h2>
+<div class="button-row"><button id="refreshTasks" class="button" data-i18n="Refresh tasks">Refresh tasks</button><button id="showTask" class="button" disabled data-i18n="Show status">Show status</button><button id="resumeTask" class="button" disabled data-i18n="Request resume">Request resume</button><button id="restoreDraft" class="button" disabled data-i18n="Review staged file again">Review staged file again</button></div>
+<label class="field"><span data-i18n="Task history">Task history</span><select id="taskHistory"></select></label><p id="historyStatus" role="status"></p></section>
+</main><script src="/app.js" type="module"></script>
+</body></html>

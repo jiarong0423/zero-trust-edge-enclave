@@ -1,3 +1,15 @@
+// Every encrypt and decrypt path here needs Web Crypto, which browsers expose only in a secure
+// context: https, or a loopback host. A phone or second machine reaching this over plain http on
+// a LAN address will connect and render, then fail inside subtle with an undefined-property error
+// that says nothing about the real cause. Fail early and say what is wrong instead.
+export function requireSecureContext() {
+  if (globalThis.crypto?.subtle) return;
+  const origin = globalThis.location?.origin || 'this page';
+  throw new Error('INSECURE_CONTEXT: Web Crypto is unavailable at ' + origin +
+    '. Browsers expose it only over https or on a loopback address such as http://127.0.0.1. ' +
+    'Open this page over https, or from the machine running the server.');
+}
+
 export function bytesToBase64(bytes) {
   let binary = '';
   bytes.forEach(byte => {
@@ -16,6 +28,7 @@ export function base64ToBytes(value) {
 }
 
 export async function sha256Hex(text) {
+  requireSecureContext();
   const digest = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(text));
   return [...new Uint8Array(digest)].map(byte => byte.toString(16).padStart(2, '0')).join('');
 }
@@ -61,7 +74,7 @@ export async function encryptText(plaintext, passphrase) {
     ciphertext: bytesToBase64(new Uint8Array(ciphertext)),
     iv: bytesToBase64(iv),
     salt: bytesToBase64(salt),
-    packageHash: await sha256Hex(`${bytesToBase64(new Uint8Array(ciphertext))}.${bytesToBase64(iv)}`)
+    packageHash: await sha256Hex(`${bytesToBase64(new Uint8Array(ciphertext))}.${bytesToBase64(iv)}.${bytesToBase64(salt)}`)
   };
 }
 

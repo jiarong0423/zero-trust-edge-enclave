@@ -9,54 +9,54 @@
   <body>
     <header class="topbar">
       <div>
-        <p class="eyebrow">Security Operations</p>
-        <h1>SOC Audit Dashboard</h1>
+        <p class="eyebrow" data-i18n="Security Operations">Security Operations</p>
+        <h1 data-i18n="SOC Audit Dashboard">SOC Audit Dashboard</h1>
       </div>
-      <nav aria-label="Primary navigation">
-        <a class="nav-link" href="/">Sender Enclave</a>
-        <a class="nav-link" href="/decode.html">Recipient Decode Gate</a>
-        <a class="nav-link active" href="/audit.html">SOC Audit Dashboard</a>
+      <nav aria-label="Primary navigation" data-i18n-aria-label="Primary navigation">
+        <a class="nav-link" href="/" data-i18n="Sender Enclave">Sender Enclave</a>
+        <a class="nav-link" href="/decode.html" data-i18n="Recipient Decode Gate">Recipient Decode Gate</a>
+        <a class="nav-link active" href="/audit.html" data-i18n="SOC Audit Dashboard">SOC Audit Dashboard</a>
       </nav>
     </header>
 
     <main class="layout dashboard-layout">
       <section class="panel metric-panel">
-        <p class="eyebrow">Runtime</p>
-        <h2 id="runtimeMode">Checking</h2>
+        <p class="eyebrow" data-i18n="Runtime">Runtime</p>
+        <h2 id="runtimeMode" data-i18n="Checking">Checking</h2>
       </section>
       <section class="panel metric-panel">
-        <p class="eyebrow">Allowed</p>
+        <p class="eyebrow" data-i18n="Allowed">Allowed</p>
         <h2 id="allowCount">0</h2>
       </section>
       <section class="panel metric-panel">
-        <p class="eyebrow">Denied</p>
+        <p class="eyebrow" data-i18n="Denied">Denied</p>
         <h2 id="denyCount">0</h2>
       </section>
 
       <section class="panel wide">
         <div class="section-heading">
-          <p class="eyebrow">Audit Events</p>
-          <h2>Append-only access evidence</h2>
+          <p class="eyebrow" data-i18n="Audit Events">Audit Events</p>
+          <h2 data-i18n="Access Events">Access Events</h2>
         </div>
         <div class="button-row">
-          <button id="refreshBtn" class="button primary">Refresh audit</button>
+          <button id="refreshBtn" class="button primary" data-i18n="Refresh audit">Refresh audit</button>
         </div>
         <div class="table-wrap">
           <table>
             <thead>
               <tr>
-                <th>Time</th>
-                <th>Result</th>
-                <th>Type</th>
-                <th>Role</th>
-                <th>Device</th>
-                <th>Package hash</th>
-                <th>Reason</th>
+                <th data-i18n="Time">Time</th>
+                <th data-i18n="Result">Result</th>
+                <th data-i18n="Type">Type</th>
+                <th data-i18n="Snapshot version">Snapshot version</th>
+                <th data-i18n="Attempts">Attempts</th>
+                <th data-i18n="Task code">Task code</th>
+                <th data-i18n="Reason">Reason</th>
               </tr>
             </thead>
             <tbody id="auditRows">
               <tr>
-                <td colspan="7">No audit events loaded.</td>
+                <td colspan="7" data-i18n="No audit events loaded.">No audit events loaded.</td>
               </tr>
             </tbody>
           </table>
