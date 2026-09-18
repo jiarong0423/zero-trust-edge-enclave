@@ -28,6 +28,8 @@ import './registry-schema.test.mjs';
 import './directory-admin.test.mjs';
 import './task-operations.test.mjs';
 import './file-receipts.test.mjs';
+import './delivery-followup.test.mjs';
+import './delivery-followup-worker.test.mjs';
 import './audit-retention.test.mjs';
 import './download-policy.test.mjs';
 import './retention-policy.test.mjs';

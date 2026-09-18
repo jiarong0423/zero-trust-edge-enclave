@@ -5,6 +5,9 @@ import { resolvePrivateRoute } from './private-mapping.js';
 import { packetCommitment } from './public/file-envelope.js';
 import { queueAudit } from './audit-outbox.js';
 import { fileRoutingMetadata, syntheticFileAdvice, validateFileAdvice } from './file-routing.js';
+import { followupMetadata, syntheticFollowupAdvice, validateFollowupAdvice } from './delivery-followup.js';
+import { receiptSummary } from './file-receipts.js';
+import { normalizeDownloadPolicy } from './download-policy.js';
 import { principalEnabled } from './registry-schema.js';
 
 // A computed deadline that is not a finite number would mean "no cutoff" once it reaches the
@@ -83,6 +86,102 @@ export async function advanceFileJobs(original, config, now = Date.now(), advise
       result: job.status === 'PAUSED' ? 'DENY' : 'INFO', previousState, nextState: job.status,
       attempts: job.attempts, reasons: [job.reasonCode || 'DELIVERY_UPDATED'] };
     task.auditOutbox = queueAudit({ auditOutbox: task.auditOutbox }, [event]).auditOutbox;
+    changed = true;
+  }
+  return changed ? task : original;
+}
+
+/**
+ * The second half of the loop. advanceFileJobs stops at DRY_RUN_PREPARED, which is correct for a
+ * TIME_LIMITED delivery -- the window shuts and there is nothing left to do -- and wrong for a
+ * REQUIRED_ACK one, where the notice is out, nobody has collected, and the deadline is still days
+ * away. This pass reconsiders exactly those jobs.
+ *
+ * It runs at most once per window bucket, so a task is reconsidered a bounded number of times no
+ * matter how often the worker ticks, and it stops at the deadline, where recordOverdueDeliveries
+ * already has the answer.
+ *
+ * Nothing is sent here. A reminder is a prepared notice, the same dry run the first pass produces.
+ */
+export async function advanceFollowups(original, config, now = Date.now(), advise = syntheticFollowupAdvice, reloadConfig = async () => config) {
+  if (!original.file) return original;
+  let task = structuredClone(original);
+  let changed = false;
+  for (const job of task.jobs) {
+    if (job.status !== 'DRY_RUN_PREPARED') continue;
+    if (job.nextFollowupAt && Date.parse(job.nextFollowupAt) > now) continue;
+    // Decide whether this job is followable at all before touching authority. Past its deadline the
+    // grant is usually expired too, and letting that surface as a refusal would append an audit
+    // record on every tick of a delivery that has already finished, forever. Standing down is not
+    // the same as being refused, and only the refusal is worth recording.
+    const candidate = task.snapshots.find(item => item.version === job.version);
+    if (!candidate || candidate.status !== 'APPROVED') continue;
+    let followable;
+    try {
+      followable = normalizeDownloadPolicy(candidate.content).deliveryMode === 'REQUIRED_ACK' &&
+        Date.parse(candidate.content.deliveryDeadline) > now;
+    } catch { followable = false; }
+    if (!followable) continue;
+    let rejection = 'AUTHORIZATION_INVALID';
+    let action = null;
+    try {
+      let grant = activeGrant(config, task.grantId);
+      rejection = 'ACTOR_DISABLED';
+      const operator = config.principals.find(person => person.id === task.ownerId);
+      if (!principalEnabled(config, operator)) throw new Error('OPERATOR_DISABLED');
+      rejection = 'SNAPSHOT_INVALID';
+      const snapshot = dispatchSnapshot(task, grant, job.version, now);
+      const deadline = Date.parse(snapshot.content.deliveryDeadline);
+      rejection = 'FOLLOWUP_METADATA_INVALID';
+      const metadata = followupMetadata(snapshot, job, receiptSummary(task, job.version, now), now);
+      rejection = 'ADVISER_UNAVAILABLE';
+      const suggestion = await advise(structuredClone(metadata));
+      rejection = 'ADVICE_INVALID';
+      const advice = validateFollowupAdvice(suggestion, metadata);
+      // Authority is reloaded after the adviser has spoken, exactly as the routing pass does: a
+      // grant revoked while the request was in flight must stop the reminder it advised.
+      rejection = 'AUTHORIZATION_INVALID';
+      const currentConfig = await reloadConfig();
+      grant = activeGrant(currentConfig, task.grantId);
+      dispatchSnapshot(task, grant, job.version, now);
+      rejection = 'ACTOR_DISABLED';
+      if (!currentConfig.principals.some(person => person.id === task.ownerId && principalEnabled(currentConfig, person))) throw new Error('OPERATOR_DISABLED');
+      rejection = 'RECIPIENT_DISABLED';
+      const destinations = resolvePrivateRoute(snapshot.privateMapping, snapshot.content, job.delivery?.channel || snapshot.content.channels[0]);
+      if (destinations.some(destination => !currentConfig.principals.some(person => person.id === destination.recipientId && principalEnabled(currentConfig, person)))) {
+        throw new Error('RECIPIENT_DISABLED');
+      }
+      action = advice.action;
+      job.followupAdvice = advice;
+      job.followups = [...(job.followups || []), { action: advice.action, reasonCode: advice.reasonCode, at: new Date(now).toISOString() }];
+      if (advice.action === 'REMIND') {
+        job.notice = { kind: 'LOCAL_DRY_RUN', subjectCode: 'SEALED_DOCUMENT_REMINDER',
+          taskAlias: snapshot.privateMapping.taskAlias, version: job.version,
+          preparedAt: new Date(now).toISOString(), sendsEmail: false };
+      }
+      if (advice.action === 'ESCALATE' && !(task.deliveryEscalations || []).some(entry => entry.version === job.version)) {
+        task.deliveryEscalations = [...(task.deliveryEscalations || []),
+          { version: job.version, code: 'FOLLOWUP_ESCALATED', at: new Date(now).toISOString() }];
+      }
+      // One reconsideration per window bucket. The cadence is the window's, not the clock's, so a
+      // short task is not chased more often in proportion than a long one.
+      const approvedAt = Date.parse(snapshot.approvedAt);
+      const step = Number.isFinite(approvedAt) && deadline > approvedAt ? Math.ceil((deadline - approvedAt) / 4) : deadline - now;
+      job.nextFollowupAt = new Date(Math.min(now + Math.max(step, 1), deadline)).toISOString();
+    } catch {
+      action = null;
+      job.followupPausedBy = rejection;
+      // A refusal must not become a hot loop against a failing dependency; it waits out a bucket
+      // like any other outcome.
+      job.nextFollowupAt = new Date(now + 60000).toISOString();
+    }
+    job.revision = (job.revision || 0) + 1;
+    job.updatedAt = new Date(now).toISOString();
+    task.auditOutbox = queueAudit({ auditOutbox: task.auditOutbox }, [{
+      taskId: task.id, snapshotVersion: job.version, type: 'DELIVERY_FOLLOWUP',
+      result: action === 'ESCALATE' ? 'DENY' : 'INFO',
+      reasons: [action ? `FOLLOWUP_${action}` : job.followupPausedBy]
+    }]).auditOutbox;
     changed = true;
   }
   return changed ? task : original;

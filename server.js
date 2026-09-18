@@ -16,7 +16,7 @@ import { resumeFileTask, resumableReasons } from './task-operations.js';
 import { resolvePrivateRoute } from './private-mapping.js';
 import { packetCommitment } from './public/file-envelope.js';
 import { openLocalKeyVault } from './local-key-vault.js';
-import { advanceFileJobs } from './file-worker.js';
+import { advanceFileJobs, advanceFollowups } from './file-worker.js';
 import { fileRoutingMetadata } from './file-routing.js';
 import { requestFileAdvice } from './file-adviser.js';
 import { receiptSummary, recordFileReceipt, recordOverdueDeliveries, recipientReceiptStatus } from './file-receipts.js';
@@ -1573,12 +1573,12 @@ let apiQueue = Promise.resolve();
 // Each outlet is given its own endpoint and model. The loopback outlet is never handed the cloud
 // credential: it does not need one, and sending a provider key to a local endpoint would put that
 // key somewhere the boundary never intended it to go.
-function fileAdviser(metadata) {
+function fileAdviser(metadata, kind = 'route') {
   const provider = process.env.COORDINATOR_PROVIDER || 'synthetic_fixture';
   const outlet = provider === 'local_openai_compatible'
     ? { baseUrl: localModelBaseUrl, model: localModelName }
     : { baseUrl: nebiusBaseUrl, model: nebiusModel, apiKey: process.env.NEBIUS_API_KEY };
-  return requestFileAdvice(metadata, { provider, localOnly, ...outlet });
+  return requestFileAdvice(metadata, { provider, localOnly, kind, ...outlet });
 }
 let workerBusy = false;
 let workerTimer;
@@ -1592,8 +1592,13 @@ function scheduleFileWork() {
     const config = await loadAccess(accessPath);
     let changed = false;
     for (let index = 0; index < tasks.length; index++) {
-      const next = recordOverdueDeliveries(await advanceFileJobs(tasks[index], config, Date.now(),
-        async metadata => (await fileAdviser(metadata)).advice, () => loadAccess(accessPath)));
+      const routed = await advanceFileJobs(tasks[index], config, Date.now(),
+        async metadata => (await fileAdviser(metadata)).advice, () => loadAccess(accessPath));
+      // Follow-up runs after routing so a notice prepared on this tick is reconsidered on a later
+      // one, never in the same pass that created it.
+      const chased = await advanceFollowups(routed, config, Date.now(),
+        async metadata => (await fileAdviser(metadata, 'followup')).advice, () => loadAccess(accessPath));
+      const next = recordOverdueDeliveries(chased);
       if (next !== tasks[index]) { tasks[index] = next; changed = true; }
     }
     if (changed) await writeJson(tasksPath, tasks);
