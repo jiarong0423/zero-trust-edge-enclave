@@ -1,6 +1,6 @@
 # Public Export Manifest
 
-Review date: 2026-09-08. Status: local candidate only; publication is not authorized.
+Review date: 2026-09-18 (was 2026-09-08). Status: local candidate only; publication is not authorized.
 
 The following exact paths are the release allowlist, not directory wildcards. Runtime data, credentials, environment secrets, logs, output, dependencies, Git metadata, screenshots and raw provider evidence are excluded even when untracked. New source files require explicit review and a manifest update.
 
@@ -10,6 +10,7 @@ Run node scripts/build-release-candidate.mjs ABSOLUTE_NEW_DIRECTORY to create a 
 
 ```text
 .gitignore
+.zeaburignore
 LICENSE
 MCP_SERVER_ALLOWLIST.md
 PACKAGE_REPUTATION_EVIDENCE.md
@@ -23,17 +24,17 @@ audit-boundary.js
 audit-outbox.js
 audit-retention.js
 directory-admin.js
+docs/agent/approved-delivery-architecture.md
+docs/agent/local-workflow.md
+docs/agent/official-rule-alignment.md
+docs/agent/security-gate-summary.md
+docs/agent/zeabur-deployment.md
 docs/assets/architecture-sequence.png
 docs/assets/architecture-sequence.svg
 docs/assets/architecture-state-machine.png
 docs/assets/architecture-state-machine.svg
 docs/assets/architecture-trust-boundary.png
 docs/assets/architecture-trust-boundary.svg
-docs/agent/approved-delivery-architecture.md
-docs/agent/local-workflow.md
-docs/agent/official-rule-alignment.md
-docs/agent/security-gate-summary.md
-docs/ai-generated/2026Q3/human-ai-boundary-material_20260907.md
 download-policy.js
 env.sample
 file-adviser.js
@@ -56,8 +57,8 @@ public/crypto-utils.js
 public/decode.html
 public/decode.js
 public/file-envelope.js
-public/index.html
 public/i18n.js
+public/index.html
 public/recipient-picker.js
 public/styles.css
 public/task-history.js
@@ -81,12 +82,13 @@ scripts/file-routing.test.mjs
 scripts/file-worker.test.mjs
 scripts/generate-business-fixtures.mjs
 scripts/generate-native-fixtures.py
+scripts/i18n.test.mjs
 scripts/live-provider-smoke.mjs
 scripts/local-adviser-outlet.test.mjs
 scripts/local-array-store.test.mjs
 scripts/local-key-vault.test.mjs
+scripts/local-tls-cert.mjs
 scripts/local-workflow.test.mjs
-scripts/i18n.test.mjs
 scripts/model-boundary-smoke.mjs
 scripts/model-four-groups.mjs
 scripts/model-negative.test.mjs
