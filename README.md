@@ -66,11 +66,46 @@ Use a new private directory and a free port. Do not share a running server's dat
 
 ## NVIDIA / Nebius
 
-Default mode is synthetic_fixture with no model request. Real file-task advice requires LOCAL_ONLY=false, COORDINATOR_PROVIDER=nebius and a backend NEBIUS_API_KEY. A key alone does not enable it. Configure an untracked environment file using env.sample; never place secrets in Git, browser code or model context. Start without SKIP_LOCAL_ENV=true only when deliberately loading that private configuration.
+Two NVIDIA open models sit behind one contract. `nvidia/nemotron-3-super-120b-a12b` is served by
+Nebius Token Factory. `nvidia-nemotron-3-nano-4b` runs on the same machine as the backend through
+any OpenAI-compatible local runtime. Switching between them is configuration, not a code change:
+the metadata projection, the system boundary, the output schema and `validateFileAdvice` are
+identical for both, and only the endpoint rule differs.
 
-The configured model is nvidia/nemotron-3-super-120b-a12b through Nebius Token Factory. The file adviser receives exactly taskAlias, snapshotVersion, channels, state and attempts. It cannot read documents, addresses, real identities or keys, change recipients, extend expiry or authorize execution.
+That rule is where the two outlets stop being interchangeable. The Token Factory outlet accepts
+`https` to `api.tokenfactory.nebius.com` with no port, a backend key, and a model name beginning
+`nvidia/`. The local outlet accepts loopback hosts only, because a non-loopback host would make an
+external call wearing a local name. A local runtime also rejects `json_object` and returns empty
+content under constrained decoding on this architecture, so it is asked for plain text instead. The
+contract still holds, because `validateFileAdvice` is the only thing that decides what is valid;
+schema support at the inference side is a convenience, never the boundary.
 
-[Red/white defense material](docs/ai-generated/2026Q3/human-ai-boundary-material_20260907.md) separates real model calls, input rejection and injected-output gate tests. Earlier failed calls remain disclosed. These results do not prove superiority to deterministic routing, general injection resistance or compatibility with an untested local model.
+Where Token Factory carried the work: a 120B-class model was reachable over a plain
+OpenAI-compatible endpoint, so no GPU had to be provisioned, no weights served and no bespoke client
+written. That endpoint shape is also what made the two-outlet design possible at all. One request
+builder reaches a hosted 120B model and a local 4B model without branching, so the comparison this
+project needs -- a large hosted model and a small local one under identical constraints -- is a
+configuration switch rather than two separate integrations.
+
+No other Nebius service is used. There is no AI Cloud deployment, no Serverless Endpoint and no
+Serverless Job. The application runs as a single Node process with no third-party runtime packages
+and reaches Token Factory over the chat completions API.
+
+Default mode is `synthetic_fixture` and issues no model request. Real file-task advice requires
+`LOCAL_ONLY=false`, `COORDINATOR_PROVIDER=nebius` and a backend `NEBIUS_API_KEY`; a key alone does
+not enable it. Configure an untracked environment file using `env.sample`, and start without
+`SKIP_LOCAL_ENV=true` only when deliberately loading that private configuration. Never place secrets
+in Git, browser code or model context.
+
+The adviser receives exactly `taskAlias`, `snapshotVersion`, `channels`, `state` and `attempts`, and
+returns exactly five fields. It cannot read documents, addresses, real identities or keys, cannot
+change recipients, extend expiry or authorize execution, and is not told who the recipients are, how
+many there are, or how they are grouped.
+
+Real provider calls, input rejection and injected-output gate tests were recorded separately during
+development, including earlier failed calls and their successful retests. Those results do not prove
+superiority to deterministic routing, general injection resistance, or compatibility with an
+untested local runtime.
 
 ## Architecture
 
