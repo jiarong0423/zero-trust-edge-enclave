@@ -173,10 +173,21 @@ export async function advanceFollowups(original, config, now = Date.now(), advis
         task.deliveryEscalations = [...(task.deliveryEscalations || []),
           { version: job.version, code: 'FOLLOWUP_ESCALATED', at: new Date(now).toISOString() }];
       }
-      // One reconsideration per window bucket. The cadence is the window's, not the clock's, so a
-      // short task is not chased more often in proportion than a long one.
+      // Reconsider at the midpoint of what is left, never closer than an eighth of the window. From
+      // approval that lands the decision points at a half, three quarters and seven eighths, which
+      // is the same geometry as the bands the adviser is shown, so each call reports a band the
+      // previous one did not. The eighth is the floor that stops the halving from continuing
+      // forever as the deadline approaches: the step after the last one reaches the deadline, where
+      // this pass stands down and the overdue record takes over.
+      //
+      // Equal quarters were the obvious first choice and are the wrong one. They put three of four
+      // decision points in the stretch where a reminder is least likely to be acted on and leave a
+      // single point for the stretch where it is most likely. The cadence is measured against the
+      // task's own window rather than the clock, so a two-hour delivery and a two-month one are
+      // reconsidered the same number of times.
       const approvedAt = Date.parse(snapshot.approvedAt);
-      const step = Number.isFinite(approvedAt) && deadline > approvedAt ? Math.ceil((deadline - approvedAt) / 4) : deadline - now;
+      const span = Number.isFinite(approvedAt) && deadline > approvedAt ? deadline - approvedAt : 0;
+      const step = span > 0 ? Math.max(Math.ceil((deadline - now) / 2), Math.ceil(span / 8)) : deadline - now;
       job.nextFollowupAt = new Date(Math.min(now + Math.max(step, 1), deadline)).toISOString();
     } catch {
       action = null;

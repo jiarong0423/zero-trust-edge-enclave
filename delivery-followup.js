@@ -30,6 +30,14 @@ const TIME_CODES = ['WINDOW_FULL', 'WINDOW_MOST', 'WINDOW_LITTLE', 'WINDOW_LAST'
 // Ordinal, never a count. "Some" is the whole of what the adviser learns from a partial pickup;
 // how many of how many stays inside the boundary, as it does for every other projection here.
 const PICKUP_CODES = ['PICKUP_NONE', 'PICKUP_SOME', 'PICKUP_ALL'];
+// The reminder state stays an integer, and the field name says so. Turning it into a coined label
+// was tried and measured: on the hosted model it changed nothing, and on a 4B local model it cost
+// two of six cases and pushed latency to the timeout. The earlier win from removing digits was in
+// timeCode, where a number sat beside this one and the two read as a single scale; with timeCode
+// now in words, this is the only number present and has nothing to be confused with. A control
+// variant using symbols with no meaning of their own scored twelve points lower than any labelled
+// variant, which is the same finding from the other side: what a small model needs here is a value
+// it already understands, not a distinct one.
 const FOLLOWUP_ACTIONS = ['WAIT', 'REMIND', 'ESCALATE'];
 const FOLLOWUP_REASONS = ['WINDOW_EARLY', 'NO_PICKUP_YET', 'PARTIAL_PICKUP', 'DEADLINE_NEAR',
   'NUDGES_EXHAUSTED', 'INSUFFICIENT_INFORMATION'];
@@ -40,13 +48,21 @@ const FOLLOWUP_REASONS = ['WINDOW_EARLY', 'NO_PICKUP_YET', 'PARTIAL_PICKUP', 'DE
 // that reminders can be ignored, so spending them is spending the delivery's own credibility.
 export const MAX_NUDGES = 2;
 
+// Each band is half of what the one before it left, so the boundaries fall at a half, three
+// quarters and seven eighths of the window. Equal quarters would spend three of four bands on the
+// stretch where a reminder is least likely to be read and leave one band for the stretch where it
+// is most likely: reported open and click rates for deadline mail are about a quarter higher one
+// day out than two. Spacing research is inconclusive about expanding against uniform intervals as
+// such, so the shape is chosen for where the decision points land, not for the shape itself.
+const BAND_EDGES = [0.5, 0.75, 0.875];
 const timeCode = (approvedAt, deadline, now) => {
   const span = deadline - approvedAt;
-  // A window with no positive span has nothing left to count down. Reporting the last bucket is the
+  // A window with no positive span has nothing left to count down. Reporting the last band is the
   // fail-closed reading: there is no time left to wait out.
   if (!(span > 0)) return TIME_CODES[TIME_CODES.length - 1];
-  const index = Math.floor((Math.min(Math.max(now, approvedAt), deadline) - approvedAt) / span * TIME_CODES.length);
-  return TIME_CODES[Math.min(index, TIME_CODES.length - 1)];
+  const elapsed = (Math.min(Math.max(now, approvedAt), deadline) - approvedAt) / span;
+  const band = BAND_EDGES.findIndex(edge => elapsed < edge);
+  return band === -1 ? TIME_CODES[TIME_CODES.length - 1] : TIME_CODES[band];
 };
 
 export function followupMetadata(snapshot, job, summary, now = Date.now()) {
@@ -64,7 +80,7 @@ export function followupMetadata(snapshot, job, summary, now = Date.now()) {
     taskAlias: snapshot.privateMapping.taskAlias,
     snapshotVersion: snapshot.version,
     timeCode: timeCode(approvedAt, deadline, now),
-    nudges: Math.min(nudges, MAX_NUDGES),
+    nudgeCount: Math.min(nudges, MAX_NUDGES),
     pickupCode: total > 0 && collected >= total ? 'PICKUP_ALL' : collected > 0 ? 'PICKUP_SOME' : 'PICKUP_NONE'
   };
 }
@@ -78,7 +94,7 @@ export function validateFollowupAdvice(advice, metadata) {
   // The nudge ceiling is the caller's, not the adviser's. An adviser that keeps proposing REMIND
   // past the budget would otherwise loop forever, so the ceiling is enforced here rather than
   // trusted to the prompt that states it.
-  if (advice.action === 'REMIND' && metadata.nudges >= MAX_NUDGES) fail('FOLLOWUP_NUDGE_BUDGET_SPENT', 422);
+  if (advice.action === 'REMIND' && metadata.nudgeCount >= MAX_NUDGES) fail('FOLLOWUP_NUDGE_BUDGET_SPENT', 422);
   // Everything has been collected, so there is nothing left to chase. Accepting a nudge here would
   // let the adviser generate traffic against a finished delivery.
   if (advice.action !== 'WAIT' && metadata.pickupCode === 'PICKUP_ALL') fail('FOLLOWUP_NOT_REQUIRED', 422);
@@ -89,7 +105,7 @@ export function validateFollowupAdvice(advice, metadata) {
   const coherent = {
     NO_PICKUP_YET: metadata.pickupCode === 'PICKUP_NONE',
     PARTIAL_PICKUP: metadata.pickupCode === 'PICKUP_SOME',
-    NUDGES_EXHAUSTED: metadata.nudges >= MAX_NUDGES,
+    NUDGES_EXHAUSTED: metadata.nudgeCount >= MAX_NUDGES,
     DEADLINE_NEAR: metadata.timeCode === 'WINDOW_LAST',
     WINDOW_EARLY: metadata.timeCode !== 'WINDOW_LAST',
     INSUFFICIENT_INFORMATION: true,
@@ -108,7 +124,7 @@ export function syntheticFollowupAdvice(metadata) {
     return { ...base, action: 'WAIT',
       reasonCode: metadata.timeCode === 'WINDOW_LAST' ? 'INSUFFICIENT_INFORMATION' : 'WINDOW_EARLY' };
   }
-  if (metadata.nudges >= MAX_NUDGES) return { ...base, action: 'ESCALATE', reasonCode: 'NUDGES_EXHAUSTED' };
+  if (metadata.nudgeCount >= MAX_NUDGES) return { ...base, action: 'ESCALATE', reasonCode: 'NUDGES_EXHAUSTED' };
   if (metadata.timeCode === 'WINDOW_LAST') return { ...base, action: 'ESCALATE', reasonCode: 'DEADLINE_NEAR' };
   if (metadata.timeCode === 'WINDOW_FULL') return { ...base, action: 'WAIT', reasonCode: 'WINDOW_EARLY' };
   return { ...base, action: 'REMIND',

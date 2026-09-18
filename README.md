@@ -75,10 +75,13 @@ identical for both, and only the endpoint rule differs.
 That rule is where the two outlets stop being interchangeable. The Token Factory outlet accepts
 `https` to `api.tokenfactory.nebius.com` with no port, a backend key, and a model name beginning
 `nvidia/`. The local outlet accepts loopback hosts only, because a non-loopback host would make an
-external call wearing a local name. A local runtime also rejects `json_object` and returns empty
-content under constrained decoding on this architecture, so it is asked for plain text instead. The
-contract still holds, because `validateFileAdvice` is the only thing that decides what is valid;
-schema support at the inference side is a convenience, never the boundary.
+external call wearing a local name. It also asks for the schema differently: the runtime rejects
+`json_object` and takes `json_schema`, and the constraint is what stops the model reasoning aloud
+before it answers. Unconstrained, Nemotron Nano spends 500 to 1000 tokens deliberating and takes 8
+to 36 seconds; constrained, it answers in 64 to 73 tokens and under 4.2 seconds.
+
+Neither is the boundary. `validateFileAdvice` decides what is valid, and a schema the server honours
+only means fewer answers reach it malformed.
 
 Where Token Factory carried the work: a 120B-class model was reachable over a plain
 OpenAI-compatible endpoint, so no GPU had to be provisioned, no weights served and no bespoke client
@@ -103,9 +106,14 @@ change recipients, extend expiry or authorize execution, and is not told who the
 many there are, or how they are grouped.
 
 Real provider calls, input rejection and injected-output gate tests were recorded separately during
-development, including earlier failed calls and their successful retests. Those results do not prove
-superiority to deterministic routing, general injection resistance, or compatibility with an
-untested local runtime.
+development, including earlier failed calls and their successful retests. One earlier conclusion was
+wrong and is corrected here rather than quietly dropped: constrained decoding on the local runtime
+was recorded as returning empty content, when it returns a complete and correct answer assembled
+into `reasoning_content` while `content` is left empty. A client reading only `content` sees an
+empty success. None of these results prove superiority to deterministic routing, general injection
+resistance, or compatibility with an untested local runtime.
+
+Version 2026-09-18T19:57:17Z. Test evidence at this revision: 93 of 93, thirty consecutive runs.
 
 ## Architecture
 

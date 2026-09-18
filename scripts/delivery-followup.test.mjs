@@ -42,7 +42,7 @@ test('the projection is exactly five fields and carries no recipient information
   // the nudge count is 2, so a stray 3 or 7 could only have come from the receipt figures.
   const metadata = followupMetadata(snapshotFor(), jobFor(2), summaryFor(3, 7), 12 * HOUR);
   assert.deepEqual(Object.keys(metadata).sort(),
-    ['nudges', 'pickupCode', 'snapshotVersion', 'taskAlias', 'timeCode']);
+    ['nudgeCount', 'pickupCode', 'snapshotVersion', 'taskAlias', 'timeCode']);
   const serialized = JSON.stringify(metadata);
   for (const leak of ['recipient-a', 'recipient-b', 'A1', 'A2', taskId]) {
     assert.ok(!serialized.includes(leak), `projection leaked ${leak}: ${serialized}`);
@@ -50,6 +50,9 @@ test('the projection is exactly five fields and carries no recipient information
   // A bare digit would match inside the alias UUID, so the receipt figures are excluded
   // structurally instead: the only numbers present are the version and the nudge count.
   assert.equal(metadata.pickupCode, 'PICKUP_SOME', 'the ordinal is all that survives');
+  assert.equal(metadata.nudgeCount, 2);
+  // The version is the only number left anywhere in the projection.
+  // The version and the nudge count are the only numbers; the receipt figures are neither.
   assert.deepEqual(Object.values(metadata).filter(value => typeof value === 'number'), [1, 2]);
 });
 
@@ -58,12 +61,15 @@ test('an identical position in different windows yields the same code, so wall-c
   const short = followupMetadata(snapshotFor({ deadline: 48 * HOUR }), jobFor(0), summaryFor(0, 2), 36 * HOUR);
   const long = followupMetadata(snapshotFor({ deadline: 1440 * HOUR }), jobFor(0), summaryFor(0, 2), 1080 * HOUR);
   assert.equal(short.timeCode, long.timeCode);
-  assert.equal(short.timeCode, 'WINDOW_LAST');
+  assert.equal(short.timeCode, 'WINDOW_LITTLE', 'three quarters elapsed is the third band');
 });
 
 test('time codes advance across the window and clamp at both ends', () => {
   const at = now => followupMetadata(snapshotFor({ deadline: 40 * HOUR }), jobFor(0), summaryFor(0, 2), now).timeCode;
-  assert.deepEqual([at(0), at(15 * HOUR), at(25 * HOUR), at(35 * HOUR)], ['WINDOW_FULL', 'WINDOW_MOST', 'WINDOW_LITTLE', 'WINDOW_LAST']);
+  // Bands halve what is left, so the edges are at a half, three quarters and seven eighths rather
+  // than at equal quarters.
+  assert.deepEqual([at(0), at(20 * HOUR), at(30 * HOUR), at(35 * HOUR)], ['WINDOW_FULL', 'WINDOW_MOST', 'WINDOW_LITTLE', 'WINDOW_LAST']);
+  assert.equal(at(19 * HOUR), 'WINDOW_FULL', 'just under half the window is still the first band');
   assert.equal(at(-100 * HOUR), 'WINDOW_FULL', 'a clock before approval cannot report a negative position');
   assert.equal(at(900 * HOUR), 'WINDOW_LAST', 'past the deadline stays in the final bucket');
 });
@@ -89,14 +95,20 @@ test('pickup is ordinal: none, some, all', () => {
   assert.equal(code(0, 0), 'PICKUP_NONE', 'an empty list is not a completed delivery');
 });
 
-test('the nudge count is reported but never above the ceiling', () => {
-  assert.equal(followupMetadata(snapshotFor(), jobFor(2), summaryFor(0, 2), 12 * HOUR).nudges, 2);
-  assert.equal(followupMetadata(snapshotFor(), jobFor(9), summaryFor(0, 2), 12 * HOUR).nudges, MAX_NUDGES);
+test('the nudge count is reported and never exceeds the ceiling', () => {
+  const code = nudges => followupMetadata(snapshotFor(), jobFor(nudges), summaryFor(0, 2), 12 * HOUR).nudgeCount;
+  assert.deepEqual([code(0), code(1), code(2)], [0, 1, 2]);
+  assert.equal(code(9), MAX_NUDGES, 'counting past the ceiling is clamped, not reported');
+  const metadata = followupMetadata(snapshotFor(), jobFor(1), summaryFor(1, 3), 12 * HOUR);
+  // It is the only quantity in the projection; the other two fields are labels with no amount
+  // behind them, so there is no second number for it to be combined with.
+  assert.deepEqual(Object.values(metadata).filter(value => typeof value === 'number').sort(),
+    [metadata.nudgeCount, metadata.snapshotVersion].sort());
 });
 
 test('only reminders count as nudges', () => {
   const job = { status: 'DRY_RUN_PREPARED', followups: [{ action: 'WAIT' }, { action: 'REMIND' }, { action: 'WAIT' }] };
-  assert.equal(followupMetadata(snapshotFor(), job, summaryFor(0, 2), 12 * HOUR).nudges, 1);
+  assert.equal(followupMetadata(snapshotFor(), job, summaryFor(0, 2), 12 * HOUR).nudgeCount, 1);
 });
 
 const metadataAt = (options, job = jobFor(0), summary = summaryFor(0, 2), now = 12 * HOUR) =>

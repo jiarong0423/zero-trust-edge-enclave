@@ -45,7 +45,7 @@ test('a prepared required-acknowledgement delivery is reconsidered and can be re
   assert.equal(early.jobs[0].followups.length, 1);
   assert.equal(early.jobs[0].notice.subjectCode, 'SEALED_DOCUMENT_AVAILABLE', 'a wait prepares nothing');
 
-  const mid = await advanceFollowups(early, config, now + 15 * HOUR);
+  const mid = await advanceFollowups(early, config, now + 25 * HOUR);
   assert.equal(mid.jobs[0].followupAdvice.action, 'REMIND');
   assert.equal(mid.jobs[0].notice.subjectCode, 'SEALED_DOCUMENT_REMINDER');
   assert.equal(mid.jobs[0].notice.sendsEmail, false, 'a reminder is a dry run like the first notice');
@@ -76,7 +76,7 @@ test('after the deadline the follow-up pass stands down and leaves the overdue r
 test('a grant revoked while the adviser was answering stops the reminder it advised', async () => {
   const { task, config, grant, now } = await prepared();
   const revoked = { ...config, grants: [{ ...grant, revoked: true }] };
-  const blocked = await advanceFollowups(task, config, now + 15 * HOUR, syntheticFollowupAdvice, async () => revoked);
+  const blocked = await advanceFollowups(task, config, now + 25 * HOUR, syntheticFollowupAdvice, async () => revoked);
   assert.equal(blocked.jobs[0].followupPausedBy, 'AUTHORIZATION_INVALID');
   assert.equal(blocked.jobs[0].followups, undefined, 'a refused pass records no follow-up');
   assert.equal(blocked.jobs[0].notice.subjectCode, 'SEALED_DOCUMENT_AVAILABLE');
@@ -87,7 +87,7 @@ test('a disabled operator stops the pass before any advice is requested', async 
   let asked = 0;
   const disabled = { ...config, principals: config.principals.map(person =>
     person.id === actor.id ? { ...person, disabled: true } : person) };
-  const blocked = await advanceFollowups(disabled === config ? config : disabled, config, now + 15 * HOUR,
+  const blocked = await advanceFollowups(disabled === config ? config : disabled, config, now + 25 * HOUR,
     async metadata => { asked += 1; return syntheticFollowupAdvice(metadata); });
   assert.equal(asked, 0, 'no projection may be sent for a principal that is already disabled');
   assert.equal(blocked, disabled === config ? config : blocked);
@@ -97,7 +97,7 @@ test('a recipient disabled after the advice blocks the reminder', async () => {
   const { task, config, now } = await prepared();
   const disabled = { ...config, principals: config.principals.map(person =>
     person.id === 'b' ? { ...person, disabled: true } : person) };
-  const blocked = await advanceFollowups(task, config, now + 15 * HOUR, syntheticFollowupAdvice, async () => disabled);
+  const blocked = await advanceFollowups(task, config, now + 25 * HOUR, syntheticFollowupAdvice, async () => disabled);
   assert.equal(blocked.jobs[0].followupPausedBy, 'RECIPIENT_DISABLED');
   assert.equal(blocked.jobs[0].notice.subjectCode, 'SEALED_DOCUMENT_AVAILABLE');
 });
@@ -107,7 +107,7 @@ test('an adviser that widens the contract is refused and prepares nothing', asyn
   for (const change of [{ action: 'ROUTE' }, { action: 'SEND' }, { channel: 'email' },
     { recipients: ['a'] }, { snapshotVersion: 2 }, { reasonCode: 'APPROVED_CHANNEL' },
     { taskAlias: '11111111-1111-4111-8111-111111111111' }, { nudges: 0 }]) {
-    const blocked = await advanceFollowups(task, config, now + 15 * HOUR,
+    const blocked = await advanceFollowups(task, config, now + 25 * HOUR,
       async metadata => ({ ...syntheticFollowupAdvice(metadata), action: 'REMIND', reasonCode: 'NO_PICKUP_YET', ...change }));
     assert.equal(blocked.jobs[0].followupPausedBy, 'ADVICE_INVALID', 'accepted ' + JSON.stringify(change));
     assert.equal(blocked.jobs[0].notice.subjectCode, 'SEALED_DOCUMENT_AVAILABLE');
@@ -142,7 +142,7 @@ test('escalation is recorded once for a version', async () => {
 
 test('every follow-up event survives the audit projection with an allowlisted type and code', async () => {
   const { task, config, now } = await prepared();
-  const chased = await advanceFollowups(task, config, now + 15 * HOUR);
+  const chased = await advanceFollowups(task, config, now + 25 * HOUR);
   const events = chased.auditOutbox.filter(entry => entry.type === 'DELIVERY_FOLLOWUP');
   assert.ok(events.length >= 1);
   for (const event of events) {
@@ -164,7 +164,7 @@ test('a reminder passes over whoever already collected, in silence', async () =>
     fileKeyReleases: [{ version: 1, subject: 'a' }],
     fileReceipts: [{ version: 1, subject: 'a', code: 'DOWNLOAD_REQUESTED',
       evidence: 'CLIENT_REPORTED', reportedAt: new Date(now).toISOString() }] };
-  const reminded = await advanceFollowups(collected, config, now + 15 * HOUR,
+  const reminded = await advanceFollowups(collected, config, now + 25 * HOUR,
     metadata => ({ taskAlias: metadata.taskAlias, snapshotVersion: metadata.snapshotVersion,
       action: 'REMIND', reasonCode: 'PARTIAL_PICKUP' }));
   const notice = reminded.jobs[0].notice;
@@ -179,7 +179,7 @@ test('a reminder passes over whoever already collected, in silence', async () =>
 
 test('neither projection can carry the notice, so the outstanding headcount never reaches a model', async () => {
   const { task, config, now } = await prepared();
-  const reminded = await advanceFollowups(task, config, now + 15 * HOUR,
+  const reminded = await advanceFollowups(task, config, now + 25 * HOUR,
     metadata => ({ taskAlias: metadata.taskAlias, snapshotVersion: metadata.snapshotVersion,
       action: 'REMIND', reasonCode: 'NO_PICKUP_YET' }));
   const job = reminded.jobs[0];
@@ -187,8 +187,8 @@ test('neither projection can carry the notice, so the outstanding headcount neve
   // A per-recipient boolean list is a count by another name: the number of outstanding targets is
   // exactly the figure both projections exist to withhold. This asserts neither can reach it.
   const snapshot = reminded.snapshots.find(item => item.version === 1);
-  const summary = receiptSummary(reminded, 1, now + 15 * HOUR);
-  for (const projection of [fileRoutingMetadata(snapshot, job), followupMetadata(snapshot, job, summary, now + 15 * HOUR)]) {
+  const summary = receiptSummary(reminded, 1, now + 25 * HOUR);
+  for (const projection of [fileRoutingMetadata(snapshot, job), followupMetadata(snapshot, job, summary, now + 25 * HOUR)]) {
     const serialized = JSON.stringify(projection);
     assert.ok(!serialized.includes('targets'), serialized);
     assert.ok(!serialized.includes('notice'), serialized);
