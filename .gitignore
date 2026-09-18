@@ -10,3 +10,4 @@ security-audit-output/
 .DS_Store
 npm-debug.log*
 docs/ai-generated/
+.claude/
