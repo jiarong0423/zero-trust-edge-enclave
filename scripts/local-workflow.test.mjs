@@ -208,6 +208,18 @@ test('isolated local authorization, coordinator and dry-run end to end', async t
         { version: 2, ...(action === 'key' ? { credential: 'a'.repeat(43) } : {}) }, actor)).status, 403);
     }
   }
+  // A registered recipient refused on a resolved task is recorded against that task, with the
+  // generic code and no identity, so the sender can see the refusal without learning who it was.
+  const refusals = JSON.parse(await fs.readFile(path.join(dir, 'audit.json'), 'utf8'))
+    .filter(event => event.taskId === staged.body.task.id && event.type === 'REQUEST_REJECTED' &&
+      event.reasons.includes('ACCESS_DENIED'));
+  assert.equal(refusals.length, 3);
+  for (const event of refusals) {
+    assert.equal(event.result, 'DENY');
+    assert.deepEqual(event.reasons, ['ACCESS_DENIED']);
+    assert.equal(event.snapshotVersion, null);
+    assert.ok(!JSON.stringify(event).includes('recipient-b'));
+  }
   assert.equal((await request(accessUrl + '/credential', { version: 1 }, 'recipient-a')).status, 409);
   const ticket = await request(accessUrl + '/credential', { version: 2 }, 'recipient-a');
   assert.equal((await request(accessUrl + '/receipt', { version: 2, code: 'DOWNLOAD_REQUESTED' }, 'recipient-a')).status, 403);

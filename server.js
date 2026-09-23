@@ -1098,6 +1098,9 @@ async function routeApi(req, res, pathname) {
     const index = tasks.findIndex(task => task.id === fileAccessRoute[1]);
     const task = tasks[index];
     if (!task?.file) fail('File unavailable', 404);
+    // The task is resolved from server state here, so a refusal from this point on belongs to it and
+    // reaches its sender's audit view. Only the task is named: the version is still the caller's claim.
+    requestContext.getStore().auditTarget = { taskId: task.id };
     if (fileAccessRoute[2] === 'receipt-status') {
       sendJson(res, 200, recipientReceiptStatus(task, principal, input.version));
       return;
