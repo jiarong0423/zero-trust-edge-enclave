@@ -35,7 +35,7 @@ Test evidence at the same tree: 99/99, thirty consecutive runs with no variation
 
 Later the same day the hosted lock fix added `scripts/hosted-lock.mjs` and its test. The 113-file
 candidate scans the same except for one ai-security-rules MEDIUM, a shell-command heuristic on
-`docs/agent/zeabur-deployment.md:71`, which is prose quoting the platform's `sh -c` start command. Localguard and
+`docs/agent/zeabur-deployment.md:68`, which is prose explaining the `exec` start command. Localguard and
 release-boundary counts are unchanged. Tests: 103/103, thirty consecutive runs.
 
 ## Delivery Follow-Up Addition, 2026-09-18

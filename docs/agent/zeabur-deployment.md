@@ -64,13 +64,12 @@ allows group or other access, and refuses a symlinked path.
 the deployed instance generates its own.
 
 The volume also keeps `server.lock` between containers. A deployment on 2026-09-24 crash-looped on a
-leftover lock until Zeabur suspended the service. A lock left behind is now cleared unless its pid
-leads its own thread group and is running `server.js`: a bare `kill(pid, 0)` also succeeds for a
-thread id, and container pid numbering is deterministic, so the wrapper's own threads could occupy
-the pid the old server held. The wrapper also forwards SIGTERM and SIGINT to the server, whose
-shutdown handler removes the lock, but the platform starts it as `sh -c node scripts/start-hosted.mjs`
-and `sh` does not pass the stop signal on. Until the start command in `zbpack.json` uses `exec`,
-every deployment still leaves a lock behind, and the next start clears it.
+leftover lock until Zeabur suspended the service, and two changes came out of it. `zbpack.json`
+starts the wrapper with `exec`, so Node rather than `sh` is pid 1 and the platform's stop signal
+reaches it; the wrapper forwards it to the server, whose shutdown handler removes the lock. A lock
+that survives anyway, after a kill, is cleared unless its pid leads its own thread group and is
+running `server.js`: a bare `kill(pid, 0)` also succeeds for a thread id, and container pid
+numbering is deterministic, so the wrapper's own threads could occupy the pid the old server held.
 
 ## Spending Cap
 
