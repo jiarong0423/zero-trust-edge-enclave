@@ -63,6 +63,15 @@ allows group or other access, and refuses a symlinked path.
 `.gitignore` and `.zeaburignore` both exclude `data/`, so nothing from a local run is ever uploaded;
 the deployed instance generates its own.
 
+The volume also keeps `server.lock` between containers. A deployment on 2026-09-24 crash-looped on a
+leftover lock until Zeabur suspended the service. A lock left behind is now cleared unless its pid
+leads its own thread group and is running `server.js`: a bare `kill(pid, 0)` also succeeds for a
+thread id, and container pid numbering is deterministic, so the wrapper's own threads could occupy
+the pid the old server held. The wrapper also forwards SIGTERM and SIGINT to the server, whose
+shutdown handler removes the lock, but the platform starts it as `sh -c node scripts/start-hosted.mjs`
+and `sh` does not pass the stop signal on. Until the start command in `zbpack.json` uses `exec`,
+every deployment still leaves a lock behind, and the next start clears it.
+
 ## Spending Cap
 
 Token Factory documents no per-key spending limit, and a card-backed balance may go negative before

@@ -2,7 +2,9 @@ import { promises as fs } from 'node:fs';
 import { spawn } from 'node:child_process';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import os from 'node:os';
 import { validateAccess } from '../access-control.js';
+import { lockHeldByLiveServer } from './hosted-lock.mjs';
 
 /**
  * A hosted instance starts on an empty volume. The server does not create a registry, so without
@@ -16,10 +18,25 @@ import { validateAccess } from '../access-control.js';
  */
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const dataDir = path.resolve(root, process.env.DATA_DIR || 'data');
+let current = null;
 const run = (file, args) => new Promise((resolve, reject) => {
   const child = spawn(process.execPath, [file, ...args], { cwd: root, stdio: 'inherit' });
-  child.on('close', code => code === 0 ? resolve() : reject(new Error(`${file} exited ${code}`)));
+  current = child;
+  child.on('close', code => {
+    current = null;
+    code === 0 ? resolve() : reject(new Error(`${file} exited ${code}`));
+  });
 });
+
+// A platform stop signals this wrapper, not the server. Forwarded, it reaches the server's own
+// shutdown handler, which removes the lock; otherwise the server is killed outright after the grace
+// period and every deployment leaves a lock behind on the volume.
+for (const signal of ['SIGTERM', 'SIGINT']) {
+  process.on(signal, () => {
+    if (current) current.kill(signal);
+    else process.exit(128 + os.constants.signals[signal]);
+  });
+}
 
 await fs.mkdir(dataDir, { recursive: true, mode: 0o700 });
 // A mounted volume arrives with the platform's mode, which setup refuses. Tightening it is the one
@@ -43,12 +60,13 @@ if (!(await fs.access(registry).then(() => true, () => false))) {
 }
 
 // A container killed without its shutdown handler leaves the lock behind, and the next start would
-// fail on it forever. The lock records the pid that wrote it, so a lock whose process is gone is
-// stale and can be cleared; a live one is left alone and the server's own guard still fires.
+// fail on it. The lock records the pid that wrote it, so a lock whose server is gone is stale and can
+// be cleared; a live one is left alone and the server's own guard still fires.
 const lock = path.join(dataDir, 'server.lock');
 const pid = Number(await fs.readFile(lock, 'utf8').catch(() => ''));
-if (pid) {
-  try { process.kill(pid, 0); } catch { await fs.unlink(lock).catch(() => {}); }
+if (pid && !(await lockHeldByLiveServer(pid))) {
+  await fs.unlink(lock).catch(() => {});
+  console.log('Cleared a stale server.lock left by a previous container.');
 }
 
 await run('server.js', []);
