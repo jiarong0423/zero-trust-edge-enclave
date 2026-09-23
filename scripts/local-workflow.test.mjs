@@ -33,6 +33,8 @@ import './delivery-followup-worker.test.mjs';
 import './audit-retention.test.mjs';
 import './download-policy.test.mjs';
 import './retention-policy.test.mjs';
+import './demo-gate.test.mjs';
+import './nebius-budget.test.mjs';
 
 test('audit boundary constructs only allowlisted fields and reason codes', () => {
   const event = auditProjection({ packageId: 'private@example.invalid', type: 'PRIVATE_CANARY',

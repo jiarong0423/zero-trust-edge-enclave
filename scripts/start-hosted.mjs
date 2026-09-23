@@ -2,6 +2,7 @@ import { promises as fs } from 'node:fs';
 import { spawn } from 'node:child_process';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { validateAccess } from '../access-control.js';
 
 /**
  * A hosted instance starts on an empty volume. The server does not create a registry, so without
@@ -26,8 +27,19 @@ await fs.mkdir(dataDir, { recursive: true, mode: 0o700 });
 await fs.chmod(dataDir, 0o700);
 const registry = path.join(dataDir, 'access.json');
 if (!(await fs.access(registry).then(() => true, () => false))) {
-  console.log('No registry on this volume; creating one before serving.');
-  await run('scripts/setup-local.mjs', [dataDir]);
+  const seeded = process.env.HOSTED_REGISTRY_B64;
+  if (seeded) {
+    // A registry prepared locally carries only token hashes, so the plaintext tokens stay with
+    // whoever ran setup and can be handed to judges; the host never sees them.
+    const config = validateAccess(JSON.parse(Buffer.from(seeded, 'base64').toString('utf8')));
+    if (config.principals.some(person => Object.keys(person).some(key => /^token$|secret|password/i.test(key))))
+      throw new Error('HOSTED_REGISTRY_B64 must contain token hashes only');
+    await fs.writeFile(registry, JSON.stringify(config, null, 2), { flag: 'wx', mode: 0o600 });
+    console.log('No registry on this volume; installed the provided hash-only registry.');
+  } else {
+    console.log('No registry on this volume; creating one before serving.');
+    await run('scripts/setup-local.mjs', [dataDir]);
+  }
 }
 
 // A container killed without its shutdown handler leaves the lock behind, and the next start would

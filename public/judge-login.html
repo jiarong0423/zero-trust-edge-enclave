@@ -1,0 +1,33 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Judge Sign-in - Zero-Trust Edge Enclave</title>
+    <link rel="stylesheet" href="/styles.css">
+  </head>
+  <body>
+    <header class="topbar">
+      <div>
+        <p class="eyebrow">Hosted demo</p>
+        <h1>Zero-Trust Edge Enclave</h1>
+      </div>
+    </header>
+
+    <main class="layout">
+      <section class="panel">
+        <div class="section-heading">
+          <p class="eyebrow">Step 1 of 2</p>
+          <h2>Judge sign-in</h2>
+        </div>
+        <form id="gateForm">
+          <label class="field"><span>Username</span><input id="gateUser" autocomplete="username" required></label>
+          <label class="field"><span>Password</span><input id="gatePassword" type="password" autocomplete="current-password" required></label>
+          <button class="button primary" type="submit">Sign in</button>
+        </form>
+        <div id="gateStatus" class="status-card">This sign-in only opens the site. Each page then asks for the role access token listed in the submission's testing instructions.</div>
+      </section>
+    </main>
+    <script type="module" src="/judge-login.js"></script>
+  </body>
+</html>

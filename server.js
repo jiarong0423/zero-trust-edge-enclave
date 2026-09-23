@@ -24,6 +24,8 @@ import { initializeArrays, readArray, writeArray } from './local-array-store.js'
 import { findArchivedAudit, retainAuditWindow, auditArchiveIndex } from './audit-retention.js';
 import { checkDownloadAccess, sendDeadlineJson } from './download-policy.js';
 import { retentionInventory } from './retention-policy.js';
+import { gateConfig, gateAllows, gateSignIn } from './demo-gate.js';
+import { createBudget } from './nebius-budget.js';
 import { loadAccess, authenticate, activeGrant, authorizeRecord, safeMetadata, validateAdvice, advanceDelivery, exact, fail } from './access-control.js';
 
 const __filename = fileURLToPath(import.meta.url);
@@ -51,6 +53,8 @@ const nebiusModel = process.env.NEBIUS_MODEL || 'nvidia/nemotron-3-super-120b-a1
 const localOnly = process.env.LOCAL_ONLY !== 'false';
 const demoFallbackEnabled = process.env.DEMO_FALLBACK_ENABLED !== 'false';
 const tokenSigningSecret = resolveTokenSigningSecret();
+const demoGate = gateConfig(process.env);
+const nebiusBudget = createBudget(process.env, path.join(dataDir, 'nebius-spend.json'));
 
 const mimeTypes = new Map([
   ['.html', 'text/html; charset=utf-8'],
@@ -265,7 +269,7 @@ function normalizePolicyMetadata(value) {
   };
 }
 
-function buildFallbackPolicy(input) {
+function buildFallbackPolicy(input, reason = 'Demo fallback was used because NEBIUS_API_KEY is not configured.') {
   const metadata = normalizePolicyMetadata(input.policyMetadata);
   const highRisk = metadata.confidentiality === 'confidential' || metadata.dataCategory === 'finance' || metadata.dataCategory === 'legal';
   const requestedTtl = metadata.requestedExpiry === '24h' ? 1440 : metadata.requestedExpiry === '4h' ? 240 : 60;
@@ -285,7 +289,7 @@ function buildFallbackPolicy(input) {
       ? ['mask customer identifiers for non-cfo roles', 'mask unreleased revenue figures for non-cfo roles']
       : ['mask direct identifiers for non-manager roles'],
     watermarkRequired: true,
-    warnings: ['Demo fallback was used because NEBIUS_API_KEY is not configured. This is not hackathon submission evidence.']
+    warnings: [`${reason} This is not hackathon submission evidence.`]
   };
 }
 
@@ -323,6 +327,9 @@ async function callNebiusPolicy(input) {
     }
     return validatePolicy(buildFallbackPolicy(input));
   }
+  if (await nebiusBudget.exhausted()) {
+    return validatePolicy(buildFallbackPolicy(input, 'Demo fallback was used because the Token Factory budget is spent.'));
+  }
 
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), 30000);
@@ -345,7 +352,7 @@ async function callNebiusPolicy(input) {
   ];
 
   try {
-    const response = await fetch(`${nebiusBaseUrl.replace(/\/$/, '')}/chat/completions`, {
+    const response = await nebiusBudget.fetch(`${nebiusBaseUrl.replace(/\/$/, '')}/chat/completions`, {
       method: 'POST',
       headers: {
         authorization: `Bearer ${apiKey}`,
@@ -1008,10 +1015,10 @@ async function coordinatorCall(input) {
   if (input.tool !== 'recommend') fail('Coordinator tool not allowed', 422);
   let provider = 'synthetic_fixture';
   let advice = { action: 'DELIVER', channel: metadata.channels[0], reasonCode: 'CAPABILITY_MATCH' };
-  if (process.env.COORDINATOR_PROVIDER === 'nebius') {
+  if (process.env.COORDINATOR_PROVIDER === 'nebius' && !(await nebiusBudget.exhausted())) {
     if (localOnly) fail('External inference disabled in local-only mode', 503);
     if (!process.env.NEBIUS_API_KEY) fail('Coordinator provider unavailable', 503);
-    const response = await fetch(`${nebiusBaseUrl.replace(/\/$/, '')}/chat/completions`, {
+    const response = await nebiusBudget.fetch(`${nebiusBaseUrl.replace(/\/$/, '')}/chat/completions`, {
       method: 'POST', signal: AbortSignal.timeout(15000),
       headers: { 'content-type': 'application/json', authorization: `Bearer ${process.env.NEBIUS_API_KEY}` },
       body: JSON.stringify({ model: nebiusModel, temperature: 0,
@@ -1040,7 +1047,8 @@ async function routeApi(req, res, pathname) {
       nebiusModel,
       localOutletBaseUrl: localModelBaseUrl,
       localOutletModel: localModelName,
-      demoFallbackEnabled
+      demoFallbackEnabled,
+      nebiusBudget: await nebiusBudget.status()
     });
     return;
   }
@@ -1573,12 +1581,16 @@ let apiQueue = Promise.resolve();
 // Each outlet is given its own endpoint and model. The loopback outlet is never handed the cloud
 // credential: it does not need one, and sending a provider key to a local endpoint would put that
 // key somewhere the boundary never intended it to go.
-function fileAdviser(metadata, kind = 'route') {
-  const provider = process.env.COORDINATOR_PROVIDER || 'synthetic_fixture';
+// A spent Token Factory budget hands the decision to the synthetic adviser, the same path a
+// deployment without a key takes, rather than pausing every delivery.
+async function fileAdviser(metadata, kind = 'route') {
+  let provider = process.env.COORDINATOR_PROVIDER || 'synthetic_fixture';
+  if (provider === 'nebius' && await nebiusBudget.exhausted()) provider = 'synthetic_fixture';
   const outlet = provider === 'local_openai_compatible'
     ? { baseUrl: localModelBaseUrl, model: localModelName }
     : { baseUrl: nebiusBaseUrl, model: nebiusModel, apiKey: process.env.NEBIUS_API_KEY };
-  return requestFileAdvice(metadata, { provider, localOnly, kind, ...outlet });
+  return requestFileAdvice(metadata, { provider, localOnly, kind, ...outlet },
+    provider === 'nebius' ? (url, init) => nebiusBudget.fetch(url, init) : fetch);
 }
 let workerBusy = false;
 let workerTimer;
@@ -1623,6 +1635,23 @@ const createServer = handler => tlsOptions ? https.createServer(tlsOptions, hand
 const server = createServer(async (req, res) => {
   try {
     const url = new URL(req.url || '/', `http://${req.headers.host || `${host}:${port}`}`);
+    if (demoGate && url.pathname === '/api/judge-login') {
+      if (req.method !== 'POST') fail('Method not allowed', 405);
+      const input = await readBody(req, 4096);
+      const secure = String(req.headers['x-forwarded-proto'] || '').split(',')[0].trim() === 'https' || Boolean(req.socket?.encrypted);
+      const result = gateSignIn(demoGate, input, secure);
+      if (result.status) fail(result.status === 401 ? 'Sign-in rejected' : 'Sign-in unavailable', result.status);
+      res.setHeader('set-cookie', result.cookie);
+      sendJson(res, 200, { ok: true });
+      return;
+    }
+    if (!gateAllows(demoGate, req, url.pathname)) {
+      if (!demoGate.ready) fail('Demo sign-in is not configured', 503);
+      if (url.pathname.startsWith('/api/')) fail('Demo sign-in required', 401);
+      res.writeHead(302, { location: '/judge-login.html', 'cache-control': 'no-store' });
+      res.end();
+      return;
+    }
     if (url.pathname.startsWith('/api/')) {
       const run = apiQueue.then(() => requestContext.run({}, async () => {
         try { return await routeApi(req, res, url.pathname); }

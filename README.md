@@ -100,6 +100,10 @@ not enable it. Configure an untracked environment file using `env.sample`, and s
 `SKIP_LOCAL_ENV=true` only when deliberately loading that private configuration. Never place secrets
 in Git, browser code or model context.
 
+The hosted instance has a Token Factory spending cap. Once it is spent, the advisers fall back to
+synthetic advice and every other step keeps working; the current state is under `nebiusBudget` in
+`/api/health`.
+
 Two decisions sit behind that contract, each with its own five-field projection and its own
 validator. Routing is asked whether a prepared job should go out on an approved channel or hold:
 `taskAlias`, `snapshotVersion`, `channels`, `state`, `attempts`, answered with `ROUTE` or `PAUSE`.
