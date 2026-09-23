@@ -1,6 +1,6 @@
 # Public Export Manifest
 
-Review date: 2026-09-18 (was 2026-09-08). Status: local candidate only; publication is not authorized.
+Review date: 2026-09-24 (was 2026-09-18). Status: public on GitHub since 2026-09-18; this list is the allowlist every push is checked against.
 
 The following exact paths are the release allowlist, not directory wildcards. Runtime data, credentials, environment secrets, logs, output, dependencies, Git metadata, screenshots and raw provider evidence are excluded even when untracked. New source files require explicit review and a manifest update.
 
@@ -25,6 +25,7 @@ audit-boundary.js
 audit-outbox.js
 audit-retention.js
 delivery-followup.js
+demo-gate.js
 directory-admin.js
 docs/agent/approved-delivery-architecture.md
 docs/agent/local-workflow.md
@@ -48,6 +49,7 @@ file-routing.js
 file-worker.js
 local-array-store.js
 local-key-vault.js
+nebius-budget.js
 package.json
 private-mapping.js
 public-export-manifest.md
@@ -64,6 +66,8 @@ public/decode.js
 public/file-envelope.js
 public/i18n.js
 public/index.html
+public/judge-login.html
+public/judge-login.js
 public/recipient-picker.js
 public/styles.css
 public/task-history.js
@@ -80,6 +84,7 @@ scripts/business-fixtures.test.mjs
 scripts/coordinator-mcp.mjs
 scripts/delivery-followup-worker.test.mjs
 scripts/delivery-followup.test.mjs
+scripts/demo-gate.test.mjs
 scripts/directory-admin.test.mjs
 scripts/download-policy.test.mjs
 scripts/file-adviser.test.mjs
@@ -100,6 +105,7 @@ scripts/local-workflow.test.mjs
 scripts/model-boundary-smoke.mjs
 scripts/model-four-groups.mjs
 scripts/model-negative.test.mjs
+scripts/nebius-budget.test.mjs
 scripts/private-mapping.test.mjs
 scripts/recipient-directory.test.mjs
 scripts/registry-schema.test.mjs

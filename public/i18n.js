@@ -162,6 +162,7 @@ export const labels = {
   credentialId: '憑證代碼', packageId: '密件代碼', role: '驗證角色', deviceClaim: '装置驗證方式', maxUses: '使用上限', policyHash: '政策指紋',
   'local-token-no-attestation': '本機憑據；未驗證硬體',
   'Demo fallback was used because NEBIUS_API_KEY is not configured. This is not hackathon submission evidence.': '未使用 Nebius API，目前為本機示範，不能當作比賽模型呼叫證據。',
+  'Demo fallback was used because the Token Factory budget is spent. This is not hackathon submission evidence.': 'Token Factory 預算已用完，改用合成示範，不能當作比賽模型呼叫證據。',
   'Non-content metadata requests a high-control route for a confidential internal package.': '依非內容標籤建議較嚴格的傳輸條件。'
 };
 export function t(value) { return isChinese ? labels[value] || value : value; }

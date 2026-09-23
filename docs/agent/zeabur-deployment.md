@@ -1,7 +1,8 @@
 # Zeabur Deployment
 
-Written 2026-09-18. Modelled on the Shared Room MCP deployment already running on Zeabur.
-Status: configuration reference only. No deployment has been performed and none is authorized here.
+Written 2026-09-18, revised 2026-09-24. Modelled on the Shared Room MCP deployment already running
+on Zeabur. Status: deployed on 2026-09-24 at `https://zero-trust-edge-enclave.zeabur.app`, with a
+Token Factory key, a spending cap and a judge sign-in.
 
 ## What Zeabur Runs
 
@@ -20,13 +21,19 @@ or newer.
 | `HOST` | `0.0.0.0` | The local default stays `127.0.0.1`. That default is deliberate — a developer running this on a laptop should not expose it — so the loopback binding is overridden per deployment rather than changed in code. |
 | `PORT` | supplied by Zeabur | Already read from the environment. |
 | `DATA_DIR` | `/data` | Must point at a mounted volume. Without one, ciphertext, wrapped keys, the access registry and the audit trail are lost on every restart. |
-| `LOCAL_ONLY` | `true` | The default. Both adviser kinds fall back to `synthetic_fixture`, which is the intended posture for an instance deployed without a key. |
-| `COORDINATOR_PROVIDER` | `synthetic_fixture` | The default. A key alone would not enable inference either; both halves of the switch are left off. |
-| `NEBIUS_API_KEY` | not set | Deliberately omitted. Without it both advisers stay on the synthetic fixture and issue no provider request, so a hosted instance spends no quota and carries no credential. Evidence for real inference lives in `SECURITY_SCAN_EVIDENCE.md`, measured where the key is held. |
+| `LOCAL_ONLY` | `false` | Both halves of the switch are on, so judges see real Token Factory advice rather than the synthetic fixture. |
+| `COORDINATOR_PROVIDER` | `nebius` | A key alone would not enable inference; this is the other half. |
+| `NEBIUS_API_KEY` | Zeabur secret | The project owner's key. Its exposure is bounded by the spending cap below, not by leaving it out. |
+| `NEBIUS_BUDGET_USD` | `20` | Spending ceiling for the Token Factory outlet. See Spending Cap. |
+| `NEBIUS_PRICE_INPUT_PER_M` / `NEBIUS_PRICE_OUTPUT_PER_M` | `0.30` / `0.90` | USD per million tokens. Input matches the owner's billing; output is set above the billed 0.80 so the cap trips early rather than late. A budget without prices counts as spent. |
 | `NEBIUS_BASE_URL` | `https://api.tokenfactory.nebius.com/v1` | The adviser refuses any other host. |
 | `NEBIUS_MODEL` | `nvidia/nemotron-3-super-120b-a12b` | Must start with `nvidia/` or the adviser refuses it. |
 | `TOKEN_SIGNING_SECRET` | Zeabur secret | Signs timed decode credentials. |
 | `DEMO_FALLBACK_ENABLED` | `false` | The default is `true`, which returns a synthetic result carrying its own warning that it is not submission evidence. A demo should fail visibly instead of quietly serving that. |
+| `NODE_ENV` | `production` | Makes `TOKEN_SIGNING_SECRET` mandatory, so credentials survive a restart. |
+| `REQUIRE_DEMO_GATE` | `true` | Puts the judge sign-in in front of every page and API route except `/api/health`. |
+| `DEMO_GATE_USER` / `DEMO_GATE_PASSWORD` | Zeabur secrets | The judge sign-in. Given to judges in the submission's testing instructions. |
+| `HOSTED_REGISTRY_B64` | hash-only registry | A registry prepared locally with `setup-local.mjs --business --until`. It carries token hashes only; the plaintext role tokens stay with the owner and go to judges with the sign-in. Installed only when the volume has no registry. |
 
 `LOCAL_MODEL_BASE_URL` and `LOCAL_MODEL_NAME` are for the loopback outlet and have no meaning on a
 hosted instance: that outlet only accepts loopback hosts, by design.
@@ -38,7 +45,8 @@ hosted instance: that outlet only accepts loopback hosts, by design.
 ```json
 { "ok": true, "project": "zero-trust-edge-enclave", "localOnly": false,
   "nebiusConfigured": true, "nebiusBaseUrl": "...", "nebiusModel": "...",
-  "demoFallbackEnabled": false }
+  "demoFallbackEnabled": false,
+  "nebiusBudget": { "limited": true, "limitUsd": 20, "spentUsd": 0, "exhausted": false } }
 ```
 
 `nebiusConfigured` is `!localOnly && Boolean(NEBIUS_API_KEY)`, so it answers "is real inference
@@ -55,12 +63,21 @@ allows group or other access, and refuses a symlinked path.
 `.gitignore` and `.zeaburignore` both exclude `data/`, so nothing from a local run is ever uploaded;
 the deployed instance generates its own.
 
+## Spending Cap
+
+Token Factory documents no per-key spending limit, and a card-backed balance may go negative before
+the card is charged, so the ceiling is enforced in `nebius-budget.js`. All three call sites share
+one ledger in `DATA_DIR`. Each call reserves its worst case on disk before the request leaves, then
+settles to the `usage` the provider reports; a crash between the two can only overstate spending.
+A call whose worst case would cross the ceiling is never sent, and the advisers fall back to the
+synthetic fixture instead. The ledger lives on the volume, so a restart does not reset it.
+
 ## Quota Exposure
 
-The deployed key is the project owner's. Provider calls are bounded by controls that already exist,
-so no additional rate limiting was added:
+The deployed key is the project owner's. Beyond the spending cap, provider calls are bounded by
+controls that already exist:
 
-- every route that can reach a provider requires a bearer token
+- every page and route that can reach a provider sits behind the judge sign-in and a bearer token
 - staged file tasks are capped at 50 (`507` beyond that)
 - `maxAttempts` is validated to 1–5 per grant, so the routing pass asks at most five times per task
 - the follow-up pass asks a bounded number of further times: it applies only to `REQUIRED_ACK`
@@ -79,14 +96,17 @@ and that the key service shares the app host and process. Locally that sentence 
 Deployed it means "the Zeabur instance", and the wrapped keys and vault master key live on that
 instance's disk.
 
-A hosted instance is therefore a demonstration surface for synthetic material only. The fixture
+A hosted instance is therefore a demonstration surface for synthetic documents only. The fixture
 generators mark every document `MOCK_TEST_DATA_DO_NOT_USE` and use `@example.com` addresses; that
-property must hold for anything uploaded to a deployed instance.
+property must hold for anything uploaded to a deployed instance. The model advice it serves is real;
+the documents and identities are not.
 
-## Unresolved Before Deploying
+## Judge Access
 
-Judges need a bearer token to operate the sender and recipient pages. Tokens are generated as files
-by `scripts/setup-local.mjs`. Publishing one in the submission makes it a shared credential, bounded
-by the 50-task quota and the synthetic-only rule above; not publishing one leaves judges unable to
-test. This is the same question already sent to the organizer and still awaiting an answer, so it is
-recorded here rather than decided.
+Judges need a bearer token to operate the sender and recipient pages, and sharing one makes it a
+shared credential. The deployment answers that with two layers. An outer sign-in (`demo-gate.js`)
+keeps anonymous traffic away from the billed outlet; the browser holds an HMAC derived from the
+sign-in, never the password, and changing either value signs every session out. Inside it, each
+role still presents its own token, checked against the hash-only registry. The registry's grants
+run to 2026-12-16, past the end of judging. Both the sign-in and the role tokens are given to judges
+in the testing instructions, and the spending cap bounds what a shared credential can cost.

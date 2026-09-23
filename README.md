@@ -126,7 +126,7 @@ into `reasoning_content` while `content` is left empty. A client reading only `c
 empty success. None of these results prove superiority to deterministic routing, general injection
 resistance, or compatibility with an untested local runtime.
 
-Version 2026-09-18T19:57:17Z. Test evidence at this revision: 93 of 93, thirty consecutive runs.
+Version 2026-09-24. Test evidence at this revision: 99 of 99, thirty consecutive runs.
 
 ## Architecture
 
@@ -173,4 +173,4 @@ Email remains dry-run. No enterprise identity, malware inspection of ciphertext,
 
 [Security](SECURITY.md) | [Threat model](THREAT_MODEL.md) | [Release review](docs/agent/security-gate-summary.md) | [Export manifest](public-export-manifest.md)
 
-Publication and free judge access remain pending release review and organizer clarification.
+A hosted instance for judges runs at https://zero-trust-edge-enclave.zeabur.app behind a judge sign-in; the sign-in and the role tokens are in the submission's testing instructions. See [Zeabur deployment](docs/agent/zeabur-deployment.md).

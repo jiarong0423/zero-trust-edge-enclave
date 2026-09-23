@@ -3,7 +3,16 @@
 Review date: 2026-09-07
 Sources: [Official rules](https://nebiusglobalaihackathon.devpost.com/rules) and [overview](https://nebiusglobalaihackathon.devpost.com/), reviewed 2026-09-07. Alignment is a project assessment, not organizer approval.
 
-## Latest Submission Decision (Supersedes Readiness Claims Below)
+## 2026-09-24 Recheck (Supersedes Everything Below Where They Differ)
+
+The rules and overview pages were read again on 2026-09-24.
+
+- The overview's submission list asks for a "Working demo URL (except Physical AI submissions)". The rules accept "a working demo, hosted application, or test build". The stricter reading is followed: a hosted instance is deployed at `https://zero-trust-edge-enclave.zeabur.app`.
+- The rules define running on Token Factory as a runtime call to its inference API. The hosted instance makes those calls with the owner's key, under a USD 20 spending cap; Zeabur itself is not Nebius compute and is not claimed as such.
+- Free judge access is provided without organizer input: a judge sign-in in front of the site, and per-role tokens behind it, both given in the testing instructions. The earlier organizer question below no longer blocks submission.
+- The overview asks for a demo video "with audio covering how you used Nebius Token Factory". Narration is therefore required, not only recommended.
+
+## Submission Decision Of 2026-09-07
 
 Official rules sections 4 and 6 were rechecked on 2026-09-07. This is a dated interpretation, not a fresh rules check. The user subsequently reports sending the organizer clarification email; an answer is pending.
 
@@ -68,16 +77,16 @@ Official requirement:
 Project alignment:
 
 - Local working demo exists.
-- Hosted demo remains pending.
+- Hosted demo deployed 2026-09-24; the repository remains a test build as well.
 
-Status: pending reviewer-accessible URL for a working demo or test build. A loopback URL alone is not accessible to judges.
+Status: aligned on 2026-09-24. Hosted instance at `https://zero-trust-edge-enclave.zeabur.app`, behind a judge sign-in, with grants valid to 2026-12-16.
 
 ## Demo Video Requirement
 
 Official requirement:
 
 - Provide a publicly visible YouTube demo video, with a target duration below three minutes.
-- Show the application working; explain Nebius and NVIDIA usage in the submission. Narration is our presentation recommendation.
+- Show the application working, with audio covering how Nebius Token Factory was used (overview page, rechecked 2026-09-24).
 
 Project alignment:
 
@@ -98,11 +107,10 @@ Project alignment:
 
 - MIT license exists.
 - README setup instructions exist.
-- Local Git repository exists.
+- Public at `https://github.com/jiarong0423/zero-trust-edge-enclave` since 2026-09-18, MIT license at the top.
 - Historical export passes do not clear current code; see security-gate-summary.md.
-- GitHub visibility is not changed or verified by this preparation.
 
-Status: candidate preparation only; no publication clearance.
+Status: aligned.
 
 ## Feedback Requirement
 
@@ -112,9 +120,9 @@ Official requirement:
 
 Project alignment:
 
-- Feedback text is not written yet.
+- Feedback text is drafted privately and not yet submitted.
 
-Status: pending.
+Status: drafted.
 
 ## Pre-Existing Project Disclosure
 
@@ -131,7 +139,8 @@ Status: disclosure started; list the concrete changes and their dates in the fin
 
 ## Submission Readiness
 
-- Pending: public repository URL, reviewer-accessible demo/test-build URL, public YouTube video, platform feedback, and dated prior-work disclosure.
+- Done: public repository URL, reviewer-accessible hosted demo (2026-09-24).
+- Pending: public YouTube video, platform feedback, and dated prior-work disclosure.
 - Use synthetic input for the demo and show real provider mode separately from demo fallback.
 - Keep claims consistent with README: simulated transport, local bearer identities rather than SSO/device attestation, and no hardware enclave.
 - Eligibility and organizer acceptance have not been independently established by these technical checks.

@@ -1,12 +1,37 @@
 # Security Scan Evidence
 
-Review date: 2026-09-08. Current decision: NOT APPROVED FOR PUBLICATION.
+Review date: 2026-09-24 (first review 2026-09-08). The repository has been public since 2026-09-18; every push is gated on a fresh candidate scan recorded here.
 
 Earlier S8 scan passes are historical; they do not cover the expanded workflow. The private development history preserves those results.
 
 Current scoped code-security review uses ai-security-rules, release-boundary-safety-gate and localguard-dev-safety-gate, manual inspection and isolated functional tests. Heuristic scans are not comprehensive SAST or penetration testing. Syntax checks alone are not security tests.
 
 Current counts and dispositions are maintained in docs/agent/security-gate-summary.md. A scanner exit code of zero does not override unresolved findings. Synthetic canaries remain; no scanner rules or runtime gates were weakened.
+
+## Hosted Demo Addition, 2026-09-24
+
+Scanned candidate: 111 files built from `public-export-manifest.md`, adding the judge sign-in
+(`demo-gate.js`, `public/judge-login.*`), the Token Factory spending cap (`nebius-budget.js`) and
+their tests.
+
+| Scanner | Result |
+| --- | --- |
+| ai-security-rules `--mode export-gate` | pass; blocking 0, P0/P1/P2 0, critical 0, high 7 |
+| release-boundary-safety-gate | PASS; findings 0 |
+| localguard | 83 findings: 3 CRITICAL, 15 HIGH, 58 MEDIUM, 7 LOW |
+
+CRITICAL and HIGH in localguard are the same counts as the 2026-09-19 baseline. The one new
+ai-security-rules HIGH is `scripts/demo-gate.test.mjs:17`, a synthetic wrong password passed to the
+sign-in under test, the same class as the six adviser-test canaries. The new MEDIUM and LOW findings
+are false positives of three kinds:
+
+- route-map and cache heuristics on `demo-gate.js:13`, `public/judge-login.js:8`,
+  `scripts/demo-gate.test.mjs:9` and `docs/agent/zeabur-deployment.md:34`. They name the sign-in
+  and health routes, which are public by design; there is no service worker or Cache Storage.
+- a deferred-shortcut marker on `nebius-budget.js:38`, matching the `.tmp` suffix of the ledger's
+  atomic write.
+
+Test evidence at the same tree: 99/99, thirty consecutive runs with no variation.
 
 ## Delivery Follow-Up Addition, 2026-09-18
 
