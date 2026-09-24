@@ -413,7 +413,7 @@ th {
 .evidence-note { margin: 0 0 8px; opacity: 0.8; font-size: 0.9rem; }
 .evidence-call { margin-top: 8px; }
 .evidence-meta { margin: 0 0 4px; font-size: 0.85rem; opacity: 0.75; }
-.evidence-json { max-height: 220px; overflow: auto; }
+.evidence-json { max-height: none; overflow: visible; } /* shown whole: evidence must not hide behind a scrollbar */
 
 .identity-badge, .access-badge { display: inline-block; margin: 10px 0 4px; padding: 6px 14px; border-radius: 999px;
   font-weight: 700; letter-spacing: 0.04em; font-size: 0.95rem; }

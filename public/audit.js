@@ -25,7 +25,9 @@ async function refresh() {
     setText(auditRows, audit.error || 'Authentication required');
     return;
   }
-  setText(runtimeMode, health.nebiusConfigured ? 'Nebius' : 'Demo');
+  // Name the outlet actually answering, not merely whether a Token Factory key is present.
+  setText(runtimeMode, health.adviserProvider === 'nebius' && health.nebiusConfigured ? 'Token Factory'
+    : health.adviserProvider === 'local_openai_compatible' ? 'Local Nemotron' : 'Demo');
   const events = audit.events || [];
   currentEvents = events;
   allowCount.textContent = String(events.filter(event => event.result === 'ALLOW').length);

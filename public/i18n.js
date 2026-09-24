@@ -163,6 +163,7 @@ export const labels = {
   'local-token-no-attestation': '本機憑據；未驗證硬體',
   'Demo fallback was used because NEBIUS_API_KEY is not configured. This is not hackathon submission evidence.': '未使用 Nebius API，目前為本機示範，不能當作比賽模型呼叫證據。',
   'Demo fallback was used because the Token Factory budget is spent. This is not hackathon submission evidence.': 'Token Factory 預算已用完，改用合成示範，不能當作比賽模型呼叫證據。',
+  'Token Factory': 'Token Factory', 'Local Nemotron': '本機 Nemotron',
   'IDENTITY VERIFIED': '身分已驗證', 'IDENTITY NOT VERIFIED': '身分未通過驗證', 'Identity check unavailable': '暫時無法確認身分',
   'Sender': '發文者', 'Recipient': '收件人', 'Coordinator': '協調者', 'Administrator': '管理員', 'Unknown role': '未知角色',
   'ACCESS APPROVED': '存取已核准', 'ACCESS DENIED': '存取被拒',

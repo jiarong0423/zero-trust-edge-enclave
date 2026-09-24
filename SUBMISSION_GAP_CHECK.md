@@ -7,7 +7,7 @@ Updated: 2026-09-24 Asia/Taipei
 Local self-checks against the 116-file candidate built from `public-export-manifest.md`:
 
 ```text
-export-gate:      pass, blocking 0, P0 0, P1 0, P2 0, critical 0, high 7, medium 88
+export-gate:      pass, blocking 0, P0 0, P1 0, P2 0, critical 0, high 7, medium 89
 release-boundary: PASS, findings 0
 localguard:       87 findings, 3 CRITICAL / 15 HIGH / 62 MEDIUM / 7 LOW
 npm test:         107 of 107, thirty consecutive runs
