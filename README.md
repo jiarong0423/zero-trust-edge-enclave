@@ -86,7 +86,9 @@ That rule is where the two outlets stop being interchangeable. The Token Factory
 external call wearing a local name. It also asks for the schema differently: the runtime rejects
 `json_object` and takes `json_schema`, and the constraint is what stops the model reasoning aloud
 before it answers. Unconstrained, Nemotron Nano spends 500 to 1000 tokens deliberating and takes 8
-to 36 seconds; constrained, it answers in 64 to 73 tokens and under 4.2 seconds.
+to 36 seconds; constrained, it answers in 64 to 73 tokens and under 4.2 seconds. LM Studio's
+llama.cpp runtime 2.41.0 applies the schema only after reasoning, so the local outlet now also sends
+`reasoning_effort: "none"` and temperature 0: 0 reasoning tokens, 2.3 to 3.1 seconds, 40 of 40 accepted.
 
 Neither is the boundary. `validateFileAdvice` decides what is valid, and a schema the server honours
 only means fewer answers reach it malformed.
@@ -134,7 +136,7 @@ into `reasoning_content` while `content` is left empty. A client reading only `c
 empty success. None of these results prove superiority to deterministic routing, general injection
 resistance, or compatibility with an untested local runtime.
 
-Version 2026-09-24. Test evidence at this revision: 107 of 107, thirty consecutive runs.
+Version 2026-09-24. Test evidence at this revision: 108 of 108, thirty consecutive runs.
 
 ## Architecture
 

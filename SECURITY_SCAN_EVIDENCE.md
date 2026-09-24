@@ -50,7 +50,7 @@ route-map, cache and wording heuristics: `public/auth.js:73` and `public/evidenc
 routes that authenticate every request, no page registers a service worker or uses Cache Storage,
 and `scripts/task-evidence.test.mjs:20` and `public/evidence-chain.js:73` match the words credential
 and permission. A positive and negative scenario matrix ran against isolated copies: 34 of 34
-checks passed, with the recording data and the hosted instance unchanged. Tests: 107/107, thirty
+checks passed, with the recording data and the hosted instance unchanged. Tests: 108/108, thirty
 consecutive runs.
 
 ## Delivery Follow-Up Addition, 2026-09-18
@@ -177,6 +177,25 @@ Six follow-up scenarios, local outlet, before and after reading both fields and 
 
 The schema constraint, not `chat_template_kwargs`, is what turns reasoning off on this runtime; the
 kwarg is accepted by the API and never reaches the chat template.
+
+### Runtime Change, Re-measured 2026-09-24
+
+The same GGUF, prompt, schema and request later took 8 to 27 seconds with 160 to 800 reasoning
+tokens and the answer in `content`. LM Studio had moved to llama.cpp runtime 2.41.0 (installed
+2026-09-19, after the measurement above), which applies the schema only after the reasoning block;
+the runtime used on 2026-09-18 is no longer installed. On 2.41.0, per request, same six scenarios:
+
+| | as before | + `reasoning_effort: "none"` | + temperature 0 |
+| --- | --- | --- | --- |
+| Accepted | 2 of 2 | 15 of 18 | 30 of 30 |
+| Latency | 9.5 to 12.7 s | 2.0 to 3.0 s | 2.3 to 2.6 s |
+| Reasoning tokens | 239 to 332 | 0 | 0 |
+
+`chat_template_kwargs` (247 and 645 reasoning tokens) and a `reasoning: "off"` field (161 and 811)
+still left reasoning on. The three refusals
+were reasons the lookup table rules out (DEADLINE_NEAR outside the last window, WINDOW_EARLY inside
+it); the validator refused each. The route adviser on the shipped path: 10 of 10, 2.5 to 2.7 s. An
+end-to-end run on an isolated copy logged route 2976 and 3100 ms, follow-up 2621 and 2424 ms.
 
 Reading `reasoning_content` when `content` is empty is safe here for one reason only: nothing
 downstream trusts either field. The same validator runs on whatever arrives, so deliberation text

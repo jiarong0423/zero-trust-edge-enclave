@@ -78,8 +78,17 @@ export const ADVISER_PROVIDERS = {
     //
     // It is still not the boundary. `validateFileAdvice` decides what is valid, and a schema the
     // server honours only means fewer answers reach it malformed.
+    //
+    // Runtime llama.cpp 2.41.0 (LM Studio, installed 2026-09-19) applies the schema only after the
+    // reasoning block, so the constraint no longer turns reasoning off: 160 to 800 reasoning tokens
+    // and 8 to 27 seconds. `reasoning_effort: 'none'` is what this runtime honours (0 reasoning
+    // tokens); `chat_template_kwargs` and a /no_think prompt still do nothing. Without reasoning,
+    // temperature 1 let the 4B pick a reason the lookup table rules out in 3 of 18 calls, which the
+    // validator refused; greedy decoding gave 30 of 30 accepted at 2.4 to 2.6 seconds.
     shape: (metadata, kind) => ({
       response_format: { type: 'json_schema', json_schema: { name: 'adviser_output', strict: true, schema: kind.schema } },
+      reasoning_effort: 'none',
+      temperature: 0,
     }),
     timeoutMs: 30000,
     // A local runtime reached through an OpenAI-compatible shim does not pass chat_template_kwargs

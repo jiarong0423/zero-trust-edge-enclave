@@ -135,3 +135,14 @@ test('the server wires each outlet to its own endpoint and never lends the cloud
     requestFileAdvice(metadata, { provider: 'local_openai_compatible', localOnly: true, ...pick('nebius') }, spy),
     /FILE_PROVIDER_UNAVAILABLE/);
 });
+
+test('the local outlet asks for no reasoning and greedy decoding under the schema', async () => {
+  // On LM Studio's llama.cpp 2.41.0 the schema alone no longer suppresses reasoning (8 to 27 s);
+  // these two fields restore the 2 to 3 s answer the recorded runs relied on.
+  const seen = {};
+  await requestFileAdvice(metadata, localOutlet, stubRequest(validAdvice, { seen }));
+  assert.equal(seen.body.reasoning_effort, 'none');
+  assert.equal(seen.body.temperature, 0);
+  assert.equal(seen.body.response_format.type, 'json_schema');
+  assert.equal(seen.body.chat_template_kwargs, undefined);
+});
