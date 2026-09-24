@@ -71,10 +71,10 @@ export const ADVISER_PROVIDERS = {
       LOOPBACK_HOSTS.has(endpoint.hostname) &&
       /^[A-Za-z0-9][A-Za-z0-9._/-]{0,127}$/.test(options.model),
     // This runtime rejects `json_object` outright, so the schema is supplied as `json_schema`.
-    // Measured on nemotron-3-nano-4b: unconstrained, the model emits 500 to 1000 reasoning tokens
-    // before its answer and takes 8 to 36 seconds; constrained, it answers in 64 to 73 tokens and
-    // under 4.2 seconds. The constraint is what turns reasoning off here, not chat_template_kwargs,
-    // which this runtime does not pass to the chat template at all.
+    // Measured on nemotron-3-nano-4b on 2026-09-18: unconstrained, the model emitted 500 to 1000
+    // reasoning tokens before its answer and took 8 to 36 seconds; constrained, it answered in 64 to
+    // 73 tokens and under 4.2 seconds. On that runtime the constraint was what turned reasoning off,
+    // not chat_template_kwargs, which this runtime does not pass to the chat template at all.
     //
     // It is still not the boundary. `validateFileAdvice` decides what is valid, and a schema the
     // server honours only means fewer answers reach it malformed.
