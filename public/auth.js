@@ -1,4 +1,4 @@
-import { setText } from './i18n.js';
+import { setText, t } from './i18n.js';
 
 export function authenticatedFetch(url, options = {}) {
   const token = document.querySelector('#accessToken').value.trim();
@@ -6,7 +6,7 @@ export function authenticatedFetch(url, options = {}) {
 }
 
 const panel = document.createElement('section');
-panel.style.cssText = 'max-width:1100px;margin:16px auto;padding:0 20px';
+panel.className = 'token-panel';
 const label = document.createElement('label');
 const title = document.createElement('span');
 setText(title, 'Local access token');
@@ -20,6 +20,7 @@ input.addEventListener('input', () => window.dispatchEvent(new Event('authentica
 label.append(input);
 panel.append(label);
 const fileLabel = document.createElement('label');
+fileLabel.className = 'token-file-row';
 const fileTitle = document.createElement('span');
 setText(fileTitle, 'Token file');
 fileLabel.append(fileTitle);
@@ -52,4 +53,35 @@ file.addEventListener('change', async () => {
 });
 fileLabel.append(file, choose, fileStatus);
 panel.append(fileLabel);
+
+// The server, not the page, decides whether a token is a registered identity. This badge only reports
+// that answer; it says nothing about access to any task, which each page checks separately.
+const identity = document.createElement('p');
+identity.className = 'identity-badge';
+identity.hidden = true;
+identity.setAttribute('role', 'status');
+panel.append(identity);
+const roles = { operator: 'Sender', recipient: 'Recipient', coordinator: 'Coordinator', administrator: 'Administrator' };
+let identityCheck = 0;
+window.addEventListener('authenticationchange', () => {
+  const current = ++identityCheck;
+  if (!input.value.trim()) { identity.hidden = true; return; }
+  setTimeout(async () => {
+    if (current !== identityCheck) return;
+    let result = null;
+    try {
+      const response = await authenticatedFetch('/api/whoami');
+      result = response.ok ? await response.json() : { denied: response.status === 401 };
+    } catch { result = null; }
+    if (current !== identityCheck) return;
+    identity.hidden = false;
+    if (result?.ok) {
+      identity.className = 'identity-badge verified';
+      setText(identity, () => `${t('IDENTITY VERIFIED')} · ${t(roles[result.kind] || 'Unknown role')}`);
+    } else {
+      identity.className = 'identity-badge rejected';
+      setText(identity, result?.denied ? 'IDENTITY NOT VERIFIED' : 'Identity check unavailable');
+    }
+  }, 250);
+});
 document.querySelector('main').before(panel);

@@ -39,6 +39,14 @@ content, recipient identity, address and keys are kept inside the boundary.
 5. The authenticated recipient obtains ciphertext and a separate short-lived, one-use key ticket, decrypts in the browser and downloads the original file.
 6. Receipt reports distinguish verification, download request and acknowledgement. None proves reading or legally effective delivery.
 
+The SOC audit page also shows each delivery's evidence chain to its sender: what was approved, the
+private mapping, exactly what every adviser call was given (stored at the time of the call, with a
+computed check that no real identifier appears in it), what the adviser answered or why its answer
+was refused, and how fixed code mapped the outcome back to real recipients, key releases and
+receipts. Pages show a token as IDENTITY VERIFIED once the server recognises it, and a recipient's
+access as APPROVED or DENIED only on the server's own decision: authentication and authorization are
+shown apart.
+
 REQUIRED_ACK adds no extra file cutoff but never bypasses grant expiry or revocation. TIME_LIMITED rejects new access at its approved deadline. Released bytes, keys and plaintext cannot be recalled.
 
 ## Run Locally
@@ -126,7 +134,7 @@ into `reasoning_content` while `content` is left empty. A client reading only `c
 empty success. None of these results prove superiority to deterministic routing, general injection
 resistance, or compatibility with an untested local runtime.
 
-Version 2026-09-24. Test evidence at this revision: 104 of 104, thirty consecutive runs.
+Version 2026-09-24. Test evidence at this revision: 107 of 107, thirty consecutive runs.
 
 ## Architecture
 

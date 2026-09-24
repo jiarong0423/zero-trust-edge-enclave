@@ -59,6 +59,19 @@ test('file worker is approval-bound, finite and idempotent without browser calls
     assert.equal(paused.jobs[0].status, 'PAUSED');
     assert.equal(paused.jobs[0].reasonCode, reason);
   }
+  // The trail keeps what the adviser was given and what came of it, never identities or foreign text.
+  const routed = await advanceFileJobs(approved, config, now, async metadata => syntheticFileAdvice(metadata));
+  const [kept] = routed.jobs[0].adviceTrail;
+  assert.equal(kept.kind, 'route');
+  assert.deepEqual(Object.keys(kept.input).sort(), ['attempts', 'channels', 'snapshotVersion', 'state', 'taskAlias']);
+  assert.ok(kept.answer && !kept.refusal);
+  for (const value of [approved.id, ...grant.recipients]) assert.ok(!JSON.stringify(kept.input).includes(JSON.stringify(value)));
+  const refused = await advanceFileJobs(approved, config, now,
+    async () => { throw Object.assign(new Error('Unsupported request fields'), { status: 422, adviceRejected: true }); });
+  assert.deepEqual(refused.jobs[0].adviceTrail.at(-1).refusal, { reasonCode: 'ADVICE_INVALID', detail: 'Unsupported request fields' });
+  const foreign = await advanceFileJobs(approved, config, now, async () => { throw new Error('FOREIGN_TEXT_CANARY'); });
+  assert.deepEqual(foreign.jobs[0].adviceTrail.at(-1).refusal, { reasonCode: 'ADVISER_UNAVAILABLE', detail: null });
+  assert.ok(!JSON.stringify(foreign).includes('FOREIGN_TEXT_CANARY'));
   let expiredAdviserCalls = 0;
   const expired = await advanceFileJobs(approved, config, now + 60001, async metadata => {
     expiredAdviserCalls++;

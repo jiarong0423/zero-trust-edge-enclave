@@ -1,5 +1,6 @@
 import { authenticatedFetch } from './auth.js';
 import { t, setText, clearLocalizedText, initializeLanguage, isChinese } from './i18n.js';
+import { loadEvidenceTasks } from './evidence-chain.js';
 const runtimeMode = document.querySelector('#runtimeMode');
 const allowCount = document.querySelector('#allowCount');
 const denyCount = document.querySelector('#denyCount');
@@ -30,6 +31,7 @@ async function refresh() {
   allowCount.textContent = String(events.filter(event => event.result === 'ALLOW').length);
   denyCount.textContent = String(events.filter(event => event.result === 'DENY').length);
   renderEvents();
+  await loadEvidenceTasks();
 }
 
 function renderEvents() {

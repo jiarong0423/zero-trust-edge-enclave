@@ -36,6 +36,7 @@ import './retention-policy.test.mjs';
 import './demo-gate.test.mjs';
 import './nebius-budget.test.mjs';
 import './hosted-lock.test.mjs';
+import './task-evidence.test.mjs';
 
 test('audit boundary constructs only allowlisted fields and reason codes', () => {
   const event = auditProjection({ packageId: 'private@example.invalid', type: 'PRIVATE_CANARY',
@@ -113,6 +114,11 @@ test('isolated local authorization, coordinator and dry-run end to end', async t
     return { status: response.status, body: await response.json() };
   }
   assert.equal((await request('/api/audit', undefined, null)).status, 401);
+  // whoami confirms only that a token is a registered identity and of which kind; nothing about access.
+  assert.deepEqual((await request('/api/whoami')).body, { ok: true, kind: 'operator' });
+  assert.deepEqual((await request('/api/whoami', undefined, 'recipient-b')).body, { ok: true, kind: 'recipient' });
+  assert.equal((await request('/api/whoami', undefined, null)).status, 401);
+  assert.equal((await request('/api/whoami', {})).status, 405);
   const localPolicy = await request('/api/policy/recommend', { policyMetadata: {} });
   assert.equal(localPolicy.status, 200);
   assert.equal(localPolicy.body.policy.provider, 'demo_fallback');
@@ -196,6 +202,15 @@ test('isolated local authorization, coordinator and dry-run end to end', async t
   // Each adviser call is reported with its outlet and proposal, and never with the task alias.
   const adviserLine = serverOutput.split('\n').find(line => line.startsWith('adviser route '));
   assert.match(adviserLine, /^adviser route synthetic_fixture - \d+ms ROUTE [A-Z_]+$/);
+  // The evidence chain is the owner's alone, read-only, and shows no real identifier in any adviser input.
+  const evidence = await request(fileTaskUrl + '/evidence');
+  assert.equal(evidence.status, 200);
+  assert.ok(evidence.body.evidence.trail.length >= 1);
+  assert.ok(evidence.body.evidence.trail.every(entry => entry.realValuesInInput === 0));
+  assert.deepEqual(evidence.body.evidence.mappedBack.recipients.map(route => route.recipientId), ['recipient-a']);
+  assert.equal((await request(fileTaskUrl + '/evidence', undefined, 'recipient-b')).status, 403);
+  assert.equal((await request(fileTaskUrl + '/evidence', undefined, 'coordinator')).status, 403);
+  assert.equal((await request(fileTaskUrl + '/evidence', { version: 2 })).status, 405);
   const routedDisk = JSON.parse(await fs.readFile(path.join(dir, 'tasks.json'), 'utf8'));
   const fileAlias = routedDisk.find(item => item.id === staged.body.task.id).snapshots[1].privateMapping.taskAlias;
   for (const tool of ['file_status', 'file_recommend']) {

@@ -43,6 +43,16 @@ refused model answer as ADVICE_INVALID rather than ADVISER_UNAVAILABLE, and form
 by interface language. The 113-file candidate scans with identical counts; the CRITICAL and HIGH
 findings are the baseline canaries at shifted line numbers. Tests: 104/104, thirty consecutive runs.
 
+The evidence chain, the whoami route and the identity and access badges followed the same day
+(`task-evidence.js`, `public/evidence-chain.js` and a test file). The 116-file candidate keeps
+CRITICAL and HIGH at the baseline in every scanner. The new MEDIUM findings are the adjudicated
+route-map, cache and wording heuristics: `public/auth.js:73` and `public/evidence-chain.js:36` name
+routes that authenticate every request, no page registers a service worker or uses Cache Storage,
+and `scripts/task-evidence.test.mjs:20` and `public/evidence-chain.js:73` match the words credential
+and permission. A positive and negative scenario matrix ran against isolated copies: 34 of 34
+checks passed, with the recording data and the hosted instance unchanged. Tests: 107/107, thirty
+consecutive runs.
+
 ## Delivery Follow-Up Addition, 2026-09-18
 
 Scanned candidate: 102 files, the tracked tree plus the delivery follow-up module, its two test

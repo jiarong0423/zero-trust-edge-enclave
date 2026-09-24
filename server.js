@@ -18,6 +18,7 @@ import { packetCommitment } from './public/file-envelope.js';
 import { openLocalKeyVault } from './local-key-vault.js';
 import { advanceFileJobs, advanceFollowups } from './file-worker.js';
 import { fileRoutingMetadata } from './file-routing.js';
+import { taskEvidence } from './task-evidence.js';
 import { requestFileAdvice } from './file-adviser.js';
 import { receiptSummary, recordFileReceipt, recordOverdueDeliveries, recipientReceiptStatus } from './file-receipts.js';
 import { initializeArrays, readArray, writeArray } from './local-array-store.js';
@@ -1056,6 +1057,13 @@ async function routeApi(req, res, pathname) {
   const config = await loadAccess(accessPath);
   const principal = authenticate(config, req.headers.authorization);
   Object.assign(requestContext.getStore(), { config, principal });
+  // Answers only "is this token a registered identity, and of which kind". It says nothing about
+  // any task or grant: being authenticated is not being authorized, and the pages show the two apart.
+  if (pathname === '/api/whoami') {
+    if (req.method !== 'GET') fail('Method not allowed', 405);
+    sendJson(res, 200, { ok: true, kind: principal.kind });
+    return;
+  }
   if (pathname === '/api/admin/retention') {
     if (principal.kind !== 'administrator') fail('Administrator required');
     if (req.method !== 'GET') fail('Method not allowed', 405);
@@ -1214,7 +1222,7 @@ async function routeApi(req, res, pathname) {
     sendJson(res, 201, { task: senderTask(task) });
     return;
   }
-  const taskRoute = pathname.match(/^\/api\/tasks\/([a-f0-9-]{36})(?:\/(revise|confirm-first|confirm-second|revoke|invalidate|resume))?$/);
+  const taskRoute = pathname.match(/^\/api\/tasks\/([a-f0-9-]{36})(?:\/(revise|confirm-first|confirm-second|revoke|invalidate|resume|evidence))?$/);
   if (taskRoute) {
     if (principal.kind !== 'operator') fail('Operator required');
     const tasks = await readJson(tasksPath, []);
@@ -1223,6 +1231,13 @@ async function routeApi(req, res, pathname) {
     const task = tasks[index];
     if (req.method === 'GET' && !taskRoute[2]) {
       sendJson(res, 200, { task: senderTask(task) });
+      return;
+    }
+    if (taskRoute[2] === 'evidence') {
+      if (req.method !== 'GET') fail('Unsupported task operation', 405);
+      const evidence = taskEvidence(task);
+      if (!evidence) fail('Evidence unavailable', 404);
+      sendJson(res, 200, { evidence });
       return;
     }
     if (req.method !== 'POST' || !taskRoute[2]) fail('Unsupported task operation', 405);

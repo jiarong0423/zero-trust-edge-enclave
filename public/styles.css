@@ -235,14 +235,16 @@ textarea {
 }
 
 .code-block {
-  min-height: 340px;
+  /* Sized by its content: a one-line status must not open a large dark panel. */
+  min-height: 2.6em;
+  max-height: 360px;
   overflow: auto;
   border: 1px solid var(--line);
   border-radius: 8px;
   padding: 14px;
   background: #151b1a;
   color: #e8f2ed;
-  font-size: 12px;
+  font-size: 13px;
   line-height: 1.55;
 }
 
@@ -402,3 +404,26 @@ th {
 .runtime-notice h2 { font-size: 18px; }
 .runtime-notice p, .runtime-notice li { overflow-wrap: anywhere; }
 .runtime-notice ul { padding-left: 20px; line-height: 1.6; }
+
+.evidence-chain { display: grid; gap: 14px; margin-top: 12px; }
+.evidence-step { border: 1px solid var(--line, #d8dee4); border-radius: 10px; padding: 12px 14px; }
+.evidence-title { margin: 0 0 6px; font-size: 1rem; display: flex; align-items: center; gap: 8px; }
+.evidence-number { display: inline-grid; place-items: center; width: 24px; height: 24px; border-radius: 50%;
+  background: var(--accent, #1f6f5c); color: #fff; font-size: 0.85rem; }
+.evidence-note { margin: 0 0 8px; opacity: 0.8; font-size: 0.9rem; }
+.evidence-call { margin-top: 8px; }
+.evidence-meta { margin: 0 0 4px; font-size: 0.85rem; opacity: 0.75; }
+.evidence-json { max-height: 220px; overflow: auto; }
+
+.identity-badge, .access-badge { display: inline-block; margin: 10px 0 4px; padding: 6px 14px; border-radius: 999px;
+  font-weight: 700; letter-spacing: 0.04em; font-size: 0.95rem; }
+.identity-badge.verified, .access-badge.approved { background: #e3f4ea; color: #146c3c; border: 2px solid #2e9e5b; }
+.identity-badge.rejected, .access-badge.denied { background: #fbe6e4; color: #a3231a; border: 2px solid #d64535; }
+.access-badge { display: block; width: fit-content; font-size: 1.1rem; margin-bottom: 10px; }
+
+/* The token panel lines up with the page layout below it. */
+.token-panel { max-width: 1280px; margin: 16px auto 0; padding: 0 32px; }
+.token-panel > label:first-child { display: block; }
+.token-file-row { display: flex; align-items: center; flex-wrap: wrap; gap: 10px; margin-top: 10px; }
+.token-panel .identity-badge { display: block; width: fit-content; }
+

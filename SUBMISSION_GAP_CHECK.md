@@ -4,13 +4,13 @@ Updated: 2026-09-24 Asia/Taipei
 
 ## Current Gate Status
 
-Local self-checks against the 113-file candidate built from `public-export-manifest.md`:
+Local self-checks against the 116-file candidate built from `public-export-manifest.md`:
 
 ```text
-export-gate:      pass, blocking 0, P0 0, P1 0, P2 0, critical 0, high 7, medium 86
+export-gate:      pass, blocking 0, P0 0, P1 0, P2 0, critical 0, high 7, medium 88
 release-boundary: PASS, findings 0
-localguard:       83 findings, 3 CRITICAL / 15 HIGH / 58 MEDIUM / 7 LOW
-npm test:         104 of 104, thirty consecutive runs
+localguard:       87 findings, 3 CRITICAL / 15 HIGH / 62 MEDIUM / 7 LOW
+npm test:         107 of 107, thirty consecutive runs
 preflight:hosted: 7 of 8, 0 blocking, 1 advisory
 fuzz:             40,000 projections, 2,400 worker ticks, 0 invariant violations (2026-09-18)
 ```

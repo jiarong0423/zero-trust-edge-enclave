@@ -63,6 +63,7 @@ public/authorization-picker.js
 public/crypto-utils.js
 public/decode.html
 public/decode.js
+public/evidence-chain.js
 public/file-envelope.js
 public/i18n.js
 public/index.html
@@ -117,9 +118,11 @@ scripts/setup-local.mjs
 scripts/smoke-test.mjs
 scripts/snapshot-lifecycle.test.mjs
 scripts/start-hosted.mjs
+scripts/task-evidence.test.mjs
 scripts/task-operations.test.mjs
 server.js
 snapshot-lifecycle.js
+task-evidence.js
 task-operations.js
 zbpack.json
 ```

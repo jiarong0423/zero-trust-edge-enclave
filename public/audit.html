@@ -62,6 +62,19 @@
           </table>
         </div>
       </section>
+
+      <section class="panel wide" id="evidencePanel">
+        <div class="section-heading">
+          <p class="eyebrow" data-i18n="Evidence chain">Evidence chain</p>
+          <h2 data-i18n="What the model saw, and what came back">What the model saw, and what came back</h2>
+        </div>
+        <div class="button-row">
+          <label class="field"><span data-i18n="Delivery">Delivery</span><select id="evidenceTask"></select></label>
+          <button id="evidenceBtn" class="button" disabled data-i18n="Show evidence">Show evidence</button>
+        </div>
+        <p id="evidenceStatus" class="evidence-note" role="status" data-i18n="Refresh audit to load deliveries.">Refresh audit to load deliveries.</p>
+        <div id="evidenceChain" class="evidence-chain"></div>
+      </section>
     </main>
 
     <script src="/audit.js" type="module"></script>

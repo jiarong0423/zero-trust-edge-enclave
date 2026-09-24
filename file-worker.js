@@ -19,6 +19,19 @@ function deliveryDeadlineFor(snapshot) {
 }
 
 // No network or key access: this worker prepares simulated dispatch records only.
+// Evidence for the sender: what each adviser call was given and what came of it. Only the
+// projection the adviser saw, the validated answer, or a refusal code is kept. A refused answer is
+// untrusted model output, so its content is never stored; only this code's own fixed reason is.
+const TRAIL_LIMIT = 20;
+function recordAdvice(job, kind, input, outcome, now) {
+  const entry = { kind, input: structuredClone(input), at: new Date(now).toISOString() };
+  if (outcome.answer) entry.answer = structuredClone(outcome.answer);
+  else entry.refusal = { reasonCode: outcome.reasonCode,
+    detail: outcome.detail === undefined ? null
+      : /^[A-Za-z0-9 _:.-]{1,80}$/.test(String(outcome.detail)) ? String(outcome.detail) : 'UNCLASSIFIED' };
+  job.adviceTrail = [...(job.adviceTrail || []), entry].slice(-TRAIL_LIMIT);
+}
+
 export async function advanceFileJobs(original, config, now = Date.now(), advise = syntheticFileAdvice, reloadConfig = async () => config) {
   const startedAt = Date.now();
   if (!original.file) return original;
@@ -47,10 +60,19 @@ export async function advanceFileJobs(original, config, now = Date.now(), advise
         // An adviser that answered with something the validator refused is invalid advice, not an
         // unavailable adviser; the audit reason should say which one happened.
         if (error?.adviceRejected) rejection = 'ADVICE_INVALID';
+        // Only the validator's own refusal text is kept; any other failure may carry foreign text.
+        recordAdvice(job, 'route', metadata, { reasonCode: rejection, detail: error?.adviceRejected ? error.message : undefined }, now);
         throw error;
       }
       rejection = 'ADVICE_INVALID';
-      const advice = validateFileAdvice(suggestion, metadata);
+      let advice;
+      try {
+        advice = validateFileAdvice(suggestion, metadata);
+      } catch (error) {
+        recordAdvice(job, 'route', metadata, { reasonCode: 'ADVICE_INVALID', detail: error?.message }, now);
+        throw error;
+      }
+      recordAdvice(job, 'route', metadata, { answer: advice }, now);
       rejection = 'AUTHORIZATION_INVALID';
       const currentConfig = await reloadConfig();
       grant = activeGrant(currentConfig, task.grantId);
@@ -151,10 +173,19 @@ export async function advanceFollowups(original, config, now = Date.now(), advis
         // An adviser that answered with something the validator refused is invalid advice, not an
         // unavailable adviser; the audit reason should say which one happened.
         if (error?.adviceRejected) rejection = 'ADVICE_INVALID';
+        // Only the validator's own refusal text is kept; any other failure may carry foreign text.
+        recordAdvice(job, 'followup', metadata, { reasonCode: rejection, detail: error?.adviceRejected ? error.message : undefined }, now);
         throw error;
       }
       rejection = 'ADVICE_INVALID';
-      const advice = validateFollowupAdvice(suggestion, metadata);
+      let advice;
+      try {
+        advice = validateFollowupAdvice(suggestion, metadata);
+      } catch (error) {
+        recordAdvice(job, 'followup', metadata, { reasonCode: 'ADVICE_INVALID', detail: error?.message }, now);
+        throw error;
+      }
+      recordAdvice(job, 'followup', metadata, { answer: advice }, now);
       // Authority is reloaded after the adviser has spoken, exactly as the routing pass does: a
       // grant revoked while the request was in flight must stop the reminder it advised.
       rejection = 'AUTHORIZATION_INVALID';

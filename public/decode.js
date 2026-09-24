@@ -6,6 +6,15 @@ const taskId = document.querySelector('#packageId');
 const version = document.querySelector('#snapshotVersion');
 const button = document.querySelector('#decodeBtn');
 const status = document.querySelector('#decodeStatus');
+const accessBadge = document.querySelector('#accessBadge');
+// Shows the server's access decision for this delivery. DENIED is shown only when the server refused
+// this identity (403); a network or format failure is not a denial and is not labelled as one.
+function showAccess(state) {
+  accessBadge.hidden = !state;
+  if (!state) return;
+  accessBadge.className = `access-badge ${state === 'APPROVED' ? 'approved' : 'denied'}`;
+  setText(accessBadge, state === 'APPROVED' ? 'ACCESS APPROVED' : 'ACCESS DENIED');
+}
 const params = new URLSearchParams(location.search);
 taskId.value = params.get('id') || '';
 version.value = params.get('version') || '1';
@@ -19,6 +28,7 @@ let receiptBusy = false;
 const clearVerification = () => { verifiedDelivery = null; acknowledge.disabled = true; retryReceipt.disabled = true; };
 function changed() {
   identityGeneration += 1;
+  showAccess(null);
   clearVerification();
   clearTimeout(refreshTimer);
   setText(status, 'No decode attempt yet.');
@@ -121,7 +131,7 @@ button.addEventListener('click', async () => {
     });
     const result = await response.json();
     checkIdentity();
-    if (!response.ok) throw new Error(result.error || 'File access failed');
+    if (!response.ok) throw Object.assign(new Error(result.error || 'File access failed'), { status: response.status });
     return result;
   }
   button.disabled = true;
@@ -130,6 +140,7 @@ button.addEventListener('click', async () => {
   taskId.disabled = true;
   version.disabled = true;
   status.className = 'status-card';
+  showAccess(null);
   setText(status, 'Issuing timed access credential...');
   try {
     if (!/^[a-f0-9-]{36}$/.test(id) || !Number.isSafeInteger(snapshotVersion) || snapshotVersion < 1) {
@@ -137,6 +148,7 @@ button.addEventListener('click', async () => {
     }
     const packet = await post('packet');
     const ticket = await post('credential');
+    showAccess('APPROVED');
     const release = await post('key', { credential: ticket.credential });
     ticket.credential = '';
     if (!/^[a-f0-9]{64}$/.test(release.key)) throw new Error('File access failed');
@@ -156,6 +168,7 @@ button.addEventListener('click', async () => {
     verifiedDelivery = { id, version: snapshotVersion, pending: ['FILE_VERIFIED', 'DOWNLOAD_REQUESTED'] };
     await flushReports(verifiedDelivery);
   } catch (error) {
+    if (error?.status === 403) showAccess('DENIED');
     status.className = 'status-card danger';
     setText(status, error instanceof Error ? error.message : 'File access failed');
   } finally {

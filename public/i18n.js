@@ -163,6 +163,21 @@ export const labels = {
   'local-token-no-attestation': '本機憑據；未驗證硬體',
   'Demo fallback was used because NEBIUS_API_KEY is not configured. This is not hackathon submission evidence.': '未使用 Nebius API，目前為本機示範，不能當作比賽模型呼叫證據。',
   'Demo fallback was used because the Token Factory budget is spent. This is not hackathon submission evidence.': 'Token Factory 預算已用完，改用合成示範，不能當作比賽模型呼叫證據。',
+  'IDENTITY VERIFIED': '身分已驗證', 'IDENTITY NOT VERIFIED': '身分未通過驗證', 'Identity check unavailable': '暫時無法確認身分',
+  'Sender': '發文者', 'Recipient': '收件人', 'Coordinator': '協調者', 'Administrator': '管理員', 'Unknown role': '未知角色',
+  'ACCESS APPROVED': '存取已核准', 'ACCESS DENIED': '存取被拒',
+  'Evidence chain': '證據鏈', 'What the model saw, and what came back': '模型看到什麼、回了什麼',
+  'Delivery': '投遞任務', 'Show evidence': '顯示證據', 'Refresh audit to load deliveries.': '按「重新整理稽核」載入投遞任務。',
+  'Choose a delivery and show its evidence.': '選一筆投遞任務，顯示它的證據。', 'No file deliveries yet.': '目前沒有檔案投遞任務。',
+  'Evidence loaded.': '證據已載入。', 'Evidence unavailable': '無法取得證據',
+  'Sender approved': '發文者核准的內容', 'Real identifiers. They stay inside the boundary.': '真實識別資料，只留在邊界內。',
+  'Private mapping': '私有映射表', 'Fresh for this snapshot. Kept on the server, never sent to the model.': '每個版本重新產生，只存在伺服器，不送給模型。',
+  'What the model received': '模型收到的內容', 'Exactly what each adviser call was given, stored at the time of the call.': '每次呼叫顧問時實際送出的內容，於呼叫當下存下。',
+  'What the model answered': '模型的回答', 'Validated answers, or the refusal when an answer failed validation.': '通過驗證的回答；未通過時顯示拒絕原因。',
+  'No adviser call recorded for this delivery.': '這筆投遞沒有顧問呼叫紀錄。', 'Routing': '路由', 'Follow-up': '催件',
+  'Real identifiers in this input: none': '這次輸入中的真實識別資料：無', 'Real identifiers in this input': '這次輸入中的真實識別資料',
+  'Refused': '已拒絕', 'Mapped back by fixed code': '固定程式對回真實欄位',
+  'The alias resolved to real recipients, and what actually happened to the key and the file.': '假名對回真實收件人，以及金鑰與檔案實際的處理結果。',
   'Non-content metadata requests a high-control route for a confidential internal package.': '依非內容標籤建議較嚴格的傳輸條件。'
 };
 export function t(value) { return isChinese ? labels[value] || value : value; }
@@ -205,7 +220,6 @@ function renderLanguage() {
   for (const link of document.querySelectorAll('nav a, [data-localized-link]')) {
     const original = link.getAttribute('href').replace(/^\/zh-TW(?=\/)/, '');
     link.setAttribute('href', pagePath(original));
-    if (link.hasAttribute('data-localized-link')) link.textContent = location.origin + pagePath(original);
   }
   const switcher = document.querySelector('.language-switch');
   switcher.setAttribute('aria-checked', String(isChinese));
