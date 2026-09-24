@@ -84,8 +84,8 @@ That rule is where the two outlets stop being interchangeable. The Token Factory
 `https` to `api.tokenfactory.nebius.com` with no port, a backend key, and a model name beginning
 `nvidia/`. The local outlet accepts loopback hosts only, because a non-loopback host would make an
 external call wearing a local name. It also asks for the schema differently: the runtime rejects
-`json_object` and takes `json_schema`, and the constraint is what stops the model reasoning aloud
-before it answers. Unconstrained, Nemotron Nano spends 500 to 1000 tokens deliberating and takes 8
+`json_object` and takes `json_schema`. On the runtime measured 2026-09-18 the constraint was what
+stopped the model reasoning aloud before it answered. Unconstrained, Nemotron Nano spends 500 to 1000 tokens deliberating and takes 8
 to 36 seconds; constrained, it answers in 64 to 73 tokens and under 4.2 seconds. LM Studio's
 llama.cpp runtime 2.41.0 applies the schema only after reasoning, so the local outlet now also sends
 `reasoning_effort: "none"` and temperature 0: 0 reasoning tokens, 2.3 to 3.1 seconds, 40 of 40 accepted.
