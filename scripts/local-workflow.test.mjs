@@ -211,6 +211,11 @@ test('isolated local authorization, coordinator and dry-run end to end', async t
   assert.equal((await request(fileTaskUrl + '/evidence', undefined, 'recipient-b')).status, 403);
   assert.equal((await request(fileTaskUrl + '/evidence', undefined, 'coordinator')).status, 403);
   assert.equal((await request(fileTaskUrl + '/evidence', { version: 2 })).status, 405);
+  // Reading the chain leaves an audit record bound to the task, carrying no identity.
+  const viewed = JSON.parse(await fs.readFile(path.join(dir, 'audit.json'), 'utf8'))
+    .filter(event => event.type === 'EVIDENCE_VIEWED' && event.taskId === fileTaskUrl.split('/').at(-1));
+  assert.equal(viewed.length, 1, 'one view by the owner, none recorded for refused callers');
+  assert.deepEqual(viewed[0].reasons, ['EVIDENCE_VIEWED']);
   const routedDisk = JSON.parse(await fs.readFile(path.join(dir, 'tasks.json'), 'utf8'));
   const fileAlias = routedDisk.find(item => item.id === staged.body.task.id).snapshots[1].privateMapping.taskAlias;
   for (const tool of ['file_status', 'file_recommend']) {

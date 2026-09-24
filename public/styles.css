@@ -413,7 +413,7 @@ th {
 .evidence-note { margin: 0 0 8px; opacity: 0.8; font-size: 0.9rem; }
 .evidence-call { margin-top: 8px; }
 .evidence-meta { margin: 0 0 4px; font-size: 0.85rem; opacity: 0.75; }
-.evidence-json { max-height: none; overflow: visible; } /* shown whole: evidence must not hide behind a scrollbar */
+.evidence-json { max-height: none; overflow: visible; white-space: pre-wrap; overflow-wrap: anywhere; } /* shown whole, wrapped: no inner or page scrollbar */
 
 .identity-badge, .access-badge { display: inline-block; margin: 10px 0 4px; padding: 6px 14px; border-radius: 999px;
   font-weight: 700; letter-spacing: 0.04em; font-size: 0.95rem; }
@@ -427,3 +427,11 @@ th {
 .token-file-row { display: flex; align-items: center; flex-wrap: wrap; gap: 10px; margin-top: 10px; }
 .token-panel .identity-badge { display: block; width: fit-content; }
 
+
+/* The badges set display above, which would otherwise override the hidden attribute. */
+.token-panel .identity-badge[hidden], .access-badge[hidden] { display: none; }
+@media (max-width: 820px) { .token-panel { padding: 0 18px; } }
+/* macOS draws an open select as a native menu as wide as the control and in its font, so a
+   full-width select opens a menu across the whole page. Size selects to their options instead. */
+select { width: auto; min-width: 16rem; max-width: 100%; font-size: 14px; }
+.field select { justify-self: start; }

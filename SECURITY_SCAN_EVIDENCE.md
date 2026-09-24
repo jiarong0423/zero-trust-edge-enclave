@@ -50,8 +50,17 @@ route-map, cache and wording heuristics: `public/auth.js:73` and `public/evidenc
 routes that authenticate every request, no page registers a service worker or uses Cache Storage,
 and `scripts/task-evidence.test.mjs:20` and `public/evidence-chain.js:73` match the words credential
 and permission. A positive and negative scenario matrix ran against isolated copies: 34 of 34
-checks passed, with the recording data and the hosted instance unchanged. Tests: 108/108, thirty
+checks passed, with the recording data and the hosted instance unchanged. Tests: 107/107, thirty
 consecutive runs.
+
+Review fixes followed on 2026-09-25 after independent reviews: each adviser call now records which
+outlet answered; the mapped-back step follows the delivery actually prepared, not the adviser's
+answer; viewing an evidence chain is audited (at most once per task per minute); a stale response
+cannot redraw a previous viewer's chain; the local outlet times out at 10 seconds; selects are sized
+to their options. The 116-file candidate keeps CRITICAL and HIGH at the baseline in every scanner
+(localguard 87: 3 CRITICAL, 15 HIGH, 62 MEDIUM, 7 LOW; release-boundary 0). The one new export-gate
+MEDIUM is the keyword heuristic matching the interface text "Sign in as the sender" in
+`public/evidence-chain.js`. Tests: 113/113, thirty consecutive runs.
 
 ## Delivery Follow-Up Addition, 2026-09-18
 
@@ -180,10 +189,13 @@ kwarg is accepted by the API and never reaches the chat template.
 
 ### Runtime Change, Re-measured 2026-09-24
 
-The same GGUF, prompt, schema and request later took 8 to 27 seconds with 160 to 800 reasoning
-tokens and the answer in `content`. LM Studio had moved to llama.cpp runtime 2.41.0 (installed
-2026-09-19, after the measurement above), which applies the schema only after the reasoning block;
-the runtime used on 2026-09-18 is no longer installed. On 2.41.0, per request, same six scenarios:
+The same GGUF, prompt, schema and request later took 7 to 27 seconds with 165 to 811 reasoning
+tokens and the answer in `content`: the schema was now applied only after the reasoning block. The
+LM Studio log places the change between 2026-09-23 17:47 (schema-constrained calls still answered at
+once, in `reasoning_content`) and 2026-09-24 13:22. In that window LM Studio was started from a second
+application copy and migrated its settings (03:19); llama.cpp runtime 2.41.0 is selected now and
+2.13.0 is still installed. The log does not record which runtime served the earlier calls, so the
+cause is placed in that window and not attributed further. Per request, same six scenarios:
 
 | | as before | + `reasoning_effort: "none"` | + temperature 0 |
 | --- | --- | --- | --- |
@@ -195,7 +207,9 @@ the runtime used on 2026-09-18 is no longer installed. On 2.41.0, per request, s
 still left reasoning on. The three refusals
 were reasons the lookup table rules out (DEADLINE_NEAR outside the last window, WINDOW_EARLY inside
 it); the validator refused each. The route adviser on the shipped path: 10 of 10, 2.5 to 2.7 s. An
-end-to-end run on an isolated copy logged route 2976 and 3100 ms, follow-up 2621 and 2424 ms.
+end-to-end run on an isolated copy logged route 2976 and 3100 ms, follow-up 2621 and 2424 ms (those
+include the server's own work around the call). One earlier request carrying a /no_think prompt
+switch was cancelled at the 30 second timeout; that route was then dropped on the owner's decision.
 
 Reading `reasoning_content` when `content` is empty is safe here for one reason only: nothing
 downstream trusts either field. The same validator runs on whatever arrives, so deliberation text

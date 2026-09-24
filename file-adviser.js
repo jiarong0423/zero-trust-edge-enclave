@@ -79,9 +79,9 @@ export const ADVISER_PROVIDERS = {
     // It is still not the boundary. `validateFileAdvice` decides what is valid, and a schema the
     // server honours only means fewer answers reach it malformed.
     //
-    // Runtime llama.cpp 2.41.0 (LM Studio, installed 2026-09-19) applies the schema only after the
-    // reasoning block, so the constraint no longer turns reasoning off: 160 to 800 reasoning tokens
-    // and 8 to 27 seconds. `reasoning_effort: 'none'` is what this runtime honours (0 reasoning
+    // Since 2026-09-24 LM Studio (llama.cpp runtime 2.41.0 selected, after a settings migration)
+    // applies the schema only after the reasoning block, so the constraint no longer turns reasoning
+    // off: 165 to 811 reasoning tokens and 7 to 27 seconds. `reasoning_effort: 'none'` is what this runtime honours (0 reasoning
     // tokens); `chat_template_kwargs` and a /no_think prompt still do nothing. Without reasoning,
     // temperature 1 let the 4B pick a reason the lookup table rules out in 3 of 18 calls, which the
     // validator refused; greedy decoding gave 30 of 30 accepted at 2.4 to 2.6 seconds.
@@ -90,7 +90,9 @@ export const ADVISER_PROVIDERS = {
       reasoning_effort: 'none',
       temperature: 0,
     }),
-    timeoutMs: 30000,
+    // Every API request waits behind an adviser call, so a stalled local runtime must not hold the
+    // page for long. Measured calls take 2 to 3 seconds, a cold first call up to about 8.
+    timeoutMs: 10000,
     // A local runtime reached through an OpenAI-compatible shim does not pass chat_template_kwargs
     // to the template, so reasoning cannot be turned off the way it is for the hosted outlet. The
     // model spends several hundred tokens thinking before it answers, and a budget sized for the

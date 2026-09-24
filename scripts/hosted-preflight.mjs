@@ -94,7 +94,7 @@ if (posture) {
   record('pages served', pages.every(([, status]) => status === 200),
     pages.map(([route, status]) => `${route} ${status}`).join('  '));
 
-  const guarded = await Promise.all(['/api/tasks', '/api/audits', '/api/directory']
+  const guarded = await Promise.all(['/api/tasks', '/api/audit', '/api/whoami']
     .map(async route => [route, (await fetch(`http://127.0.0.1:${port}${route}`)).status]));
   record('unauthenticated routes refused', guarded.every(([, status]) => status === 401),
     guarded.map(([route, status]) => `${route} ${status}`).join('  '));

@@ -16,7 +16,7 @@ import { resumeFileTask, resumableReasons } from './task-operations.js';
 import { resolvePrivateRoute } from './private-mapping.js';
 import { packetCommitment } from './public/file-envelope.js';
 import { openLocalKeyVault } from './local-key-vault.js';
-import { advanceFileJobs, advanceFollowups } from './file-worker.js';
+import { advanceFileJobs, advanceFollowups, ADVICE_SOURCE } from './file-worker.js';
 import { fileRoutingMetadata } from './file-routing.js';
 import { taskEvidence } from './task-evidence.js';
 import { requestFileAdvice } from './file-adviser.js';
@@ -1237,6 +1237,13 @@ async function routeApi(req, res, pathname) {
       if (req.method !== 'GET') fail('Unsupported task operation', 405);
       const evidence = taskEvidence(task);
       if (!evidence) fail('Evidence unavailable', 404);
+      // Reading the chain is itself an access to what was approved, so it leaves a record too.
+      const viewedAt = Date.now();
+      if (!(viewedAt - (evidenceViews.get(task.id) || 0) < 60000)) {
+        evidenceViews.set(task.id, viewedAt);
+        await appendAudit({ taskId: task.id, snapshotVersion: evidence.version, type: 'EVIDENCE_VIEWED',
+          result: 'INFO', reasons: ['EVIDENCE_VIEWED'] });
+      }
       sendJson(res, 200, { evidence });
       return;
     }
@@ -1596,6 +1603,11 @@ async function serveStatic(req, res, pathname) {
 }
 
 let apiQueue = Promise.resolve();
+const ADVISER_PRE_REQUEST_FAILURES = new Set(['FILE_ADVICE_KIND_UNKNOWN', 'FILE_METADATA_REJECTED',
+  'FOLLOWUP_METADATA_REJECTED', 'FILE_PROVIDER_UNAVAILABLE', 'FILE_EXTERNAL_INFERENCE_DISABLED']);
+// One EVIDENCE_VIEWED record per task per minute: repeated views add nothing and would push older
+// delivery events out of the retained audit window.
+const evidenceViews = new Map();
 // Each outlet is given its own endpoint and model. The loopback outlet is never handed the cloud
 // credential: it does not need one, and sending a provider key to a local endpoint would put that
 // key somewhere the boundary never intended it to go.
@@ -1616,9 +1628,15 @@ async function fileAdviser(metadata, kind = 'route') {
       provider === 'nebius' ? (url, init) => nebiusBudget.fetch(url, init) : fetch);
     console.log(`adviser ${kind} ${result.provider} ${model} ${Math.round(performance.now() - started)}ms ` +
       `${result.advice.action} ${result.advice.reasonCode}`);
+    result.advice[ADVICE_SOURCE] = result.provider;
     return result;
   } catch (error) {
     console.error(`ERROR adviser ${kind} ${provider} ${model} ${Math.round(performance.now() - started)}ms ${error.message}`);
+    // Only a failure after a request was sent names the outlet; a call refused before any request
+    // (outlet disabled, misconfigured, metadata rejected) never reached a model.
+    if (error && typeof error === 'object' && !ADVISER_PRE_REQUEST_FAILURES.has(error.message)) {
+      error[ADVICE_SOURCE] = provider === 'nebius' ? 'nebius_token_factory' : provider;
+    }
     throw error;
   }
 }

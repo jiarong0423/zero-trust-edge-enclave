@@ -8,17 +8,28 @@ import { setText, setJson, initializeLanguage, t } from './i18n.js';
 async function showModelRuntime() {
   const view = document.querySelector('#modelRuntimeStatus');
   try {
-    const response = await fetch('/api/health', { cache: 'no-store', signal: AbortSignal.timeout(5000) });
+    // The health request waits behind any adviser call in progress, so give it time for one.
+    const response = await fetch('/api/health', { cache: 'no-store', signal: AbortSignal.timeout(15000) });
     if (!response.ok) throw Error('Health unavailable');
     const health = await response.json();
     if (health.ok !== true || typeof health.localOnly !== 'boolean' || typeof health.nebiusConfigured !== 'boolean') throw Error('Invalid health');
-    setText(view, health.localOnly ? 'Local simulation; no real model call' : health.nebiusConfigured
-      ? 'Provider configured; successful model call not verified' : 'Provider not configured; no verified model call');
-    if (typeof health.nebiusModel === 'string') setText(document.querySelector('#configuredModel'),
-      () => `${t('Configured model (not execution evidence)')}: ${health.nebiusModel}`);
+    // Describe the outlet that will answer, not merely whether a Token Factory key is present.
+    const local = health.adviserProvider === 'local_openai_compatible';
+    const tokenFactory = health.adviserProvider === 'nebius' && health.nebiusConfigured && !health.localOnly
+      && !health.nebiusBudget?.exhausted;
+    setText(view, local ? 'Local model outlet configured; successful model call not verified'
+      : tokenFactory ? 'Provider configured; successful model call not verified'
+      : health.nebiusBudget?.exhausted ? 'Token Factory budget spent; local simulation, no real model call'
+      : 'Local simulation; no real model call');
+    const model = local ? health.localOutletModel : tokenFactory ? health.nebiusModel : null;
+    const modelView = document.querySelector('#configuredModel');
+    if (typeof model === 'string') setText(modelView, () => `${t('Configured model (not execution evidence)')}: ${model}`);
+    else setText(modelView, 'No model is called in this mode');
   } catch { setText(view, 'Model status unavailable'); }
 }
 void showModelRuntime();
+// The outlet can change while this page stays open (a server restarted with another adviser).
+document.addEventListener('visibilitychange', () => { if (!document.hidden) void showModelRuntime(); });
 
 const upload = document.querySelector('#documentFile');
 const choose = document.querySelector('#chooseDocument');
