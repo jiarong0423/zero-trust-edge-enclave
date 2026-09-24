@@ -22,6 +22,9 @@ export async function resumeFileTask(original, actor, config, version, expectedR
   if (await packetCommitment(task.file.packet) !== snapshot.content.documentHash) fail('PACKET_CHANGED', 409);
   job.status = job.delivery ? 'RETRY_WAIT' : 'PENDING_CHECK';
   job.reasonCode = null;
+  // A person resuming starts the adviser retries afresh.
+  delete job.adviceRetries;
+  delete job.nextAdviceAt;
   job.revision = expectedRevision + 1;
   job.updatedAt = new Date(now).toISOString();
   return queueAudit(task, [{ taskId: task.id, snapshotVersion: version, type: 'DELIVERY_TRANSITION',

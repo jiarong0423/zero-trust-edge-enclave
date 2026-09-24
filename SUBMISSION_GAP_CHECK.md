@@ -10,7 +10,7 @@ Local self-checks against the 116-file candidate built from `public-export-manif
 export-gate:      pass, blocking 0, P0 0, P1 0, P2 0, critical 0, high 7, medium 89
 release-boundary: PASS, findings 0
 localguard:       87 findings, 3 CRITICAL / 15 HIGH / 62 MEDIUM / 7 LOW
-npm test:         113 of 113, thirty consecutive runs
+npm test:         114 of 114, thirty consecutive runs
 preflight:hosted: 7 of 8, 0 blocking, 1 advisory
 fuzz:             40,000 projections, 2,400 worker ticks, 0 invariant violations (2026-09-18)
 ```

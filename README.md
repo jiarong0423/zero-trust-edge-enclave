@@ -137,7 +137,7 @@ into `reasoning_content` while `content` is left empty. A client reading only `c
 empty success. None of these results prove superiority to deterministic routing, general injection
 resistance, or compatibility with an untested local runtime.
 
-Version 2026-09-25. Test evidence at this revision: 113 of 113, thirty consecutive runs.
+Version 2026-09-25. Test evidence at this revision: 114 of 114, thirty consecutive runs.
 
 ## Architecture
 

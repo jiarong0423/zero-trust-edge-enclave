@@ -23,6 +23,11 @@ function deliveryDeadlineFor(snapshot) {
 // projection the adviser saw, the validated answer, or a refusal code is kept. A refused answer is
 // untrusted model output, so its content is never stored; only this code's own fixed reason is.
 const TRAIL_LIMIT = 20;
+// An adviser that could not be reached decided nothing, so routing asks again after a pause rather
+// than stopping for a person at the first timeout. The job stays PENDING_CHECK: the adviser's policy
+// only proposes a route for that state. After the last retry it pauses and a person can resume it.
+const ADVICE_RETRY_LIMIT = 3;
+const ADVICE_RETRY_MS = 30000;
 // Which outlet produced an answer or a failure. A symbol, so it is never read as an answer field
 // and never reaches the validator's key check; only these fixed labels are stored.
 export const ADVICE_SOURCE = Symbol('adviceSource');
@@ -45,6 +50,7 @@ export async function advanceFileJobs(original, config, now = Date.now(), advise
   for (const job of task.jobs) {
     if (!['PENDING_CHECK', 'RETRY_WAIT'].includes(job.status)) continue;
     if (job.delivery?.nextAttemptAt && Date.parse(job.delivery.nextAttemptAt) > now) continue;
+    if (job.nextAdviceAt && Date.parse(job.nextAdviceAt) > now) continue;
     const previousState = job.status;
     let rejection = 'AUTHORIZATION_INVALID';
     try {
@@ -79,6 +85,8 @@ export async function advanceFileJobs(original, config, now = Date.now(), advise
         throw error;
       }
       recordAdvice(job, 'route', metadata, { answer: advice }, now, suggestion?.[ADVICE_SOURCE]);
+      delete job.nextAdviceAt;
+      delete job.adviceRetries;
       rejection = 'AUTHORIZATION_INVALID';
       const currentConfig = await reloadConfig();
       grant = activeGrant(currentConfig, task.grantId);
@@ -112,8 +120,16 @@ export async function advanceFileJobs(original, config, now = Date.now(), advise
           preparedAt: new Date(now).toISOString(), sendsEmail: false };
       }
     } catch {
-      job.status = 'PAUSED';
-      job.reasonCode = rejection;
+      if (rejection === 'ADVISER_UNAVAILABLE' && job.status === 'PENDING_CHECK' &&
+          (job.adviceRetries || 0) < ADVICE_RETRY_LIMIT) {
+        job.adviceRetries = (job.adviceRetries || 0) + 1;
+        job.nextAdviceAt = new Date(now + ADVICE_RETRY_MS).toISOString();
+        job.reasonCode = 'ADVISER_UNAVAILABLE';
+      } else {
+        delete job.nextAdviceAt;
+        job.status = 'PAUSED';
+        job.reasonCode = rejection;
+      }
     }
     job.revision = (job.revision || 0) + 1;
     job.updatedAt = new Date(now).toISOString();
@@ -158,6 +174,10 @@ export async function advanceFollowups(original, config, now = Date.now(), advis
         Date.parse(candidate.content.deliveryDeadline) > now;
     } catch { followable = false; }
     if (!followable) continue;
+    // Everyone has collected: there is nothing to chase, so the adviser is not asked at all. Asking
+    // would spend a model call whose only permitted answer is WAIT.
+    const pickup = receiptSummary(task, job.version, now);
+    if (pickup.recipientCount > 0 && pickup.downloadReportCount >= pickup.recipientCount) continue;
     let rejection = 'AUTHORIZATION_INVALID';
     let action = null;
     try {

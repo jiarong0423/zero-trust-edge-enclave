@@ -97,7 +97,7 @@ test('HTTP resume rejects foreign and concurrent replay, preserves retry ledger 
 test('resume revalidates authority, retains budget and rejects unknown outcomes', async () => {
   const actor = { id: 'sender', kind: 'operator' };
   const grant = { id: 'grant', version: 1, operatorId: actor.id, recipients: ['recipient'], channels: ['email'],
-    expiresAt: new Date(Date.now() + 60000).toISOString(), maxAttempts: 2, simulatedOutcomes: ['transient', 'prepared'] };
+    expiresAt: new Date(Date.now() + 600000).toISOString(), maxAttempts: 2, simulatedOutcomes: ['transient', 'prepared'] };
   const config = { grants: [grant], principals: [actor, { id: 'recipient', kind: 'recipient' }] };
   const sealed = await sealFileBytes(new Uint8Array([1, 2]), 'synthetic.csv');
   const draft = newTask(actor, grant, { documentHash: sealed.commitment, recipients: grant.recipients,
@@ -106,12 +106,19 @@ test('resume revalidates authority, retains budget and rejects unknown outcomes'
   const first = confirmFirst(draft, actor, grant, 1);
   const approved = confirmSecond(first.task, actor, grant, 1, first.token);
   const unavailable = async () => { throw Error('PRIVATE_FAILURE'); };
-  const paused = await advanceFileJobs(approved, config, Date.now(), unavailable);
+  // Three spaced retries run first; the fourth failure pauses for a person.
+  let paused = approved;
+  const start = Date.now();
+  for (let tick = 0; tick < 4; tick++) paused = await advanceFileJobs(paused, config, start + tick * 30000, unavailable);
+  assert.equal(paused.jobs[0].status, 'PAUSED');
   assert.equal(paused.jobs[0].reasonCode, 'ADVISER_UNAVAILABLE');
   assert.ok(!JSON.stringify(paused).includes('PRIVATE_FAILURE'));
   const resumed = await resumeFileTask(paused, actor, config, 1, paused.jobs[0].revision);
   assert.equal(resumed.jobs[0].status, 'PENDING_CHECK');
   assert.equal(resumed.jobs[0].attempts, 0);
+  // A person resuming gives the adviser a fresh set of retries.
+  assert.equal(resumed.jobs[0].adviceRetries, undefined);
+  assert.equal(resumed.jobs[0].nextAdviceAt, undefined);
   assert.equal(paused.jobs[0].status, 'PAUSED');
   await assert.rejects(resumeFileTask(resumed, actor, config, 1, paused.jobs[0].revision));
   await assert.rejects(resumeFileTask(paused, { ...actor, id: 'foreign' }, config, 1, paused.jobs[0].revision));

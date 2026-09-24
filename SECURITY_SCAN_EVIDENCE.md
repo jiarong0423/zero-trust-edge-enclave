@@ -62,6 +62,16 @@ to their options. The 116-file candidate keeps CRITICAL and HIGH at the baseline
 MEDIUM is the keyword heuristic matching the interface text "Sign in as the sender" in
 `public/evidence-chain.js`. Tests: 113/113, thirty consecutive runs.
 
+Two behaviour changes followed the same day. A routing call that never reached the adviser no
+longer pauses the delivery at once: the job stays PENDING_CHECK and asks again three times, 30
+seconds apart, then pauses for a person to resume (a refused answer still pauses at once). A
+delivery everyone has collected is no longer put to the follow-up adviser, whose only permitted
+answer there was WAIT. Both were exercised end to end against an isolated copy: an unreachable
+outlet gave three spaced retries and a pause, a resume on Nemotron Nano routed in 3.2 seconds; a
+fully collected delivery past its follow-up time made no model call, and the same delivery with
+its receipts removed was asked as before. Scanner results unchanged. Tests: 114/114, thirty
+consecutive runs.
+
 ## Delivery Follow-Up Addition, 2026-09-18
 
 Scanned candidate: 102 files, the tracked tree plus the delivery follow-up module, its two test

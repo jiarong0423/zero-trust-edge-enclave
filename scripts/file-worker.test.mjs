@@ -51,14 +51,45 @@ test('file worker is approval-bound, finite and idempotent without browser calls
     assert.equal(blocked.jobs[0].status, 'PAUSED');
     assert.equal(blocked.jobs[0].delivery, undefined);
   }
-  // An answer the validator refused is recorded apart from an adviser that never answered.
-  for (const [thrown, reason] of [
-    [Object.assign(new Error('Unsupported request fields'), { status: 422, adviceRejected: true }), 'ADVICE_INVALID'],
-    [Object.assign(new Error('FILE_PROVIDER_RESPONSE_REJECTED'), { status: 502 }), 'ADVISER_UNAVAILABLE']]) {
-    const paused = await advanceFileJobs(approved, config, now, async () => { throw thrown; });
-    assert.equal(paused.jobs[0].status, 'PAUSED');
-    assert.equal(paused.jobs[0].reasonCode, reason);
+  // An answer the validator refused pauses at once: the adviser answered, and the answer was wrong.
+  const invalid = await advanceFileJobs(approved, config, now,
+    async () => { throw Object.assign(new Error('Unsupported request fields'), { status: 422, adviceRejected: true }); });
+  assert.equal(invalid.jobs[0].status, 'PAUSED');
+  assert.equal(invalid.jobs[0].reasonCode, 'ADVICE_INVALID');
+  // An adviser that never answered decided nothing: routing asks again three times, 30 seconds
+  // apart, still PENDING_CHECK so the adviser's policy can route it, and pauses only after that.
+  const down = async () => { throw Object.assign(new Error('FILE_PROVIDER_RESPONSE_REJECTED'), { status: 502 }); };
+  // A ten-minute window, so every retry falls inside the grant.
+  const longGrant = { ...grant, expiresAt: new Date(now + 600000).toISOString() };
+  const longConfig = { ...config, grants: [longGrant] };
+  const longDraft = newTask(actor, longGrant, { documentHash: sealed.commitment, recipients: ['a'], channels: ['email'],
+    expiresAt: longGrant.expiresAt }, now);
+  longDraft.file = { packet: sealed.packet };
+  const longFirst = confirmFirst(longDraft, actor, longGrant, 1, now);
+  let waiting = confirmSecond(longFirst.task, actor, longGrant, 1, longFirst.token, now);
+  let calls = 0;
+  const counting = async metadata => { calls++; return down(metadata); };
+  for (let retry = 1; retry <= 3; retry++) {
+    waiting = await advanceFileJobs(waiting, longConfig, now + (retry - 1) * 30000, counting);
+    assert.equal(waiting.jobs[0].status, 'PENDING_CHECK');
+    assert.equal(waiting.jobs[0].reasonCode, 'ADVISER_UNAVAILABLE');
+    assert.equal(waiting.jobs[0].adviceRetries, retry);
+    // Not asked again before the pause has run out.
+    assert.equal(await advanceFileJobs(waiting, longConfig, now + (retry - 1) * 30000 + 29999, counting), waiting);
   }
+  assert.equal(calls, 3);
+  const exhausted = await advanceFileJobs(waiting, longConfig, now + 3 * 30000, counting);
+  assert.equal(calls, 4);
+  assert.equal(exhausted.jobs[0].status, 'PAUSED');
+  assert.equal(exhausted.jobs[0].reasonCode, 'ADVISER_UNAVAILABLE');
+  assert.equal(exhausted.jobs[0].nextAdviceAt, undefined);
+  // A retry that reaches the adviser routes normally and clears the retry state.
+  const recovered = await advanceFileJobs(waiting, longConfig, now + 3 * 30000, async metadata => syntheticFileAdvice(metadata));
+  // Routed and handed to delivery (this grant's first simulated outcome is transient).
+  assert.equal(recovered.jobs[0].adviceTrail.at(-1).answer.action, 'ROUTE');
+  assert.equal(recovered.jobs[0].delivery.attempts, 1);
+  assert.equal(recovered.jobs[0].adviceRetries, undefined);
+  assert.equal(recovered.jobs[0].nextAdviceAt, undefined);
   // The trail keeps what the adviser was given and what came of it, never identities or foreign text.
   const routed = await advanceFileJobs(approved, config, now, async metadata => syntheticFileAdvice(metadata));
   const [kept] = routed.jobs[0].adviceTrail;

@@ -207,3 +207,20 @@ test('neither projection can carry the notice, so the outstanding headcount neve
       `leaked the outstanding count ${job.notice.targets.length}: ${serialized}`);
   }
 });
+
+test('once everyone has collected, the adviser is not asked and nothing is recorded', async () => {
+  const { task, config, now } = await prepared();
+  const receipt = subject => ({ version: 1, subject, code: 'DOWNLOAD_REQUESTED',
+    evidence: 'CLIENT_REPORTED', reportedAt: new Date(now).toISOString() });
+  const everyone = { ...task, fileKeyReleases: [{ version: 1, subject: 'a' }, { version: 1, subject: 'b' }],
+    fileReceipts: [receipt('a'), receipt('b')] };
+  let asked = 0;
+  const result = await advanceFollowups(everyone, config, now + 25 * HOUR,
+    metadata => { asked++; return syntheticFollowupAdvice(metadata); });
+  assert.equal(asked, 0, 'a delivery with nothing left to chase costs no model call');
+  assert.equal(result, everyone, 'nothing changes, so nothing is written or audited');
+  // One collector short, and the adviser is asked as before.
+  const partial = { ...everyone, fileReceipts: [receipt('a')] };
+  await advanceFollowups(partial, config, now + 25 * HOUR, metadata => { asked++; return syntheticFollowupAdvice(metadata); });
+  assert.equal(asked, 1);
+});
