@@ -233,6 +233,7 @@ export async function requestFileAdvice(metadata, options = {}, request = fetch)
     diagnostics.code = 'ADVICE_REJECTED';
     mark('VALIDATION');
     emit();
-    throw error;
+    // Marked so a caller can tell an answer that failed validation from an adviser it never reached.
+    throw Object.assign(error, { adviceRejected: true });
   }
 }

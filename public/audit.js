@@ -1,5 +1,5 @@
 import { authenticatedFetch } from './auth.js';
-import { t, setText, clearLocalizedText, initializeLanguage } from './i18n.js';
+import { t, setText, clearLocalizedText, initializeLanguage, isChinese } from './i18n.js';
 const runtimeMode = document.querySelector('#runtimeMode');
 const allowCount = document.querySelector('#allowCount');
 const denyCount = document.querySelector('#denyCount');
@@ -39,7 +39,7 @@ function renderEvents() {
   auditRows.innerHTML = events.length
     ? events.map(event => `
       <tr>
-        <td>${new Date(event.createdAt).toLocaleString()}</td>
+        <td>${new Date(event.createdAt).toLocaleString(isChinese ? 'zh-TW' : 'en-US')}</td>
         <td><span class="pill ${event.result === 'ALLOW' ? 'allow' : event.result === 'DENY' ? 'deny' : 'info'}">${t(event.result)}</span></td>
         <td>${t(event.type)}</td>
         <td>${event.snapshotVersion ?? '-'}</td>

@@ -40,7 +40,15 @@ export async function advanceFileJobs(original, config, now = Date.now(), advise
       if (await packetCommitment(task.file.packet) !== snapshot.content.documentHash) throw new Error('PACKET_CHANGED');
       const metadata = fileRoutingMetadata(snapshot, job);
       rejection = 'ADVISER_UNAVAILABLE';
-      const suggestion = await advise(structuredClone(metadata));
+      let suggestion;
+      try {
+        suggestion = await advise(structuredClone(metadata));
+      } catch (error) {
+        // An adviser that answered with something the validator refused is invalid advice, not an
+        // unavailable adviser; the audit reason should say which one happened.
+        if (error?.adviceRejected) rejection = 'ADVICE_INVALID';
+        throw error;
+      }
       rejection = 'ADVICE_INVALID';
       const advice = validateFileAdvice(suggestion, metadata);
       rejection = 'AUTHORIZATION_INVALID';
@@ -136,7 +144,15 @@ export async function advanceFollowups(original, config, now = Date.now(), advis
       const summary = receiptSummary(task, job.version, now);
       const metadata = followupMetadata(snapshot, job, summary, now);
       rejection = 'ADVISER_UNAVAILABLE';
-      const suggestion = await advise(structuredClone(metadata));
+      let suggestion;
+      try {
+        suggestion = await advise(structuredClone(metadata));
+      } catch (error) {
+        // An adviser that answered with something the validator refused is invalid advice, not an
+        // unavailable adviser; the audit reason should say which one happened.
+        if (error?.adviceRejected) rejection = 'ADVICE_INVALID';
+        throw error;
+      }
       rejection = 'ADVICE_INVALID';
       const advice = validateFollowupAdvice(suggestion, metadata);
       // Authority is reloaded after the adviser has spoken, exactly as the routing pass does: a

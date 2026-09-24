@@ -1592,8 +1592,20 @@ async function fileAdviser(metadata, kind = 'route') {
   const outlet = provider === 'local_openai_compatible'
     ? { baseUrl: localModelBaseUrl, model: localModelName }
     : { baseUrl: nebiusBaseUrl, model: nebiusModel, apiKey: process.env.NEBIUS_API_KEY };
-  return requestFileAdvice(metadata, { provider, localOnly, kind, ...outlet },
-    provider === 'nebius' ? (url, init) => nebiusBudget.fetch(url, init) : fetch);
+  // One line per adviser call, so the operator can see which outlet and model answered and what it
+  // proposed. It carries the action and reason code only: never the task alias or any identity.
+  const model = provider === 'synthetic_fixture' ? '-' : outlet.model;
+  const started = performance.now();
+  try {
+    const result = await requestFileAdvice(metadata, { provider, localOnly, kind, ...outlet },
+      provider === 'nebius' ? (url, init) => nebiusBudget.fetch(url, init) : fetch);
+    console.log(`adviser ${kind} ${result.provider} ${model} ${Math.round(performance.now() - started)}ms ` +
+      `${result.advice.action} ${result.advice.reasonCode}`);
+    return result;
+  } catch (error) {
+    console.error(`ERROR adviser ${kind} ${provider} ${model} ${Math.round(performance.now() - started)}ms ${error.message}`);
+    throw error;
+  }
 }
 let workerBusy = false;
 let workerTimer;

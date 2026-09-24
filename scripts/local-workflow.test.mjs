@@ -75,6 +75,7 @@ test('isolated local authorization, coordinator and dry-run end to end', async t
   const setup = spawn(process.execPath, ['scripts/setup-local.mjs', dir], { cwd: root, env, stdio: 'ignore' });
   assert.equal((await once(setup, 'exit'))[0], 0);
   let server;
+  let serverOutput = '';
   async function startServer() {
     server = spawn(process.execPath, ['server.js'], { cwd: root, env, stdio: ['ignore', 'pipe', 'pipe'] });
     let output = '';
@@ -84,6 +85,7 @@ test('isolated local authorization, coordinator and dry-run end to end', async t
       const timer = setTimeout(() => reject(new Error('Server startup timeout')), 5000);
       server.stdout.on('data', chunk => {
         output += chunk;
+        serverOutput += chunk;
         const match = output.match(/http:\/\/127\.0\.0\.1:(\d+)/);
         if (match) { clearTimeout(timer); resolve(match[0]); }
       });
@@ -191,6 +193,9 @@ test('isolated local authorization, coordinator and dry-run end to end', async t
   }
   assert.equal(workerView.body.task.jobs[0].status, 'DRY_RUN_PREPARED');
   assert.equal(workerView.body.task.jobs[0].attempts, 1);
+  // Each adviser call is reported with its outlet and proposal, and never with the task alias.
+  const adviserLine = serverOutput.split('\n').find(line => line.startsWith('adviser route '));
+  assert.match(adviserLine, /^adviser route synthetic_fixture - \d+ms ROUTE [A-Z_]+$/);
   const routedDisk = JSON.parse(await fs.readFile(path.join(dir, 'tasks.json'), 'utf8'));
   const fileAlias = routedDisk.find(item => item.id === staged.body.task.id).snapshots[1].privateMapping.taskAlias;
   for (const tool of ['file_status', 'file_recommend']) {

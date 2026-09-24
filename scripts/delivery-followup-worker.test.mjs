@@ -114,6 +114,16 @@ test('an adviser that widens the contract is refused and prepares nothing', asyn
   }
 });
 
+test('an answer the validator refused is recorded apart from an adviser that never answered', async () => {
+  const { task, config, now } = await prepared();
+  for (const [thrown, reason] of [
+    [Object.assign(new Error('Unsupported request fields'), { status: 422, adviceRejected: true }), 'ADVICE_INVALID'],
+    [Object.assign(new Error('FILE_PROVIDER_RESPONSE_REJECTED'), { status: 502 }), 'ADVISER_UNAVAILABLE']]) {
+    const paused = await advanceFollowups(task, config, now + 25 * HOUR, async () => { throw thrown; });
+    assert.equal(paused.jobs[0].followupPausedBy, reason);
+  }
+});
+
 test('an adviser cannot nudge past the budget however many times it is asked', async () => {
   const { task, config, now } = await prepared({ span: 400 * HOUR });
   let current = task;

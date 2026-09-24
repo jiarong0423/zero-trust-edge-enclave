@@ -38,6 +38,11 @@ candidate scans the same except for one ai-security-rules MEDIUM, a shell-comman
 `docs/agent/zeabur-deployment.md:68`, which is prose explaining the `exec` start command. Localguard and
 release-boundary counts are unchanged. Tests: 103/103, thirty consecutive runs.
 
+A further change the same day logged each adviser call's outlet, model and proposal, recorded a
+refused model answer as ADVICE_INVALID rather than ADVISER_UNAVAILABLE, and formatted audit dates
+by interface language. The 113-file candidate scans with identical counts; the CRITICAL and HIGH
+findings are the baseline canaries at shifted line numbers. Tests: 104/104, thirty consecutive runs.
+
 ## Delivery Follow-Up Addition, 2026-09-18
 
 Scanned candidate: 102 files, the tracked tree plus the delivery follow-up module, its two test

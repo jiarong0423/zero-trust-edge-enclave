@@ -51,6 +51,14 @@ test('file worker is approval-bound, finite and idempotent without browser calls
     assert.equal(blocked.jobs[0].status, 'PAUSED');
     assert.equal(blocked.jobs[0].delivery, undefined);
   }
+  // An answer the validator refused is recorded apart from an adviser that never answered.
+  for (const [thrown, reason] of [
+    [Object.assign(new Error('Unsupported request fields'), { status: 422, adviceRejected: true }), 'ADVICE_INVALID'],
+    [Object.assign(new Error('FILE_PROVIDER_RESPONSE_REJECTED'), { status: 502 }), 'ADVISER_UNAVAILABLE']]) {
+    const paused = await advanceFileJobs(approved, config, now, async () => { throw thrown; });
+    assert.equal(paused.jobs[0].status, 'PAUSED');
+    assert.equal(paused.jobs[0].reasonCode, reason);
+  }
   let expiredAdviserCalls = 0;
   const expired = await advanceFileJobs(approved, config, now + 60001, async metadata => {
     expiredAdviserCalls++;
