@@ -172,7 +172,7 @@ export const labels = {
   'Local model outlet configured; successful model call not verified': '已設定本機模型出口；尚未驗證成功呼叫',
   'Token Factory budget spent; local simulation, no real model call': 'Token Factory 預算已用完；本機模擬，未呼叫真實模型',
   'No model is called in this mode': '此模式不呼叫模型',
-  'Request failed': '請求未完成', 'Invalid receipt response': '回執回應格式不符',
+  'Request failed': '請求未完成', INVALID_FILE_ENVELOPE: '檔案封裝格式不符', 'Adviser not answering; asking again': '顧問模型暫未回應，稍後自動再問', 'Demo sign-in expired; reload the page to sign in again': '評審登入已逾時，請重新整理頁面再登入', 'Invalid receipt response': '回執回應格式不符',
   'IDENTITY VERIFIED': '身分已驗證', 'IDENTITY NOT VERIFIED': '身分未通過驗證', 'Identity check unavailable': '暫時無法確認身分',
   'Sender': '發文者', 'Recipient': '收件人', 'Coordinator': '協調者', 'Administrator': '管理員', 'Unknown role': '未知角色',
   'ACCESS APPROVED': '存取已核准', 'ACCESS DENIED': '存取被拒',

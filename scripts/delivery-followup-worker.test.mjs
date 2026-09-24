@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { advanceFileJobs, advanceFollowups } from '../file-worker.js';
+import { advanceFileJobs, advanceFollowups, ADVICE_NO_RETRY } from '../file-worker.js';
 import { newTask, confirmFirst, confirmSecond } from '../snapshot-lifecycle.js';
 import { sealFileBytes } from '../public/file-envelope.js';
 import { syntheticFollowupAdvice, followupMetadata, MAX_NUDGES } from '../delivery-followup.js';
@@ -223,4 +223,24 @@ test('once everyone has collected, the adviser is not asked and nothing is recor
   const partial = { ...everyone, fileReceipts: [receipt('a')] };
   await advanceFollowups(partial, config, now + 25 * HOUR, metadata => { asked++; return syntheticFollowupAdvice(metadata); });
   assert.equal(asked, 1);
+});
+
+test('an adviser that stays down is asked three times a minute apart, then at the halving cadence', async () => {
+  const { task, config, now } = await prepared();
+  let current = task;
+  let at = now + 25 * HOUR;
+  const waits = [];
+  for (let call = 0; call < 5; call++) {
+    const next = await advanceFollowups(current, config, at, () => { throw new Error('down'); });
+    const due = Date.parse(next.jobs[0].nextFollowupAt);
+    waits.push(due - at);
+    current = next;
+    at = due;
+  }
+  assert.deepEqual(waits.slice(0, 3), [60000, 60000, 60000]);
+  assert.ok(waits[3] > 60000 && waits[4] < waits[3], 'after three quick tries the wait moves to half of what is left');
+  // Routing evidence is kept however many follow-up calls fail.
+  const trail = current.jobs[0].adviceTrail;
+  assert.ok(trail.some(entry => entry.kind === 'route'));
+  assert.ok(trail.filter(entry => entry.kind === 'followup').length <= 10);
 });

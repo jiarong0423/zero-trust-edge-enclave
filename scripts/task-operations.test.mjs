@@ -108,8 +108,11 @@ test('resume revalidates authority, retains budget and rejects unknown outcomes'
   const unavailable = async () => { throw Error('PRIVATE_FAILURE'); };
   // Three spaced retries run first; the fourth failure pauses for a person.
   let paused = approved;
-  const start = Date.now();
-  for (let tick = 0; tick < 4; tick++) paused = await advanceFileJobs(paused, config, start + tick * 30000, unavailable);
+  let at = Date.now();
+  for (let tick = 0; tick < 4; tick++) {
+    paused = await advanceFileJobs(paused, config, at, unavailable);
+    if (paused.jobs[0].nextAdviceAt) at = Date.parse(paused.jobs[0].nextAdviceAt);
+  }
   assert.equal(paused.jobs[0].status, 'PAUSED');
   assert.equal(paused.jobs[0].reasonCode, 'ADVISER_UNAVAILABLE');
   assert.ok(!JSON.stringify(paused).includes('PRIVATE_FAILURE'));

@@ -1,6 +1,7 @@
 <!--
   Zero-Trust Edge Enclave — architecture diagram
-  Generated 2026-09-18, revised 2026-09-19 for the delivery follow-up loop.
+  Generated 2026-09-18, revised 2026-09-19 for the delivery follow-up loop and 2026-09-25 for the
+  adviser retry on PENDING_CHECK.
   Purpose: README and hackathon submission material.
   Sources of truth: audit-boundary.js (state allowlist), task-operations.js (resumable reason
   codes), file-routing.js and delivery-followup.js (the two five-field projections),
@@ -9,7 +10,7 @@
 -->
 <svg width="100%" viewBox="0 0 680 736" xmlns="http://www.w3.org/2000/svg" role="img">
   <title>Task state machine</title>
-  <desc>Spine: DRAFT to LOCKED on first confirmation, to APPROVED on second confirmation, then PENDING_CHECK once a delivery job exists. Side exits: INVALIDATED on revision, REVOKED on revocation. PENDING_CHECK branches to DRY_RUN_PREPARED, OUTCOME_UNKNOWN, RETRY_WAIT or PAUSED. PAUSED returns to PENDING_CHECK only for five resumable reason codes. DRY_RUN_PREPARED is not terminal for a delivery that must be acknowledged: while its deadline has not passed it is reconsidered, and the answer, WAIT, REMIND or ESCALATE, returns it to the same state. All ten states come from the audit allowlist; the follow-up pass adds audit event types and reason codes, not states.</desc>
+  <desc>Spine: DRAFT to LOCKED on first confirmation, to APPROVED on second confirmation, then PENDING_CHECK once a delivery job exists. Side exits: INVALIDATED on revision, REVOKED on revocation. PENDING_CHECK branches to DRY_RUN_PREPARED, OUTCOME_UNKNOWN, RETRY_WAIT or PAUSED; when the adviser cannot be reached it stays in PENDING_CHECK and asks again, up to three times 30 seconds apart, before pausing. PAUSED returns to PENDING_CHECK only for five resumable reason codes. DRY_RUN_PREPARED is not terminal for a delivery that must be acknowledged: while its deadline has not passed it is reconsidered, and the answer, WAIT, REMIND or ESCALATE, returns it to the same state. All ten states come from the audit allowlist; the follow-up pass adds audit event types and reason codes, not states.</desc>
   <style>
     text { font-family: -apple-system, "Helvetica Neue", Inter, system-ui, sans-serif; }
     .ts { font-size: 12px; fill: #5f5e5a; }
@@ -37,6 +38,9 @@
   <text class="ts" x="172" y="194" text-anchor="end">Second confirmation</text>
   <line x1="260" y1="257" x2="260" y2="272" class="arr" marker-end="url(#a)"/>
   <text class="ts" x="172" y="268" text-anchor="end">Create delivery job</text>
+  <path d="M180 296 L152 296 L152 314 L174 314" class="arr" marker-end="url(#a)"/>
+  <text class="ts" x="146" y="301" text-anchor="end">Adviser unreachable:</text>
+  <text class="ts" x="146" y="317" text-anchor="end">ask again, up to 3 × 30 s</text>
 
   <g class="c-gray"><rect x="470" y="134" width="150" height="44" rx="8" stroke-width="0.5"/><text class="th" x="545" y="156" text-anchor="middle" dominant-baseline="central">INVALIDATED</text></g>
   <g class="c-gray"><rect x="470" y="208" width="150" height="44" rx="8" stroke-width="0.5"/><text class="th" x="545" y="230" text-anchor="middle" dominant-baseline="central">REVOKED</text></g>

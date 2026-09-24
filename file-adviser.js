@@ -84,7 +84,7 @@ export const ADVISER_PROVIDERS = {
     // off: 165 to 811 reasoning tokens and 7 to 27 seconds. `reasoning_effort: 'none'` is what this runtime honours (0 reasoning
     // tokens); `chat_template_kwargs` and a /no_think prompt still do nothing. Without reasoning,
     // temperature 1 let the 4B pick a reason the lookup table rules out in 3 of 18 calls, which the
-    // validator refused; greedy decoding gave 30 of 30 accepted at 2.4 to 2.6 seconds.
+    // validator refused; greedy decoding gave 30 of 30 accepted at 2.3 to 2.6 seconds.
     shape: (metadata, kind) => ({
       response_format: { type: 'json_schema', json_schema: { name: 'adviser_output', strict: true, schema: kind.schema } },
       reasoning_effort: 'none',

@@ -71,7 +71,10 @@ window.addEventListener('authenticationchange', () => {
     let result = null;
     try {
       const response = await authenticatedFetch('/api/whoami');
-      result = response.ok ? await response.json() : { denied: response.status === 401 };
+      // The hosted sign-in answers 401 too once its session lapses; that is not a verdict on the token.
+      const body = response.ok ? await response.json() : await response.json().catch(() => ({}));
+      result = response.ok ? body : body.error === 'Demo sign-in required' ? { gate: true }
+        : { denied: response.status === 401 };
     } catch { result = null; }
     if (current !== identityCheck) return;
     identity.hidden = false;
@@ -80,7 +83,8 @@ window.addEventListener('authenticationchange', () => {
       setText(identity, () => `${t('IDENTITY VERIFIED')} · ${t(roles[result.kind] || 'Unknown role')}`);
     } else {
       identity.className = 'identity-badge rejected';
-      setText(identity, result?.denied ? 'IDENTITY NOT VERIFIED' : 'Identity check unavailable');
+      setText(identity, result?.gate ? 'Demo sign-in expired; reload the page to sign in again'
+        : result?.denied ? 'IDENTITY NOT VERIFIED' : 'Identity check unavailable');
     }
   }, 250);
 });

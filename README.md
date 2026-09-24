@@ -137,7 +137,7 @@ into `reasoning_content` while `content` is left empty. A client reading only `c
 empty success. None of these results prove superiority to deterministic routing, general injection
 resistance, or compatibility with an untested local runtime.
 
-Version 2026-09-25. Test evidence at this revision: 114 of 114, thirty consecutive runs.
+Version 2026-09-25. Test evidence at this revision: 115 of 115, thirty consecutive runs.
 
 ## Architecture
 
@@ -160,6 +160,8 @@ exchange, the decryption, and the reporting in between.
 **What a task can do next.** Ten states and the reason codes that decide whether a paused job may
 resume. `RETRY_EXHAUSTED` and `DELIVERY_WINDOW_CLOSED` both stop a job, for different reasons: the
 first has spent its attempts, the second still has attempts but the download window closed first.
+An adviser that cannot be reached decided nothing, so a first routing check stays in
+`PENDING_CHECK` and asks again, up to three times 30 seconds apart, before it pauses for a person.
 
 ![Task state machine](docs/assets/architecture-state-machine.svg)
 

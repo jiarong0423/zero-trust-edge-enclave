@@ -72,6 +72,14 @@ fully collected delivery past its follow-up time made no model call, and the sam
 its receipts removed was asked as before. Scanner results unchanged. Tests: 114/114, thirty
 consecutive runs.
 
+A second review pass followed: follow-up calls that keep failing back off to the halving cadence
+after three one-minute retries; route and follow-up entries keep separate halves of the evidence
+trail; a failure raised before any request left is not retried; revoking a delivery clears a
+pending adviser retry; the sender sees "asking again n/3"; a recipient not on the delivery sees no
+receipt error on sign-in, only the refusal on download; a lapsed hosted sign-in is labelled as such
+rather than as an unverified identity. Scanner results unchanged. Tests: 115/115, thirty
+consecutive runs.
+
 ## Delivery Follow-Up Addition, 2026-09-18
 
 Scanned candidate: 102 files, the tracked tree plus the delivery follow-up module, its two test

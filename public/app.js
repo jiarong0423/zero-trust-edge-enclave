@@ -100,7 +100,10 @@ async function trackDelivery(id, version) {
       const job = body.task.jobs.find(item => item.version === version);
       if (!job) throw new Error('Delivery status unavailable');
       setJson(result, { taskId: id, version, status: job.status, attempts: job.attempts || 0 });
-      setText(deliveryStatus, () => t(job.status) + (job.reasonCode ? ' | ' + t(job.reasonCode) : ''));
+      // While routing waits to ask an unreachable adviser again, say so and how far along it is.
+      const retrying = job.status === 'PENDING_CHECK' && job.reasonCode === 'ADVISER_UNAVAILABLE' && job.adviceRetries > 0;
+      setText(deliveryStatus, () => retrying ? `${t('Adviser not answering; asking again')} ${job.adviceRetries}/3`
+        : t(job.status) + (job.reasonCode ? ' | ' + t(job.reasonCode) : ''));
       if (job.receiptSummary) {
         const summary = job.receiptSummary;
         setText(receiptView, () => `${t('Recipients')}: ${summary.recipientCount} | ${t('Key recipients')}: ${summary.keyRecipientCount} | ${t('Client download reports')}: ${summary.downloadReportCount} | ${t('Acknowledged recipients')}: ${summary.acknowledgedCount || 0} | ${t(summary.downloadWindowState || '')} | ${t(summary.receiptState || '')} | ${t(summary.deliveryState || '')} | ${t('Not proof of reading')}`);

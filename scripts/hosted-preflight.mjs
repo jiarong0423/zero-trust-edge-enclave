@@ -89,10 +89,15 @@ record('server reachable on 0.0.0.0', Boolean(posture),
   posture ? `localOnly=${posture.localOnly} demoFallbackEnabled=${posture.demoFallbackEnabled}` : live.log().split('\n')[0] || 'no response');
 
 if (posture) {
-  const pages = await Promise.all(['/', '/decode', '/audit', '/admin', '/zh-TW/']
-    .map(async route => [route, (await fetch(`http://127.0.0.1:${port}${route}`)).status]));
-  record('pages served', pages.every(([, status]) => status === 200),
-    pages.map(([route, status]) => `${route} ${status}`).join('  '));
+  // A missing page falls back to the sender page with 200, so status alone proves nothing: each
+  // page must also carry its own script.
+  const pages = await Promise.all([['/', 'app.js'], ['/decode.html', 'decode.js'], ['/audit.html', 'audit.js'],
+    ['/admin.html', 'admin.js'], ['/zh-TW/', 'app.js']].map(async ([route, script]) => {
+    const response = await fetch(`http://127.0.0.1:${port}${route}`);
+    return [route, response.status, (await response.text()).includes(script)];
+  }));
+  record('pages served', pages.every(([, status, own]) => status === 200 && own),
+    pages.map(([route, status, own]) => `${route} ${status}${own ? '' : ' (wrong page)'}`).join('  '));
 
   const guarded = await Promise.all(['/api/tasks', '/api/audit', '/api/whoami']
     .map(async route => [route, (await fetch(`http://127.0.0.1:${port}${route}`)).status]));

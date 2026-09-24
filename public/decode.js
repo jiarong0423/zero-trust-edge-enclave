@@ -32,7 +32,7 @@ function changed() {
   clearVerification();
   clearTimeout(refreshTimer);
   setText(status, 'No decode attempt yet.');
-  refreshTimer = setTimeout(() => { void restoreReceipt(); }, 250);
+  refreshTimer = setTimeout(() => { void restoreReceipt({ automatic: true }); }, 250);
 }
 window.addEventListener('authenticationchange', changed);
 taskId.addEventListener('input', changed);
@@ -73,7 +73,7 @@ async function flushReports(target) {
     if (verifiedDelivery === target) { retryReceipt.disabled = false; setText(status, 'Download requested; receipt unconfirmed'); }
   }
 }
-async function restoreReceipt() {
+async function restoreReceipt({ automatic = false } = {}) {
   if (button.disabled || receiptBusy || verifiedDelivery?.pending?.length) return;
   const id = taskId.value.trim(), number = Number(version.value), generation = identityGeneration;
   if (!/^[a-f0-9-]{36}$/.test(id) || !Number.isSafeInteger(number) || number < 1 || !document.querySelector('#accessToken').value.trim()) return;
@@ -83,6 +83,9 @@ async function restoreReceipt() {
       headers: { 'content-type': 'application/json' }, body: JSON.stringify({ version: number }) });
     const body = await response.json();
     if (generation !== identityGeneration || button.disabled || receiptBusy || verifiedDelivery?.pending?.length) return;
+    // The automatic look-up on sign-in stays quiet for someone this delivery was not approved for:
+    // the refusal belongs to their download attempt, where it is shown and logged as ACCESS DENIED.
+    if (!response.ok && automatic && response.status === 403) return;
     if (!response.ok) throw Error('Receipt status unavailable');
     if (body.acknowledged) {
       clearVerification();
@@ -95,7 +98,7 @@ async function restoreReceipt() {
   } catch { if (generation === identityGeneration) setText(status, 'Receipt status unavailable'); }
   finally { refreshReceipt.disabled = false; }
 }
-refreshReceipt.addEventListener('click', restoreReceipt);
+refreshReceipt.addEventListener('click', () => restoreReceipt());
 retryReceipt.addEventListener('click', () => { if (verifiedDelivery) void flushReports(verifiedDelivery); });
 acknowledge.addEventListener('click', async () => {
   const verified = verifiedDelivery;

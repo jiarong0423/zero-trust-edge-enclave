@@ -24,13 +24,19 @@ function deliveryDeadlineFor(snapshot) {
 // untrusted model output, so its content is never stored; only this code's own fixed reason is.
 const TRAIL_LIMIT = 20;
 // An adviser that could not be reached decided nothing, so routing asks again after a pause rather
-// than stopping for a person at the first timeout. The job stays PENDING_CHECK: the adviser's policy
-// only proposes a route for that state. After the last retry it pauses and a person can resume it.
+// than stopping for a person at the first timeout. Only a first routing check (PENDING_CHECK) is
+// retried, and it stays PENDING_CHECK: the adviser's policy only proposes a route for that state; a
+// delivery already waiting on a retry (RETRY_WAIT) pauses as before. After the last retry it pauses
+// and a person can resume it.
 const ADVICE_RETRY_LIMIT = 3;
 const ADVICE_RETRY_MS = 30000;
+const FOLLOWUP_QUICK_RETRIES = 3;
 // Which outlet produced an answer or a failure. A symbol, so it is never read as an answer field
 // and never reaches the validator's key check; only these fixed labels are stored.
 export const ADVICE_SOURCE = Symbol('adviceSource');
+// Set on a failure that happened before any request left (outlet disabled or misconfigured,
+// metadata refused). Asking again cannot change the answer, so it is not retried.
+export const ADVICE_NO_RETRY = Symbol('adviceNoRetry');
 const ADVICE_SOURCES = new Set(['nebius_token_factory', 'local_openai_compatible', 'synthetic_fixture']);
 function recordAdvice(job, kind, input, outcome, now, source) {
   const entry = { kind, input: structuredClone(input), at: new Date(now).toISOString(),
@@ -39,7 +45,12 @@ function recordAdvice(job, kind, input, outcome, now, source) {
   else entry.refusal = { reasonCode: outcome.reasonCode,
     detail: outcome.detail === undefined ? null
       : /^[A-Za-z0-9 _:.-]{1,80}$/.test(String(outcome.detail)) ? String(outcome.detail) : 'UNCLASSIFIED' };
-  job.adviceTrail = [...(job.adviceTrail || []), entry].slice(-TRAIL_LIMIT);
+  // Each kind keeps its own last TRAIL_LIMIT / 2 entries, so a run of follow-up calls cannot push
+  // the routing evidence out of the trail.
+  const trail = [...(job.adviceTrail || []), entry];
+  const keep = new Set(['route', 'followup'].flatMap(name =>
+    trail.filter(item => item.kind === name).slice(-TRAIL_LIMIT / 2)));
+  job.adviceTrail = trail.filter(item => keep.has(item));
 }
 
 export async function advanceFileJobs(original, config, now = Date.now(), advise = syntheticFileAdvice, reloadConfig = async () => config) {
@@ -53,6 +64,7 @@ export async function advanceFileJobs(original, config, now = Date.now(), advise
     if (job.nextAdviceAt && Date.parse(job.nextAdviceAt) > now) continue;
     const previousState = job.status;
     let rejection = 'AUTHORIZATION_INVALID';
+    let retryable = true;
     try {
       let grant = activeGrant(config, task.grantId);
       rejection = 'ACTOR_DISABLED';
@@ -71,6 +83,7 @@ export async function advanceFileJobs(original, config, now = Date.now(), advise
         // An adviser that answered with something the validator refused is invalid advice, not an
         // unavailable adviser; the audit reason should say which one happened.
         if (error?.adviceRejected) rejection = 'ADVICE_INVALID';
+        if (error?.[ADVICE_NO_RETRY]) retryable = false;
         // Only the validator's own refusal text is kept; any other failure may carry foreign text.
         recordAdvice(job, 'route', metadata, { reasonCode: rejection, detail: error?.adviceRejected ? error.message : undefined }, now,
           error?.[ADVICE_SOURCE]);
@@ -120,10 +133,11 @@ export async function advanceFileJobs(original, config, now = Date.now(), advise
           preparedAt: new Date(now).toISOString(), sendsEmail: false };
       }
     } catch {
-      if (rejection === 'ADVISER_UNAVAILABLE' && job.status === 'PENDING_CHECK' &&
+      if (rejection === 'ADVISER_UNAVAILABLE' && retryable && job.status === 'PENDING_CHECK' &&
           (job.adviceRetries || 0) < ADVICE_RETRY_LIMIT) {
         job.adviceRetries = (job.adviceRetries || 0) + 1;
-        job.nextAdviceAt = new Date(now + ADVICE_RETRY_MS).toISOString();
+        // Measured from when the attempt ended, so a slow timeout does not shorten the pause.
+        job.nextAdviceAt = new Date(now + Math.max(0, Date.now() - startedAt) + ADVICE_RETRY_MS).toISOString();
         job.reasonCode = 'ADVISER_UNAVAILABLE';
       } else {
         delete job.nextAdviceAt;
@@ -263,12 +277,19 @@ export async function advanceFollowups(original, config, now = Date.now(), advis
       const span = Number.isFinite(approvedAt) && deadline > approvedAt ? deadline - approvedAt : 0;
       const step = span > 0 ? Math.max(Math.ceil((deadline - now) / 2), Math.ceil(span / 8)) : deadline - now;
       job.nextFollowupAt = new Date(Math.min(now + Math.max(step, 1), deadline)).toISOString();
+      delete job.followupFailures;
     } catch {
       action = null;
       job.followupPausedBy = rejection;
-      // A refusal must not become a hot loop against a failing dependency; it waits out a bucket
-      // like any other outcome.
-      job.nextFollowupAt = new Date(now + 60000).toISOString();
+      // A refusal must not become a hot loop against a failing dependency. The first three wait a
+      // minute each; after that the next try moves to the middle of what is left, the same halving
+      // the normal cadence uses, so a dependency that stays down costs a handful of calls rather
+      // than one a minute until the deadline.
+      job.followupFailures = (job.followupFailures || 0) + 1;
+      const deadline = Date.parse(candidate.content.deliveryDeadline);
+      const wait = job.followupFailures <= FOLLOWUP_QUICK_RETRIES || !Number.isFinite(deadline) ? 60000
+        : Math.max(60000, Math.ceil((deadline - now) / 2));
+      job.nextFollowupAt = new Date(now + wait).toISOString();
     }
     job.revision = (job.revision || 0) + 1;
     job.updatedAt = new Date(now).toISOString();

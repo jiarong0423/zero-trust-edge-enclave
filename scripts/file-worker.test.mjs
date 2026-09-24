@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { advanceFileJobs } from '../file-worker.js';
-import { newTask, confirmFirst, confirmSecond } from '../snapshot-lifecycle.js';
+import { ADVICE_NO_RETRY, advanceFileJobs } from '../file-worker.js';
+import { newTask, confirmFirst, confirmSecond, revokeSnapshot } from '../snapshot-lifecycle.js';
 import { sealFileBytes } from '../public/file-envelope.js';
 import { syntheticFileAdvice } from '../file-routing.js';
 
@@ -69,22 +69,36 @@ test('file worker is approval-bound, finite and idempotent without browser calls
   let waiting = confirmSecond(longFirst.task, actor, longGrant, 1, longFirst.token, now);
   let calls = 0;
   const counting = async metadata => { calls++; return down(metadata); };
+  let tick = now;
   for (let retry = 1; retry <= 3; retry++) {
-    waiting = await advanceFileJobs(waiting, longConfig, now + (retry - 1) * 30000, counting);
+    waiting = await advanceFileJobs(waiting, longConfig, tick, counting);
     assert.equal(waiting.jobs[0].status, 'PENDING_CHECK');
     assert.equal(waiting.jobs[0].reasonCode, 'ADVISER_UNAVAILABLE');
     assert.equal(waiting.jobs[0].adviceRetries, retry);
+    const due = Date.parse(waiting.jobs[0].nextAdviceAt);
+    assert.ok(due - tick >= 30000, 'the pause is at least 30 seconds, measured from the end of the attempt');
     // Not asked again before the pause has run out.
-    assert.equal(await advanceFileJobs(waiting, longConfig, now + (retry - 1) * 30000 + 29999, counting), waiting);
+    assert.equal(await advanceFileJobs(waiting, longConfig, due - 1, counting), waiting);
+    tick = due;
   }
   assert.equal(calls, 3);
-  const exhausted = await advanceFileJobs(waiting, longConfig, now + 3 * 30000, counting);
+  const exhausted = await advanceFileJobs(waiting, longConfig, tick, counting);
   assert.equal(calls, 4);
   assert.equal(exhausted.jobs[0].status, 'PAUSED');
   assert.equal(exhausted.jobs[0].reasonCode, 'ADVISER_UNAVAILABLE');
   assert.equal(exhausted.jobs[0].nextAdviceAt, undefined);
+  // Revoking a delivery that is waiting to ask again ends the wait and drops the adviser reason.
+  const revokedWhileWaiting = revokeSnapshot(waiting, actor, 1, now);
+  assert.equal(revokedWhileWaiting.jobs[0].status, 'REVOKED');
+  assert.equal(revokedWhileWaiting.jobs[0].reasonCode, null);
+  assert.equal(revokedWhileWaiting.jobs[0].nextAdviceAt, undefined);
+  // A failure before any request left (outlet disabled or misconfigured) is not retried.
+  const misconfigured = await advanceFileJobs(confirmSecond(longFirst.task, actor, longGrant, 1, longFirst.token, now), longConfig, now,
+    async () => { throw Object.assign(new Error('FILE_PROVIDER_UNAVAILABLE'), { [ADVICE_NO_RETRY]: true }); });
+  assert.equal(misconfigured.jobs[0].status, 'PAUSED');
+  assert.equal(misconfigured.jobs[0].adviceRetries, undefined);
   // A retry that reaches the adviser routes normally and clears the retry state.
-  const recovered = await advanceFileJobs(waiting, longConfig, now + 3 * 30000, async metadata => syntheticFileAdvice(metadata));
+  const recovered = await advanceFileJobs(waiting, longConfig, tick, async metadata => syntheticFileAdvice(metadata));
   // Routed and handed to delivery (this grant's first simulated outcome is transient).
   assert.equal(recovered.jobs[0].adviceTrail.at(-1).answer.action, 'ROUTE');
   assert.equal(recovered.jobs[0].delivery.attempts, 1);

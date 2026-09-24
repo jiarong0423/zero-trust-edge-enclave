@@ -114,7 +114,15 @@ export function revokeSnapshot(original, actor, number, now = Date.now()) {
   const snapshot = version(task, number);
   snapshot.revokedAt ||= new Date(now).toISOString();
   snapshot.submissionHash = null;
-  for (const job of task.jobs) if (job.version === number) job.status = 'REVOKED';
+  for (const job of task.jobs) {
+    if (job.version !== number) continue;
+    job.status = 'REVOKED';
+    // A pending adviser retry ends with the revocation; leaving it would label a revoked delivery
+    // as waiting on the adviser.
+    delete job.nextAdviceAt;
+    delete job.adviceRetries;
+    if (job.reasonCode === 'ADVISER_UNAVAILABLE') job.reasonCode = null;
+  }
   return task;
 }
 

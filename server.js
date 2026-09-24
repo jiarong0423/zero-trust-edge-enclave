@@ -16,7 +16,7 @@ import { resumeFileTask, resumableReasons } from './task-operations.js';
 import { resolvePrivateRoute } from './private-mapping.js';
 import { packetCommitment } from './public/file-envelope.js';
 import { openLocalKeyVault } from './local-key-vault.js';
-import { advanceFileJobs, advanceFollowups, ADVICE_SOURCE } from './file-worker.js';
+import { advanceFileJobs, advanceFollowups, ADVICE_SOURCE, ADVICE_NO_RETRY } from './file-worker.js';
 import { fileRoutingMetadata } from './file-routing.js';
 import { taskEvidence } from './task-evidence.js';
 import { requestFileAdvice } from './file-adviser.js';
@@ -154,6 +154,7 @@ function senderTask(task) {
     revokedAt: snapshot.revokedAt
   })), jobs: task.jobs.map(job => ({ version: job.version, status: job.status, attempts: job.attempts,
     revision: job.revision || 0, reasonCode: job.reasonCode || null, updatedAt: job.updatedAt || null,
+    adviceRetries: job.adviceRetries || 0,
     canRequestResume: Boolean(task.file && job.status === 'PAUSED' && resumableReasons.has(job.reasonCode)),
     ...(task.file ? { receiptSummary: receiptSummary(task, job.version) } : {}) })) };
 }
@@ -1634,8 +1635,9 @@ async function fileAdviser(metadata, kind = 'route') {
     console.error(`ERROR adviser ${kind} ${provider} ${model} ${Math.round(performance.now() - started)}ms ${error.message}`);
     // Only a failure after a request was sent names the outlet; a call refused before any request
     // (outlet disabled, misconfigured, metadata rejected) never reached a model.
-    if (error && typeof error === 'object' && !ADVISER_PRE_REQUEST_FAILURES.has(error.message)) {
-      error[ADVICE_SOURCE] = provider === 'nebius' ? 'nebius_token_factory' : provider;
+    if (error && typeof error === 'object') {
+      if (ADVISER_PRE_REQUEST_FAILURES.has(error.message)) error[ADVICE_NO_RETRY] = true;
+      else error[ADVICE_SOURCE] = provider === 'nebius' ? 'nebius_token_factory' : provider;
     }
     throw error;
   }
