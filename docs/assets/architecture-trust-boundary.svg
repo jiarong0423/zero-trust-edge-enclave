@@ -1,15 +1,16 @@
 <!--
   Zero-Trust Edge Enclave — architecture diagram
-  Generated 2026-09-18, revised 2026-09-19 for the second adviser.
+  Generated 2026-09-18, revised 2026-09-19 for the second adviser and 2026-09-25 for answer
+  validation, the evidence trail, the audit log and the hosted demo's sign-in and spending cap.
   Purpose: README and hackathon submission material.
   Sources of truth: audit-boundary.js (state allowlist), task-operations.js (resumable reason
   codes), file-routing.js and delivery-followup.js (the two five-field projections),
   file-worker.js (both worker passes), private-mapping.js (group codes).
   This depicts the implementation as built; it does not show mechanisms that do not exist.
 -->
-<svg width="100%" viewBox="0 0 680 598" xmlns="http://www.w3.org/2000/svg" role="img">
+<svg width="100%" viewBox="0 0 680 700" xmlns="http://www.w3.org/2000/svg" role="img">
   <title>Trust boundary: what each party can reach</title>
-  <desc>Three bands. Human devices hold plaintext. The local backend inside the trust boundary holds the immutable snapshot, the private mapping, the key vault and the fixed-code gate. The adviser model sits outside the boundary, connected only by dashed lines.</desc>
+  <desc>Three bands. Human devices hold plaintext; each signs in with its own token, and the hosted demo adds a judge sign-in in front. The backend inside the trust boundary holds the immutable snapshot, the private mapping, the key vault, the evidence trail, the hash-chained audit log and the fixed-code gate, which validates every adviser answer and re-verifies authority before dispatch. The adviser model sits outside the boundary, connected only by dashed lines; the hosted Token Factory outlet is behind a spending cap.</desc>
   <style>
     text { font-family: -apple-system, "Helvetica Neue", Inter, system-ui, sans-serif; }
     .ts { font-size: 12px; fill: #5f5e5a; }
@@ -30,37 +31,46 @@
     <text class="th" x="56" y="62" dominant-baseline="central">Human devices — plaintext lives only here</text></g>
   <g><rect class="box" x="56" y="78" width="272" height="56" rx="8"/>
     <text class="th" x="192" y="96" text-anchor="middle" dominant-baseline="central">Sender laptop</text>
-    <text class="ts" x="192" y="116" text-anchor="middle" dominant-baseline="central">Encrypt, then confirm twice</text></g>
+    <text class="ts" x="192" y="116" text-anchor="middle" dominant-baseline="central">Encrypt, confirm twice, open the evidence chain</text></g>
   <g><rect class="box" x="352" y="78" width="272" height="56" rx="8"/>
     <text class="th" x="488" y="96" text-anchor="middle" dominant-baseline="central">Recipient phone</text>
     <text class="ts" x="488" y="116" text-anchor="middle" dominant-baseline="central">Authenticate, decrypt on device</text></g>
 
-  <line x1="192" y1="155" x2="192" y2="182" class="arr" marker-end="url(#a)"/>
-  <line x1="488" y1="182" x2="488" y2="155" class="arr" marker-end="url(#a)"/>
+  <line x1="192" y1="155" x2="192" y2="190" class="arr" marker-end="url(#a)"/>
+  <line x1="488" y1="190" x2="488" y2="155" class="arr" marker-end="url(#a)"/>
+  <text class="ts" x="340" y="176" text-anchor="middle">Own token each · hosted: judge sign-in first</text>
 
-  <g class="c-teal"><rect x="40" y="192" width="600" height="178" rx="20" stroke-width="0.5" stroke-dasharray="6 4"/>
-    <text class="th" x="56" y="214" dominant-baseline="central">Inside the trust boundary — local backend</text></g>
-  <g><rect class="box" x="56" y="230" width="180" height="56" rx="8"/>
-    <text class="th" x="146" y="248" text-anchor="middle" dominant-baseline="central">Immutable snapshot</text>
-    <text class="ts" x="146" y="268" text-anchor="middle" dominant-baseline="central">Recipients and expiry</text></g>
-  <g><rect class="box" x="250" y="230" width="180" height="56" rx="8"/>
-    <text class="th" x="340" y="248" text-anchor="middle" dominant-baseline="central">Private mapping</text>
-    <text class="ts" x="340" y="268" text-anchor="middle" dominant-baseline="central">Real id to group code</text></g>
-  <g><rect class="box" x="444" y="230" width="180" height="56" rx="8"/>
-    <text class="th" x="534" y="248" text-anchor="middle" dominant-baseline="central">Key vault</text>
-    <text class="ts" x="534" y="268" text-anchor="middle" dominant-baseline="central">Wrapped per document</text></g>
-  <g><rect class="box" x="56" y="298" width="568" height="56" rx="8"/>
-    <text class="th" x="340" y="316" text-anchor="middle" dominant-baseline="central">Fixed-code gate</text>
-    <text class="ts" x="340" y="336" text-anchor="middle" dominant-baseline="central">The only authorizer and executor; re-verifies authority before dispatch</text></g>
+  <g class="c-teal"><rect x="40" y="200" width="600" height="246" rx="20" stroke-width="0.5" stroke-dasharray="6 4"/>
+    <text class="th" x="56" y="222" dominant-baseline="central">Inside the trust boundary — backend</text></g>
+  <g><rect class="box" x="56" y="238" width="180" height="56" rx="8"/>
+    <text class="th" x="146" y="256" text-anchor="middle" dominant-baseline="central">Immutable snapshot</text>
+    <text class="ts" x="146" y="276" text-anchor="middle" dominant-baseline="central">Recipients and expiry</text></g>
+  <g><rect class="box" x="250" y="238" width="180" height="56" rx="8"/>
+    <text class="th" x="340" y="256" text-anchor="middle" dominant-baseline="central">Private mapping</text>
+    <text class="ts" x="340" y="276" text-anchor="middle" dominant-baseline="central">Real id to group code</text></g>
+  <g><rect class="box" x="444" y="238" width="180" height="56" rx="8"/>
+    <text class="th" x="534" y="256" text-anchor="middle" dominant-baseline="central">Key vault</text>
+    <text class="ts" x="534" y="276" text-anchor="middle" dominant-baseline="central">Wrapped per document</text></g>
+  <g><rect class="box" x="56" y="306" width="277" height="56" rx="8"/>
+    <text class="th" x="194.5" y="324" text-anchor="middle" dominant-baseline="central">Evidence trail</text>
+    <text class="ts" x="194.5" y="344" text-anchor="middle" dominant-baseline="central">Each adviser call: sent, answered, which outlet</text></g>
+  <g><rect class="box" x="347" y="306" width="277" height="56" rx="8"/>
+    <text class="th" x="485.5" y="324" text-anchor="middle" dominant-baseline="central">Audit log</text>
+    <text class="ts" x="485.5" y="344" text-anchor="middle" dominant-baseline="central">Hash-chained; refusals carry no names</text></g>
+  <g><rect class="box" x="56" y="374" width="568" height="56" rx="8"/>
+    <text class="th" x="340" y="392" text-anchor="middle" dominant-baseline="central">Fixed-code gate</text>
+    <text class="ts" x="340" y="412" text-anchor="middle" dominant-baseline="central">The only authorizer and executor; validates every answer, re-verifies authority before dispatch</text></g>
 
-  <path d="M300 375 L300 402" class="arr" stroke-dasharray="5 4" marker-end="url(#a)"/>
-  <path d="M380 402 L380 375" class="arr" stroke-dasharray="5 4" marker-end="url(#a)"/>
+  <path d="M300 451 L300 486" class="arr" stroke-dasharray="5 4" marker-end="url(#a)"/>
+  <path d="M380 486 L380 451" class="arr" stroke-dasharray="5 4" marker-end="url(#a)"/>
 
-  <g class="c-purple"><rect x="40" y="412" width="600" height="146" rx="20" stroke-width="0.5" stroke-dasharray="6 4"/>
-    <text class="th" x="56" y="434" dominant-baseline="central">Outside the boundary — adviser model, asked two separate questions</text></g>
-  <g><rect class="box" x="56" y="450" width="568" height="92" rx="8"/>
-    <text class="th" x="340" y="468" text-anchor="middle" dominant-baseline="central">Nemotron | Nebius cloud or local loopback</text>
-    <text class="ts" x="340" y="490" text-anchor="middle" dominant-baseline="central">Route: channels · state · attempts in — ROUTE or PAUSE out</text>
-    <text class="ts" x="340" y="508" text-anchor="middle" dominant-baseline="central">Follow up: timeCode · nudgeCount · pickupCode in — WAIT, REMIND or ESCALATE out</text>
-    <text class="ts" x="340" y="528" text-anchor="middle" dominant-baseline="central">Five anonymous fields each way. Output is data, never permission</text></g>
+  <g class="c-purple"><rect x="40" y="496" width="600" height="184" rx="20" stroke-width="0.5" stroke-dasharray="6 4"/>
+    <text class="th" x="56" y="518" dominant-baseline="central">Outside the boundary — adviser model, asked two separate questions</text></g>
+  <g><rect class="box" x="56" y="534" width="568" height="130" rx="8"/>
+    <text class="th" x="340" y="552" text-anchor="middle" dominant-baseline="central">Nemotron | Nebius Token Factory or local loopback</text>
+    <text class="ts" x="340" y="574" text-anchor="middle" dominant-baseline="central">Route: channels · state · attempts in — ROUTE or PAUSE out</text>
+    <text class="ts" x="340" y="592" text-anchor="middle" dominant-baseline="central">Follow up: timeCode · nudgeCount · pickupCode in — WAIT, REMIND or ESCALATE out</text>
+    <text class="ts" x="340" y="612" text-anchor="middle" dominant-baseline="central">Five anonymous fields in, four or five out. Output is data, never permission</text>
+    <text class="ts" x="340" y="632" text-anchor="middle" dominant-baseline="central">Hosted: Super 120B on Token Factory behind a spending cap · local: Nano 4B, reasoning off</text>
+    <text class="ts" x="340" y="650" text-anchor="middle" dominant-baseline="central">Unreachable: asked again, a bounded number of times; never a reason to act</text></g>
 </svg>

@@ -141,19 +141,26 @@ Version 2026-09-25. Test evidence at this revision: 115 of 115, thirty consecuti
 
 ## Architecture
 
-Three views. Each is drawn from the implementation, not from intent: the state names come from the
-audit allowlist in `audit-boundary.js`, the resumable reason codes from `task-operations.js`, and the
-adviser projection from `file-routing.js`.
+Three views, redrawn on 2026-09-25 against the code as it now stands. Each is drawn from the
+implementation, not from intent: the state names come from the audit allowlist in
+`audit-boundary.js`, the resumable reason codes from `task-operations.js`, the adviser projections
+from `file-routing.js` and `delivery-followup.js`, and the evidence chain from `task-evidence.js`.
 
-**What each party can reach.** Plaintext exists only on the two human devices. The adviser sits
-outside the boundary and is reached by two dashed edges and nothing else.
+**What each party can reach.** Plaintext exists only on the two human devices, and each signs in with
+its own token (the hosted demo adds a judge sign-in in front). Inside the boundary, next to the
+snapshot, mapping and key vault, the backend keeps an evidence trail of every adviser call and a
+hash-chained audit log. The adviser sits outside and is reached by two dashed edges and nothing else;
+the hosted Token Factory outlet is behind a spending cap.
 
 ![Trust boundary](docs/assets/architecture-trust-boundary.svg)
 
-**The order things happen in.** Nineteen messages from browser-side encryption to receipt reporting.
-The adviser appears twice and nowhere else: once at step 5 to choose a route, and again at steps 15
-and 16 when a delivery that must be acknowledged has not been collected. It is absent for the key
-exchange, the decryption, and the reporting in between.
+**The order things happen in.** Twenty-one messages from double confirmation to the evidence chain.
+The adviser appears twice and nowhere else: once at steps 4 and 5 to choose a route, and again at
+steps 15 and 16 while someone on a delivery that must be acknowledged has not collected. Between
+them, fixed code validates the answer, asks again if the adviser could not be reached, and records
+what was sent and what came back. The adviser is absent for the key exchange, the decryption and the
+reporting. At steps 20 and 21 the sender, and only the sender, opens that record; viewing it is
+itself audited, at most once per task per minute.
 
 ![Delivery sequence](docs/assets/architecture-sequence.svg)
 

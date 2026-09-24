@@ -80,6 +80,17 @@ receipt error on sign-in, only the refusal on download; a lapsed hosted sign-in 
 rather than as an unverified identity. Scanner results unchanged. Tests: 115/115, thirty
 consecutive runs.
 
+The sequence and trust-boundary diagrams were then redrawn from the code, the stage descriptions
+brought up to date, and `docs/agent/change-record-2026-09-24-25.md` added (117 manifest entries).
+Two new export-gate MEDIUM findings are the keyword heuristic matching the words "token" and "sign
+in" in the diagrams' labels (`docs/assets/architecture-sequence.svg`,
+`docs/assets/architecture-trust-boundary.svg`); no credential appears in either file. The change
+record itself adds two keyword MEDIUM findings (it names sign-in, tokens and permissions) and two
+localguard LOW findings at its line 22, which lists the routes the judge sign-in leaves open and
+mentions `styles.css`; it is prose, registers no service worker and exposes no route. Final counts on
+the 117-file candidate: export-gate pass, blocking 0, high 7, medium 94; release-boundary 0;
+localguard 89 (3 CRITICAL, 15 HIGH, 62 MEDIUM, 9 LOW), CRITICAL and HIGH at the baseline.
+
 ## Delivery Follow-Up Addition, 2026-09-18
 
 Scanned candidate: 102 files, the tracked tree plus the delivery follow-up module, its two test

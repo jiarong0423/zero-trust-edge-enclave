@@ -87,14 +87,19 @@ controls that already exist:
 
 - every page and route that can reach a provider sits behind the judge sign-in and a bearer token
 - staged file tasks are capped at 50 (`507` beyond that)
-- `maxAttempts` is validated to 1–5 per grant, so the routing pass asks at most five times per task
+- `maxAttempts` is validated to 1–5 per grant, so the routing pass asks at most five times per task;
+  an adviser that cannot be reached on the first check adds at most three retries, 30 seconds
+  apart, before the job pauses, and a failure before any request leaves is not retried
 - the follow-up pass asks a bounded number of further times: it applies only to `REQUIRED_ACK`
-  deliveries, stands down at the deadline, and reconsiders at the midpoint of what is left with a
-  floor of an eighth of the window, which is four decision points from approval
+  deliveries that someone has not yet collected, stands down at the deadline, and reconsiders at the
+  midpoint of what is left with a floor of an eighth of the window, which is four decision points
+  from approval; when the adviser keeps failing it retries three times a minute apart and then halves
+  toward the deadline, so failures add a logarithmic number of calls, not one a minute
 - each request carries an abort deadline and a token ceiling, five seconds and 512 hosted
 
-Both callers together are therefore bounded at roughly nine provider calls per task, and the
-50-task cap puts the worst case in the low hundreds, not an open endpoint. The follow-up pass is
+Both callers together therefore stay bounded: about nine provider calls per task when the adviser
+answers (five routing, four follow-up), somewhat more when it keeps failing, and the 50-task cap puts the worst case in the hundreds,
+not an open endpoint. The spending cap stops it outright before that. The follow-up pass is
 counted here because it is a second caller on a schedule `maxAttempts` does not govern.
 
 ## Security Posture Of A Hosted Instance

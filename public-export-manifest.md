@@ -28,6 +28,7 @@ delivery-followup.js
 demo-gate.js
 directory-admin.js
 docs/agent/approved-delivery-architecture.md
+docs/agent/change-record-2026-09-24-25.md
 docs/agent/local-workflow.md
 docs/agent/official-rule-alignment.md
 docs/agent/security-gate-summary.md

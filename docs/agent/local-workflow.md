@@ -44,11 +44,11 @@ Default recommendations are labeled `synthetic_fixture`. Real file inference add
 
 New snapshots contain private task/version-scoped UUID aliases for selected recipients and their approved simulated endpoints. The snapshot commitment binds this mapping; confirmation and dispatch verify it. The coordinator sees only the alias projection, never private recipient ids or endpoint ids. Endpoints are explicitly dry-run identifiers, not real email/address resolution. Pre-mapping snapshots fail closed on the new server; create a new reviewed draft instead of silently migrating old approvals. Existing running servers are not automatically upgraded by source edits.
 
-- `PENDING_CHECK`: no delivery attempt recorded.
+- `PENDING_CHECK`: no delivery attempt recorded. If the adviser cannot be reached on this first check the job stays here with reason `ADVISER_UNAVAILABLE` and is asked again up to three times, 30 seconds apart; the sender's page shows the count. (A job already in `RETRY_WAIT` pauses at once instead.)
 - `DRY_RUN_PREPARED`: a local notice was prepared; no email was sent and no remote delivery is claimed. For a delivery that must be acknowledged this is not the end: while its deadline has not passed the job is reconsidered here, and a reminder returns it to this same state rather than moving it on.
 - `RETRY_WAIT`: a configured synthetic transient failure, with exponential backoff.
 - `OUTCOME_UNKNOWN`: ambiguous outcome; no automatic resend.
-- `PAUSED`: attempts exhausted; this processing run stops without automatic resend.
+- `PAUSED`: attempts exhausted, the adviser refused or asked to pause, or it stayed unreachable after its retries; this processing run stops without automatic resend. The reason code decides whether the sender may resume.
 
 The human-owned grant may set `simulatedOutcomes` to `prepared`, `transient`, or `unknown`. Clients cannot select outcomes. File jobs run in the backend timer with bounded retries, and prepared REQUIRED_ACK jobs are reconsidered there on a cadence taken from each task's own window rather than from the clock. Closing the sender page does not stop either pass. The sender display polls status and offers manual receipt refresh. Legacy package tools retain explicit delivery requests for regression compatibility.
 

@@ -1,6 +1,6 @@
 # Threat Model
 
-Review date: 2026-09-08. Revised 2026-09-18: a second adviser was added for delivery follow-up, with its own projection and validator, and group codes were added to the private mapping for the sender and receipt surfaces, and deliberately kept out of every adviser and coordinator projection. Current file workflow, not the legacy passphrase demo. A Traditional Chinese translation follows the English text.
+Review date: 2026-09-08. Revised 2026-09-25 for answer validation, adviser retries, the evidence chain and identity shown apart from access. Revised 2026-09-18: a second adviser was added for delivery follow-up, with its own projection and validator, and group codes were added to the private mapping for the sender and receipt surfaces, and deliberately kept out of every adviser and coordinator projection. Current file workflow, not the legacy passphrase demo. A Traditional Chinese translation follows the English text.
 
 ## Assets
 
@@ -23,6 +23,8 @@ Sender and recipient browsers handle plaintext. The local backend is trusted for
 ## Data Flow
 
 Browser encryption precedes the first confirmation, which stages ciphertext and a wrapped key. Second confirmation approves the unchanged snapshot and creates its unique job. Two advisers exist, each with its own allowlisted five-field projection and its own validator. Routing receives taskAlias, snapshotVersion, channels, state and attempts, and answers ROUTE or PAUSE. Follow-up, which applies only to a REQUIRED_ACK delivery before its deadline, receives taskAlias, snapshotVersion, timeCode, nudgeCount and pickupCode, and answers WAIT, REMIND or ESCALATE. Neither is told anything about recipients — not their identifiers, not their group codes, not how many there are. timeCode is a position within the task's own window rather than a time, and pickupCode is an ordinal, never a count, so neither can be converted back into a clock value or a headcount. A reminder's targets are resolved by fixed code from receipts no adviser sees, and whoever already collected is passed over. Recipient selection is settled by human approval before the adviser is called, and the dispatch gate resolves recipients from the snapshot afterwards. Fixed code reloads authority before dispatch. Recipients authenticate and obtain ciphertext plus a separately validated key ticket, decrypt locally and report receipt.
+
+Revised 2026-09-25. Every adviser answer is validated by fixed code before anything acts on it, and a refused answer's content is never stored: a refused routing answer pauses the job (ADVICE_INVALID); a refused follow-up answer is recorded and reconsidered later. An adviser that cannot be reached decided nothing; a first routing check (PENDING_CHECK) asks again up to three times, 30 seconds apart, then pauses for the sender, while a delivery already in RETRY_WAIT pauses at once; follow-up backs off. Once everyone has collected, follow-up asks nothing. Each adviser call is recorded with the projection sent, the validated answer or refusal code, and which outlet answered; the sender alone can open that evidence chain, and viewing it is audited, at most once per task per minute. A verified identity is shown apart from access: a recipient who is signed in but not on the snapshot is refused at download, and the refusal is audited against the task without naming them.
 
 ## Threats And Controls
 
@@ -73,6 +75,8 @@ See docs/agent/security-gate-summary.md for scoped review; tests are not a produ
 ## 資料流
 
 瀏覽器加密先於第一次確認，該次確認暫存密文與封裝金鑰。第二次確認核准未變動的快照並建立唯一工作。有兩個顧問模型，各自有獨立的五欄投影與獨立的驗證器。路由顧問收到 taskAlias、snapshotVersion、channels、state、attempts，回答 ROUTE 或 PAUSE。催促顧問只用於 REQUIRED_ACK 模式且期限未到的投遞，收到 taskAlias、snapshotVersion、timeCode、nudgeCount、pickupCode，回答 WAIT、REMIND 或 ESCALATE。兩者對收件人都一無所知 —— 不知道識別碼、不知道組別代號、也不知道有幾個人。timeCode 是該任務自身窗口內的相對位置而非時間，pickupCode 是序位而非數量，兩者都無法反推回時鐘值或人數。提醒要送給誰由固定程式從顧問看不到的收據還原，已經領取者直接跳過。收件人由人在呼叫模型之前核准決定，之後由投遞閘門從快照還原。固定程式在派送前重新載入授權。收件人通過驗證後取得密文與另行驗證的金鑰票券，在本地解密並回報收訖。
+
+2026-09-25 修訂：每個顧問回答都先經固定程式驗證才會被採用，被拒的回答內容不落地：路由回答被拒讓工作暫停（ADVICE_INVALID）；催促回答被拒只記錄、稍後再考慮。連不上的顧問等於沒有做決定：首次路由檢查（PENDING_CHECK）以 30 秒間隔最多再問 3 次，仍不可用才暫停交給發文者；已在 RETRY_WAIT 的投遞則直接暫停；催促則逐步拉長間隔。全員都已領取後，催促不再詢問模型。每次顧問呼叫都記錄送出的投影、通過驗證的回答或拒絕碼、以及由哪個出口回答；只有發文者能開啟這條證據鏈，查看會寫入稽核（同一任務每分鐘最多一筆）。身分驗證與存取授權分開顯示：已登入但不在快照名單上的收件人，下載時被拒，拒絕記錄綁定任務、不寫名字。
 
 ## 威脅與控制
 
