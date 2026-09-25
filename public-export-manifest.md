@@ -29,6 +29,10 @@ demo-gate.js
 directory-admin.js
 docs/agent/approved-delivery-architecture.md
 docs/agent/change-record-2026-09-24-25.md
+docs/demo/README.md
+docs/demo/samples/Merger-Term-Sheet.pdf
+docs/demo/samples/Q3-2026-Board-Financial-Summary.pdf
+docs/demo/samples/Vendor-Payment-List.csv
 docs/agent/local-workflow.md
 docs/agent/official-rule-alignment.md
 docs/agent/security-gate-summary.md

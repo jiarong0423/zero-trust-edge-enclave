@@ -1,0 +1,64 @@
+%PDF-1.4
+1 0 obj
+<< /Type /Catalog /Pages 2 0 R >>
+endobj
+2 0 obj
+<< /Type /Pages /Kids [3 0 R] /Count 1 >>
+endobj
+3 0 obj
+<< /Type /Page /Parent 2 0 R /MediaBox [0 0 595 842] /Resources << /Font << /F1 5 0 R >> >> /Contents 4 0 R >>
+endobj
+4 0 obj
+<< /Length 845 >>
+stream
+BT
+/F1 16 Tf
+60 760 Td
+(CONFIDENTIAL - Q3 2026 Board Financial Summary) Tj
+/F1 10 Tf
+0 -28 Td
+(Prepared for: Chief Financial Officer \(recipient-a\)) Tj
+0 -16 Td
+(Classification: Restricted / Board Eyes Only) Tj
+0 -16 Td
+() Tj
+0 -16 Td
+(Revenue \(Q3 2026\)            USD 48.2M      +17.4% YoY) Tj
+0 -16 Td
+(Gross margin                 61.3%          +2.1 pts) Tj
+0 -16 Td
+(Operating expense            USD 22.9M      +8.0% YoY) Tj
+0 -16 Td
+(Free cash flow               USD  9.6M      +31.2% YoY) Tj
+0 -16 Td
+(Net headcount                412            +38) Tj
+0 -16 Td
+() Tj
+0 -16 Td
+(Pending item: vendor consolidation decision, see attached payment list.) Tj
+0 -16 Td
+() Tj
+0 -16 Td
+(This document is synthetic demo material generated for a) Tj
+0 -16 Td
+(zero-trust delivery demonstration. It contains no real company data.) Tj
+0 -16 Td
+ET
+endstream
+endobj
+5 0 obj
+<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>
+endobj
+xref
+0 6
+0000000000 65535 f 
+0000000009 00000 n 
+0000000058 00000 n 
+0000000115 00000 n 
+0000000241 00000 n 
+0000001137 00000 n 
+trailer
+<< /Size 6 /Root 1 0 R >>
+startxref
+1207
+%%EOF

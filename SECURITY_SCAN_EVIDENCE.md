@@ -91,6 +91,14 @@ mentions `styles.css`; it is prose, registers no service worker and exposes no r
 the 117-file candidate: export-gate pass, blocking 0, high 7, medium 94; release-boundary 0;
 localguard 89 (3 CRITICAL, 15 HIGH, 62 MEDIUM, 9 LOW), CRITICAL and HIGH at the baseline.
 
+A judge walkthrough and three synthetic sample documents were then added under `docs/demo/`
+(121 manifest entries). No credential is committed: the sign-in and role tokens are given to
+judges privately. The three new export-gate MEDIUM findings are the keyword heuristic matching
+"token" and "sign in" in `docs/demo/README.md` and "approval" in the synthetic Q3 PDF; the two new
+localguard LOW findings are line 44 of that walkthrough naming the public `/api/health` route.
+Final counts on the 121-file candidate: export-gate pass, blocking 0, high 7, medium 97;
+release-boundary 0; localguard 91 (3 CRITICAL, 15 HIGH, 62 MEDIUM, 11 LOW).
+
 ## Delivery Follow-Up Addition, 2026-09-18
 
 Scanned candidate: 102 files, the tracked tree plus the delivery follow-up module, its two test

@@ -2,6 +2,12 @@
 
 MIT-licensed local hackathon prototype for encrypted document handoff with a restricted AI adviser. Extracted from the Shared Room MCP direction; not a production security certification.
 
+## Try It
+
+- **Hosted demo:** https://zero-trust-edge-enclave.zeabur.app (judge sign-in; the sign-in and role tokens are given to judges privately and are never committed here).
+- **Walkthrough:** [docs/demo/README.md](docs/demo/README.md), step by step: the sender approves a delivery for one person in a department, that recipient decrypts it, a colleague who is signed in but was not picked is refused, and the evidence chain shows exactly what the model was given and answered.
+- **Sample documents:** [docs/demo/samples/](docs/demo/samples/), three synthetic files (two PDFs and a CSV) that say so inside.
+
 ## Why This Boundary
 
 Data residency rules, the US CLOUD Act and EU AI Act Article 10 make "send the document
@@ -193,4 +199,4 @@ Email remains dry-run. No enterprise identity, malware inspection of ciphertext,
 
 [Security](SECURITY.md) | [Threat model](THREAT_MODEL.md) | [Release review](docs/agent/security-gate-summary.md) | [Export manifest](public-export-manifest.md)
 
-A hosted instance for judges runs at https://zero-trust-edge-enclave.zeabur.app behind a judge sign-in; the sign-in and the role tokens are in the submission's testing instructions. See [Zeabur deployment](docs/agent/zeabur-deployment.md).
+A hosted instance for judges runs at https://zero-trust-edge-enclave.zeabur.app behind a judge sign-in; the sign-in and the role tokens are given to judges privately, and the walkthrough is in [docs/demo/README.md](docs/demo/README.md). See [Zeabur deployment](docs/agent/zeabur-deployment.md).

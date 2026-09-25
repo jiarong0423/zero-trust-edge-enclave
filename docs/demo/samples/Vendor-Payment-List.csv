@@ -1,0 +1,7 @@
+invoice_id,vendor,department,amount_usd,due_date,approval_state,data_label
+INV-2026-0841,Halden Logistics,operations,184200.00,2026-10-08,pending,MOCK_TEST_DATA_DO_NOT_USE
+INV-2026-0842,Corvis Data Systems,engineering,96750.00,2026-10-11,pending,MOCK_TEST_DATA_DO_NOT_USE
+INV-2026-0843,Meridian Facilities,facilities,41380.00,2026-10-15,approved,MOCK_TEST_DATA_DO_NOT_USE
+INV-2026-0844,Aster Legal LLP,legal,212900.00,2026-10-02,escalated,MOCK_TEST_DATA_DO_NOT_USE
+INV-2026-0845,Bright Harbor Media,marketing,67450.00,2026-10-19,pending,MOCK_TEST_DATA_DO_NOT_USE
+INV-2026-0846,Northwind Systems GmbH,corp-dev,530000.00,2026-10-05,escalated,MOCK_TEST_DATA_DO_NOT_USE
