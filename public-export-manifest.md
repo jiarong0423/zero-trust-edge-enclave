@@ -36,6 +36,7 @@ docs/demo/samples/Vendor-Payment-List.csv
 docs/agent/local-workflow.md
 docs/agent/official-rule-alignment.md
 docs/agent/security-gate-summary.md
+docs/agent/submission-record-2026-09-27.md
 docs/agent/zeabur-deployment.md
 docs/assets/architecture-sequence.jpg
 docs/assets/architecture-sequence.png

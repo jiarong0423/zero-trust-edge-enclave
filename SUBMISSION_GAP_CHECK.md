@@ -33,11 +33,11 @@ high-entropy literal.
 | Architecture diagrams | Done | `docs/assets/`, redrawn 2026-09-19 for the second adviser |
 | Working demo URL | Done | `https://zero-trust-edge-enclave.zeabur.app`, behind a judge sign-in, grants valid to 2026-12-16; the repository is also a test build |
 | Runs on Token Factory | Done | Hosted instance calls Token Factory at runtime, under a USD 20 spending cap |
-| Testing instructions for judges | Form-only | Sign-in and role tokens go in the Devpost testing field, in English |
+| Testing instructions for judges | Done | The form has no testing field; sign-in, role tokens and an English walkthrough are in the private Devpost file upload |
 | Track | Form-only | Best Apps and Agents |
 | New or existing project | Form-only | New; first commit 2026-09-07, after the 2026-08-26 start |
-| Platform feedback | Drafted | Held privately, not yet submitted |
-| Demo video URL | Still needed | Under three minutes, public on YouTube, with audio covering how Token Factory was used. Required to submit |
+| Platform feedback | Done | Answered in the Devpost form questions on models, Nebius capabilities, improvements and the Nemotron team |
+| Demo video URL | Done | https://youtu.be/klBuNhS5eYM, 1:47, public, narration covers how Token Factory is used; submitted 2026-09-27 ([record](docs/agent/submission-record-2026-09-27.md)) |
 | Builders and Brews city | Form-only | Taipei; attended 2026-09-19 |
 | Submitter type, country, declarations | Form-only | Fill directly in Devpost |
 
