@@ -32,7 +32,7 @@ or newer.
 | `DEMO_FALLBACK_ENABLED` | `false` | The default is `true`, which returns a synthetic result carrying its own warning that it is not submission evidence. A demo should fail visibly instead of quietly serving that. |
 | `NODE_ENV` | `production` | Makes `TOKEN_SIGNING_SECRET` mandatory, so credentials survive a restart. |
 | `REQUIRE_DEMO_GATE` | `true` | Puts the judge sign-in in front of every page and API route except `/api/health`. |
-| `DEMO_GATE_USER` / `DEMO_GATE_PASSWORD` | Zeabur secrets | The judge sign-in. Given to judges in the submission's testing instructions. |
+| `DEMO_GATE_USER` / `DEMO_GATE_PASSWORD` | Zeabur secrets | The judge sign-in. Given to judges in the file uploaded privately with the submission. |
 | `HOSTED_REGISTRY_B64` | hash-only registry | A registry prepared locally with `setup-local.mjs --business --until`. It carries token hashes only; the plaintext role tokens stay with the owner and go to judges with the sign-in. Installed only when the volume has no registry. |
 
 `LOCAL_MODEL_BASE_URL` and `LOCAL_MODEL_NAME` are for the loopback outlet and have no meaning on a
@@ -122,4 +122,4 @@ keeps anonymous traffic away from the billed outlet; the browser holds an HMAC d
 sign-in, never the password, and changing either value signs every session out. Inside it, each
 role still presents its own token, checked against the hash-only registry. The registry's grants
 run to 2026-12-16, past the end of judging. Both the sign-in and the role tokens are given to judges
-in the testing instructions, and the spending cap bounds what a shared credential can cost.
+in the file uploaded privately with the submission, and the spending cap bounds what a shared credential can cost.

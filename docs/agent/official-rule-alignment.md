@@ -9,7 +9,7 @@ The rules and overview pages were read again on 2026-09-24.
 
 - The overview's submission list asks for a "Working demo URL (except Physical AI submissions)". The rules accept "a working demo, hosted application, or test build". The stricter reading is followed: a hosted instance is deployed at `https://zero-trust-edge-enclave.zeabur.app`.
 - The rules define running on Token Factory as a runtime call to its inference API. The hosted instance makes those calls with the owner's key, under a USD 20 spending cap; Zeabur itself is not Nebius compute and is not claimed as such.
-- Free judge access is provided without organizer input: a judge sign-in in front of the site, and per-role tokens behind it, both given in the testing instructions. The earlier organizer question below no longer blocks submission.
+- Free judge access is provided without organizer input: a judge sign-in in front of the site, and per-role tokens behind it, both given in the file uploaded privately with the submission (the form has no testing-instructions field). The earlier organizer question below no longer blocks submission.
 - The overview asks for a demo video "with audio covering how you used Nebius Token Factory". Narration is therefore required, not only recommended.
 
 ## Submission Decision Of 2026-09-07
@@ -23,7 +23,7 @@ Official rules sections 4 and 6 were rechecked on 2026-09-07. This is a dated in
 - Submission materials require English or English translations, including video, descriptions and testing instructions.
 - MCP is a tool boundary, not automatic novelty. Humans approve recipients, the model proposes a route and separately whether to chase an unacknowledged delivery, and fixed code enforces authorization and cryptography. Real model usefulness versus deterministic routing needs evidence.
 - Current state: bounded real NVIDIA/Nebius calls are recorded in the red/white defense material, including failed calls and separate successful retests. No superiority to rules or production security claim follows. Current release review supersedes historical export passes; remote visibility is not established by this review.
-- Remaining delivery: accessible test-build URL, public functional source, short public video, platform feedback, dated prior-work disclosure and free judge-access clarification.
+- Remaining delivery: accessible test-build URL, public functional source, short public video, platform feedback, dated prior-work disclosure and free judge-access clarification. All delivered by 2026-09-27; see [the submission record](submission-record-2026-09-27.md).
 - Unresolved organizer question: does a local test build requiring judges to supply their own paid/provider key satisfy free unrestricted testing, and which access alternative is acceptable without exposing developer keys? Obtain organizer clarification; do not assume BYO-key-only access is sufficient.
 
 Recommended separation: private development assets; public reproducible functional submission; public video/screenshots. This review neither authorizes publication nor changes repository visibility.
@@ -92,6 +92,7 @@ Project alignment:
 
 - Demo should show three flows: sender sealing, timed credential decode, and audit/fallback evidence.
 - Narration must explicitly state that AI sees only non-content metadata.
+- Delivered 2026-09-27: https://youtu.be/klBuNhS5eYM, 1:47, public, English narration and burned-in subtitles.
 
 Status: pending.
 
@@ -120,7 +121,7 @@ Official requirement:
 
 Project alignment:
 
-- Feedback text is drafted privately and not yet submitted.
+- Feedback was submitted on 2026-09-27 in the Devpost form questions.
 
 Status: drafted.
 
