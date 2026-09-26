@@ -19,7 +19,7 @@ async function showModelRuntime() {
       && !health.nebiusBudget?.exhausted;
     setText(view, local ? 'Local model outlet configured; successful model call not verified'
       : tokenFactory ? 'Provider configured; successful model call not verified'
-      : health.nebiusBudget?.exhausted ? 'Token Factory budget spent; local simulation, no real model call'
+      : health.nebiusBudget?.exhausted ? 'Token Factory budget spent; synthetic adviser, no real model call'
       : 'Local simulation; no real model call');
     const model = local ? health.localOutletModel : tokenFactory ? health.nebiusModel : null;
     const modelView = document.querySelector('#configuredModel');

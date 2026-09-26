@@ -83,7 +83,7 @@ window.addEventListener('authenticationchange', () => {
       setText(identity, () => `${t('IDENTITY VERIFIED')} · ${t(roles[result.kind] || 'Unknown role')}`);
     } else {
       identity.className = 'identity-badge rejected';
-      setText(identity, result?.gate ? 'Demo sign-in expired; reload the page to sign in again'
+      setText(identity, result?.gate ? 'Judge sign-in expired; reload the page to sign in again'
         : result?.denied ? 'IDENTITY NOT VERIFIED' : 'Identity check unavailable');
     }
   }, 250);

@@ -142,9 +142,9 @@ export const labels = {
   'Checking signed credential against decode policy...': '正在驗證憑證與存取權限',
   'Ciphertext was not released to this decode path.': '驗證未通過，未提供密文。',
   DRY_RUN_PREPARED: '通知已備妥（未寄信，仍在追蹤）', RETRY_WAIT: '等待有限重試', OUTCOME_UNKNOWN: '結果未知，停止自動重送',
-  PAUSED: '嘗試次數用盡，已停止', PENDING_CHECK: '等待檢查', APPROVED: '已核准', DRAFT: '草稿', LOCKED: '已固定草稿',
+  PAUSED: '已暫停', PENDING_CHECK: '等待檢查', APPROVED: '已核准', DRAFT: '草稿', LOCKED: '已固定草稿',
   INVALIDATED: '舊版失效', REVOKED: '已撤銷', ALLOW: '允許', DENY: '拒絕', INFO: '紀錄',
-  synthetic_fixture: '合成測試建議（非真實模型呼叫）', demo_fallback: '本機示範', Demo: '本機示範',
+  synthetic_fixture: '合成測試建議（非真實模型呼叫）', demo_fallback: '合成示範', Demo: '合成示範',
   CAPABILITY_MATCH: '符合允許的傳輸能力', STATE_CHANGED: '狀態已變更', STATE_CONFLICT: '版本或狀態衝突',
   ACCESS_DENIED: '未通過權限驗證', INVALID_REQUEST: '要求格式不符', SERVICE_UNAVAILABLE: '服務暫時不可用',
   DELIVERY_UPDATED: '投遞狀態更新', REQUEST_REJECTED: '要求被拒絕', SNAPSHOT_TRANSITION: '版本狀態變更',
@@ -160,24 +160,24 @@ export const labels = {
   high: '高', medium: '中', low: '低', email: '電子郵件', internal_queue: '內部佇列',
   'internal_confidential': '內部機密', createdAt: '建立時間', packageHash: '密文指紋', fileName: '文件名稱',
   senderRole: '寄件角色', aiRecommendation: 'AI 建議', signature: '完整性參照',
-  credentialId: '憑證代碼', packageId: '密件代碼', role: '驗證角色', deviceClaim: '装置驗證方式', maxUses: '使用上限', policyHash: '政策指紋',
+  credentialId: '憑證代碼', packageId: '密件代碼', role: '驗證角色', deviceClaim: '裝置驗證方式', maxUses: '使用上限', policyHash: '政策指紋',
   'local-token-no-attestation': '本機憑據；未驗證硬體',
   'Demo fallback was used because NEBIUS_API_KEY is not configured. This is not hackathon submission evidence.': '未使用 Nebius API，目前為本機示範，不能當作比賽模型呼叫證據。',
   'Demo fallback was used because the Token Factory budget is spent. This is not hackathon submission evidence.': 'Token Factory 預算已用完，改用合成示範，不能當作比賽模型呼叫證據。',
   'Token Factory': 'Token Factory',
-  'Demo (Token Factory budget spent)': '本機示範（Token Factory 預算已用完）',
+  'Demo (Token Factory budget spent)': '合成示範（Token Factory 預算已用完）',
   'Synthetic fixture (no model call)': '合成測試（未呼叫模型）', 'Local model outlet': '本機模型出口', 'Outlet not recorded': '未記錄回答來源',
   'Not routed: no validated route, so nothing was sent.': '未派送：沒有通過驗證的路由，所以沒有送出任何東西。',
   'Sign in as the sender to see an evidence chain.': '請以發文者身分登入以查看證據鏈。',
   'Local model outlet configured; successful model call not verified': '已設定本機模型出口；尚未驗證成功呼叫',
-  'Token Factory budget spent; local simulation, no real model call': 'Token Factory 預算已用完；本機模擬，未呼叫真實模型',
+  'Token Factory budget spent; synthetic adviser, no real model call': 'Token Factory 預算已用完；改用合成顧問，未呼叫真實模型',
   'No model is called in this mode': '此模式不呼叫模型',
-  'Request failed': '請求未完成', INVALID_FILE_ENVELOPE: '檔案封裝格式不符', 'Adviser not answering; asking again': '顧問模型暫未回應，稍後自動再問', 'Demo sign-in expired; reload the page to sign in again': '評審登入已逾時，請重新整理頁面再登入', 'Invalid receipt response': '回執回應格式不符',
+  'Request failed': '請求未完成', INVALID_FILE_ENVELOPE: '檔案封裝格式不符', 'Adviser not answering; asking again': '顧問模型暫未回應，稍後自動再問', 'Judge sign-in expired; reload the page to sign in again': '評審登入已逾時，請重新整理頁面再登入', 'Invalid receipt response': '回執回應格式不符',
   'IDENTITY VERIFIED': '身分已驗證', 'IDENTITY NOT VERIFIED': '身分未通過驗證', 'Identity check unavailable': '暫時無法確認身分',
   'Sender': '發文者', 'Recipient': '收件人', 'Coordinator': '協調者', 'Administrator': '管理員', 'Unknown role': '未知角色',
   'ACCESS APPROVED': '存取已核准', 'ACCESS DENIED': '存取被拒',
   'Evidence chain': '證據鏈', 'What the model saw, and what came back': '模型看到什麼、回了什麼',
-  'Delivery': '投遞任務', 'Show evidence': '顯示證據', 'Refresh audit to load deliveries.': '按「重新整理稽核」載入投遞任務。',
+  'Delivery': '投遞任務', 'Show evidence': '顯示證據', 'Refresh audit to load deliveries.': '按「更新紀錄」載入投遞任務。',
   'Choose a delivery and show its evidence.': '選一筆投遞任務，顯示它的證據。', 'No file deliveries yet.': '目前沒有檔案投遞任務。',
   'Evidence loaded.': '證據已載入。', 'Evidence unavailable': '無法取得證據',
   'Sender approved': '發文者核准的內容', 'Real identifiers. They stay inside the boundary.': '真實識別資料，只留在邊界內。',
@@ -236,7 +236,7 @@ function renderLanguage() {
   switcher.setAttribute('aria-label', isChinese ? '切換為英文' : 'Switch to Traditional Chinese');
   switcher.title = isChinese ? '切換為英文' : 'Switch to Traditional Chinese';
   for (const segment of switcher.children) segment.classList.toggle('selected', segment.dataset.lang === (isChinese ? 'zh' : 'en'));
-  document.title = isChinese ? '零信任密件傳輸｜本地測試' : englishTitle;
+  document.title = isChinese ? '零信任密件傳輸' : englishTitle;
   window.dispatchEvent(new Event('languagechange'));
 }
 export function setLanguage(chinese) {

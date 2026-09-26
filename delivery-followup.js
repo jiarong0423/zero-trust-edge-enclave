@@ -3,14 +3,14 @@ import { checkPrivateMapping } from './private-mapping.js';
 import { normalizeDownloadPolicy } from './download-policy.js';
 
 /**
- * The delivery loop as built handles a notice that could not be prepared: a transient failure
- * becomes RETRY_WAIT and is retried under a bounded backoff. It does not handle the other half,
- * which is a notice that was prepared and that nobody acted on. DRY_RUN_PREPARED used to be the end
+ * The delivery loop handles a notice that could not be prepared: a transient failure becomes
+ * RETRY_WAIT and is retried under a bounded backoff. Before this module it did not handle the other
+ * half, which is a notice that was prepared and that nobody acted on. DRY_RUN_PREPARED was the end
  * of the worker's interest, so a REQUIRED_ACK task sat untouched until its deadline passed and a
  * single overdue record was written — by which time the delivery that had to happen had not
- * happened. This module is what makes that state non-terminal.
+ * happened.
  *
- * This module closes that half. It only applies to REQUIRED_ACK, because TIME_LIMITED answers the
+ * This module closes that half and makes that state non-terminal. It only applies to REQUIRED_ACK, because TIME_LIMITED answers the
  * question by itself: the window shuts and there is nothing left to chase.
  *
  * Whether a deadline has passed is arithmetic and belongs in fixed code, which already does it.
@@ -32,8 +32,8 @@ const TIME_CODES = ['WINDOW_FULL', 'WINDOW_MOST', 'WINDOW_LITTLE', 'WINDOW_LAST'
 // how many of how many stays inside the boundary, as it does for every other projection here.
 const PICKUP_CODES = ['PICKUP_NONE', 'PICKUP_SOME', 'PICKUP_ALL'];
 // The reminder state stays an integer, and the field name says so. Turning it into a coined label
-// was tried and measured: on the hosted model it changed nothing, and on a 4B local model it cost
-// two of six cases and pushed latency to the timeout. The earlier win from removing digits was in
+// was tried and measured: on the hosted model it changed nothing, and on a 4B local model (2026-09-18,
+// before reasoning was turned off) it cost two of six cases and pushed latency to the timeout. The earlier win from removing digits was in
 // timeCode, where a number sat beside this one and the two read as a single scale; with timeCode
 // now in words, this is the only number present and has nothing to be confused with. A control
 // variant using symbols with no meaning of their own scored twelve points lower than any labelled

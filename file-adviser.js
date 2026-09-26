@@ -93,12 +93,12 @@ export const ADVISER_PROVIDERS = {
     // Every API request waits behind an adviser call, so a stalled local runtime must not hold the
     // page for long. Measured calls take 2 to 3 seconds, a cold first call up to about 8.
     timeoutMs: 10000,
-    // A local runtime reached through an OpenAI-compatible shim does not pass chat_template_kwargs
-    // to the template, so reasoning cannot be turned off the way it is for the hosted outlet. The
-    // model spends several hundred tokens thinking before it answers, and a budget sized for the
-    // answer alone is exhausted first: the response then arrives as HTTP 200 with finish_reason
-    // "length" and an empty string, which reads as a transport fault rather than a truncation.
-    // Measured on nemotron-3-nano-4b: 512 returns nothing at all, 1024 returns the answer.
+    // Reasoning is now turned off with reasoning_effort (see shape above). The budget keeps headroom
+    // for a runtime that ignores that field: this shim never passes chat_template_kwargs, and before
+    // reasoning_effort was used the model spent several hundred tokens thinking first, so a budget
+    // sized for the answer alone came back as HTTP 200 with finish_reason "length" and an empty
+    // string, which reads as a transport fault rather than a truncation. Measured on
+    // nemotron-3-nano-4b on 2026-09-18: 512 returned nothing at all, 1024 returned the answer.
     maxTokens: 1536,
   },
 };

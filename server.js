@@ -1745,5 +1745,5 @@ server.listen(port, host, () => {
   workerTimer = setInterval(scheduleFileWork, 250);
   workerTimer.unref();
   scheduleFileWork();
-  console.log(`Zero-Trust Edge Enclave listening at http://${host}:${server.address().port}`);
+  console.log(`Zero-Trust Edge Enclave listening at ${tlsOptions ? 'https' : 'http'}://${host}:${server.address().port}`);
 });

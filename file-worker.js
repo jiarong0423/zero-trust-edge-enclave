@@ -163,9 +163,11 @@ export async function advanceFileJobs(original, config, now = Date.now(), advise
  * REQUIRED_ACK one, where the notice is out, nobody has collected, and the deadline is still days
  * away. This pass reconsiders exactly those jobs.
  *
- * It runs at most once per window bucket, so a task is reconsidered a bounded number of times no
- * matter how often the worker ticks, and it stops at the deadline, where recordOverdueDeliveries
- * already has the answer.
+ * After an accepted answer the next look is half the remaining time away, and never less than an
+ * eighth of the window, so a task is reconsidered a bounded number of times no matter how often the
+ * worker ticks. After a failed or
+ * refused call it retries three times a minute apart, then at half the remaining time. It stops at
+ * the deadline, where recordOverdueDeliveries already has the answer.
  *
  * Nothing is sent here. A reminder is a prepared notice, the same dry run the first pass produces.
  */
