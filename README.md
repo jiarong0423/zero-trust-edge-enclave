@@ -33,7 +33,7 @@ snapshot version, channel allowlist, expiry and retry budget on every dispatch, 
 whole workflow completes with `COORDINATOR_PROVIDER=synthetic_fixture` and no model at
 all.
 
-Limits: this is a local prototype, not a certified deployment. There is no independent
+Limits: this is a prototype (local, plus one hosted demo instance), not a certified deployment. There is no independent
 KMS or TEE. The five metadata fields do reach Nebius Token Factory; only the document
 content, recipient identity, address and keys are kept inside the boundary.
 
@@ -112,13 +112,14 @@ No other Nebius service is used. There is no AI Cloud deployment, no Serverless 
 Serverless Job. The application runs as a single Node process with no third-party runtime packages
 and reaches Token Factory over the chat completions API.
 
-Default mode is `synthetic_fixture` and issues no model request. Real file-task advice requires
+Default mode is `synthetic_fixture` and issues no model request. Token Factory advice requires
 `LOCAL_ONLY=false`, `COORDINATOR_PROVIDER=nebius` and a backend `NEBIUS_API_KEY`; a key alone does
-not enable it. Configure an untracked environment file using `env.sample`, and start without
+not enable it. Local Nano advice uses `COORDINATOR_PROVIDER=local_openai_compatible` with a
+loopback `LOCAL_MODEL_BASE_URL` and no key. Configure an untracked environment file using `env.sample`, and start without
 `SKIP_LOCAL_ENV=true` only when deliberately loading that private configuration. Never place secrets
 in Git, browser code or model context.
 
-The hosted instance has a Token Factory spending cap. Once it is spent, the advisers fall back to
+The hosted instance has a USD 20 Token Factory spending cap, enforced in code. Once it is spent, the advisers fall back to
 synthetic advice and every other step keeps working; the current state is under `nebiusBudget` in
 `/api/health`.
 

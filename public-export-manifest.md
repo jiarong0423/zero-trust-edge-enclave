@@ -1,6 +1,6 @@
 # Public Export Manifest
 
-Review date: 2026-09-24 (was 2026-09-18). Status: public on GitHub since 2026-09-18; this list is the allowlist every push is checked against.
+Review date: 2026-09-27 (122 entries; was 2026-09-24). Status: public on GitHub since 2026-09-18; this list is the allowlist every push is checked against.
 
 The following exact paths are the release allowlist, not directory wildcards. Runtime data, credentials, environment secrets, logs, output, dependencies, Git metadata, screenshots and raw provider evidence are excluded even when untracked. New source files require explicit review and a manifest update.
 

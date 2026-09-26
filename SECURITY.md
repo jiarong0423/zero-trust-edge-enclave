@@ -1,6 +1,6 @@
 # Security Policy
 
-Review date: 2026-09-08. Scope: local hackathon prototype, synthetic documents only.
+Review date: 2026-09-08, scope extended 2026-09-25 to the hosted demo (judge sign-in, USD 20 Token Factory cap). Scope: hackathon prototype, synthetic documents only.
 
 ## Boundaries
 
@@ -22,4 +22,4 @@ Single-process serialization is not a distributed transaction. Retention invento
 
 ## Reporting
 
-Use minimal synthetic reproductions. Never include documents, real identities, credentials, raw provider responses or private logs in public reports. Current finding dispositions are in docs/agent/security-gate-summary.md. Historical passes are not current clearance; publication still requires owner review.
+Use minimal synthetic reproductions. Never include documents, real identities, credentials, raw provider responses or private logs in public reports. Current finding dispositions are in docs/agent/security-gate-summary.md. Historical passes are not current clearance; every publication is owner-reviewed and preceded by a fresh candidate scan.

@@ -7,9 +7,9 @@ Token Factory key, a spending cap and a judge sign-in.
 ## What Zeabur Runs
 
 One Node process. `server.js` serves the API and the four pages in `public/` (sender, decode,
-audit, admin) from the same origin, so there is no separate frontend service to deploy. There are
-no third-party runtime packages, so the build is `npm ci` against a lockfile-free tree plus
-`npm start`.
+audit, admin), plus the judge sign-in page, from the same origin, so there is no separate frontend service to deploy. There are
+no third-party runtime packages, so there is no build step: `zbpack.json` starts
+`node scripts/start-hosted.mjs`.
 
 Zeabur detects Node from `package.json`; no Dockerfile is required. `engines` requires Node 20.11
 or newer.
@@ -29,7 +29,7 @@ or newer.
 | `NEBIUS_BASE_URL` | `https://api.tokenfactory.nebius.com/v1` | The adviser refuses any other host. |
 | `NEBIUS_MODEL` | `nvidia/nemotron-3-super-120b-a12b` | Must start with `nvidia/` or the adviser refuses it. |
 | `TOKEN_SIGNING_SECRET` | Zeabur secret | Signs timed decode credentials. |
-| `DEMO_FALLBACK_ENABLED` | `false` | The default is `true`, which returns a synthetic result carrying its own warning that it is not submission evidence. A demo should fail visibly instead of quietly serving that. |
+| `DEMO_FALLBACK_ENABLED` | `false` | The default is `true`, which returns a synthetic result carrying its own warning that it is not submission evidence. A demo should fail visibly instead of quietly serving that. The one exception is the spending-cap fallback, which the page labels. |
 | `NODE_ENV` | `production` | Makes `TOKEN_SIGNING_SECRET` mandatory, so credentials survive a restart. |
 | `REQUIRE_DEMO_GATE` | `true` | Puts the judge sign-in in front of every page and API route except `/api/health`. |
 | `DEMO_GATE_USER` / `DEMO_GATE_PASSWORD` | Zeabur secrets | The judge sign-in. Given to judges in the file uploaded privately with the submission. |

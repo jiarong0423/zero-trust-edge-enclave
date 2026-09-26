@@ -1,6 +1,6 @@
 # Official Rule Alignment
 
-Review date: 2026-09-07
+Review date: 2026-09-07; rechecked 2026-09-24; submission status 2026-09-27.
 Sources: [Official rules](https://nebiusglobalaihackathon.devpost.com/rules) and [overview](https://nebiusglobalaihackathon.devpost.com/), reviewed 2026-09-07. Alignment is a project assessment, not organizer approval.
 
 ## 2026-09-24 Recheck (Supersedes Everything Below Where They Differ)
@@ -14,17 +14,17 @@ The rules and overview pages were read again on 2026-09-24.
 
 ## Submission Decision Of 2026-09-07
 
-Official rules sections 4 and 6 were rechecked on 2026-09-07. This is a dated interpretation, not a fresh rules check. The user subsequently reports sending the organizer clarification email; an answer is pending.
+Official rules sections 4 and 6 were rechecked on 2026-09-07. This is a dated interpretation, not a fresh rules check. The user subsequently reports sending the organizer clarification email; the 2026-09-24 recheck above made the answer non-blocking.
 
 - Local recording plus a downloadable functional test build is a valid submission direction; hosting the application is not mandatory. Runtime Token Factory inference satisfies the platform route, but synthetic responses do not.
 - Judges may choose not to test, but free testing access must remain available through judging. Video alone does not replace a test-build/demo URL.
 - Private development may stay private. The public submission repository must include necessary working source, assets, license and instructions; mock files or a wrapper dependent on undisclosed private core code are insufficient.
 - Do not publish API keys, existing bearer credentials, operational stores or private logs. Synthetic test identities should be generated during setup.
-- Submission materials require English or English translations, including video, descriptions and testing instructions.
+- Submission materials require English or English translations, including video, descriptions and judge-access material.
 - MCP is a tool boundary, not automatic novelty. Humans approve recipients, the model proposes a route and separately whether to chase an unacknowledged delivery, and fixed code enforces authorization and cryptography. Real model usefulness versus deterministic routing needs evidence.
 - Current state: bounded real NVIDIA/Nebius calls are recorded in the red/white defense material, including failed calls and separate successful retests. No superiority to rules or production security claim follows. Current release review supersedes historical export passes; remote visibility is not established by this review.
 - Remaining delivery: accessible test-build URL, public functional source, short public video, platform feedback, dated prior-work disclosure and free judge-access clarification. All delivered by 2026-09-27; see [the submission record](submission-record-2026-09-27.md).
-- Unresolved organizer question: does a local test build requiring judges to supply their own paid/provider key satisfy free unrestricted testing, and which access alternative is acceptable without exposing developer keys? Obtain organizer clarification; do not assume BYO-key-only access is sufficient.
+- Superseded 2026-09-24 by the hosted instance (see the recheck above). Original organizer question: does a local test build requiring judges to supply their own paid/provider key satisfy free unrestricted testing, and which access alternative is acceptable without exposing developer keys? Obtain organizer clarification; do not assume BYO-key-only access is sufficient.
 
 Recommended separation: private development assets; public reproducible functional submission; public video/screenshots. This review neither authorizes publication nor changes repository visibility.
 
@@ -38,7 +38,7 @@ Official requirement:
 Project alignment:
 
 - The backend policy route calls Nebius Token Factory through an OpenAI-compatible chat completions API.
-- Demo fallback is clearly labeled as non-submission evidence when the provider key is not configured.
+- Demo fallback is clearly labeled as non-submission evidence when the provider key is not configured or the USD 20 cap is spent.
 
 Status: integration exists; retain reproducible real-call evidence. A hosted Nebius deployment is not an additional mandatory condition for the API integration route.
 
@@ -53,7 +53,7 @@ Project alignment:
 - The configured model is `nvidia/nemotron-3-super-120b-a12b`.
 - NVIDIA Nemotron provides bounded code-only proposals for two distinct decisions, routing and delivery follow-up, each with its own allowlisted projection and validator. Neither is a permission decision and neither involves document analysis.
 
-Status: aligned after real Token Factory call evidence, pending final demo narration.
+Status: aligned; real Token Factory calls recorded, narrated video delivered 2026-09-27.
 
 ## Track Fit
 
@@ -90,11 +90,11 @@ Official requirement:
 
 Project alignment:
 
-- Demo should show three flows: sender sealing, timed credential decode, and audit/fallback evidence.
-- Narration must explicitly state that AI sees only non-content metadata.
+- The video shows sender approval, recipient decode, a signed-in but unselected recipient being denied, follow-up advice on Token Factory with the evidence chain, a refused fake model, local Nano 4B and the judge sign-in.
+- The narration states that the model receives only five anonymous fields and never the document or identities.
 - Delivered 2026-09-27: https://youtu.be/klBuNhS5eYM, 1:47, public, English narration and burned-in subtitles.
 
-Status: pending.
+Status: delivered 2026-09-27.
 
 ## Public Repository Requirement
 
@@ -123,7 +123,7 @@ Project alignment:
 
 - Feedback was submitted on 2026-09-27 in the Devpost form questions.
 
-Status: drafted.
+Status: submitted 2026-09-27.
 
 ## Pre-Existing Project Disclosure
 
@@ -136,12 +136,12 @@ Project alignment:
 - This is a new independent repo extracted from the older Shared Room MCP direction.
 - README already states that this is a new hackathon-oriented framework extracted from the Shared Room MCP direction.
 
-Status: disclosure started; list the concrete changes and their dates in the final submission. A new repository name alone does not establish a new project.
+Status: submitted 2026-09-27 as a new project (first commit 2026-09-07, after the 2026-08-26 start), with the Shared Room MCP origin stated in the README. A new repository name alone does not establish a new project; the commit dates do.
 
 ## Submission Readiness
 
 - Done: public repository URL, reviewer-accessible hosted demo (2026-09-24).
-- Pending: public YouTube video, platform feedback, and dated prior-work disclosure.
+- Done 2026-09-27: public YouTube video, platform feedback, prior-work disclosure; submitted.
 - Use synthetic input for the demo and show real provider mode separately from demo fallback.
 - Keep claims consistent with README: simulated transport, local bearer identities rather than SSO/device attestation, and no hardware enclave.
 - Eligibility and organizer acceptance have not been independently established by these technical checks.

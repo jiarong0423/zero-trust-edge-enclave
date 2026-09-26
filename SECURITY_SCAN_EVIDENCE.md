@@ -1,6 +1,6 @@
 # Security Scan Evidence
 
-Review date: 2026-09-24 (first review 2026-09-08). The repository has been public since 2026-09-18; every push is gated on a fresh candidate scan recorded here.
+Review date: 2026-09-27 (first review 2026-09-08). The repository has been public since 2026-09-18; every push is gated on a fresh candidate scan recorded here.
 
 Earlier S8 scan passes are historical; they do not cover the expanded workflow. The private development history preserves those results.
 
@@ -20,7 +20,7 @@ their tests.
 | release-boundary-safety-gate | PASS; findings 0 |
 | localguard | 83 findings: 3 CRITICAL, 15 HIGH, 58 MEDIUM, 7 LOW |
 
-CRITICAL and HIGH in localguard are the same counts as the 2026-09-19 baseline. The one new
+CRITICAL and HIGH in localguard are the same counts as the 2026-09-18 baseline. The one new
 ai-security-rules HIGH is `scripts/demo-gate.test.mjs:17`, a synthetic wrong password passed to the
 sign-in under test, the same class as the six adviser-test canaries. The new MEDIUM and LOW findings
 are false positives of three kinds:
@@ -145,8 +145,8 @@ names in the fixtures are synthetic.
 | WINDOW_LAST · 2 · PICKUP_NONE | ESCALATE (DEADLINE_NEAR) | ESCALATE (DEADLINE_NEAR) |
 | WINDOW_LITTLE · 1 · PICKUP_ALL | refused: FOLLOWUP_REASON_INCOHERENT | WAIT (INSUFFICIENT_INFORMATION) |
 
-Accepted: 5 of 6 hosted, 6 of 6 local. Latency: 1.10-1.80 s hosted, 8.3-28.0 s local. The small
-local model is an order of magnitude slower than the hosted large one on the same task.
+Accepted: 5 of 6 hosted, 6 of 6 local. Latency: 1.10-1.80 s hosted, 8.3-28.0 s local. In this run the small
+local model was an order of magnitude slower than the hosted large one; see the corrections below.
 
 ### The refusal is the control working, not a regression
 
@@ -221,8 +221,8 @@ Six follow-up scenarios, local outlet, before and after reading both fields and 
 | Completion tokens | 645 to 1089 | 64 to 73 |
 | Reasoning tokens | 511 to 1016 | 0 |
 
-The schema constraint, not `chat_template_kwargs`, is what turns reasoning off on this runtime; the
-kwarg is accepted by the API and never reaches the chat template.
+The schema constraint, not `chat_template_kwargs`, was what turned reasoning off on this runtime until
+the 2026-09-24 change below; the kwarg is accepted by the API and never reaches the chat template.
 
 ### Runtime Change, Re-measured 2026-09-24
 

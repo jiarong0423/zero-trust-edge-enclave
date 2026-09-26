@@ -36,8 +36,8 @@ use the instance and its Token Factory budget.
    *Delivery deadline minutes* set to `1` and do not collect it. Within about a minute the
    audit page shows follow-up decisions (WAIT, REMIND or ESCALATE) from Nemotron on Token
    Factory, and the evidence chain shows the five anonymous fields it was given.
-6. **Admin page (`/admin.html`, optional).** Choose the admin token and click
-   **Load directory** to see departments, people and grants.
+6. **Admin page (`/admin.html`).** Owner only: the admin token is not in the judge package. It
+   shows departments, people and grants and can change them.
 
 Model advice comes from NVIDIA Nemotron 3 Super on Nebius Token Factory. A USD 20 spending cap
 protects the key; once it is spent, advice falls back to a labelled synthetic fixture and every

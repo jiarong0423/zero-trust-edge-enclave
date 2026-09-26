@@ -1,7 +1,7 @@
 {
   "name": "zero-trust-edge-enclave",
   "version": "0.1.0",
-  "description": "AI-native zero-trust policy control plane for encrypted internal data delivery.",
+  "description": "Zero-trust encrypted internal file delivery with bounded NVIDIA Nemotron advisers on Nebius.",
   "license": "MIT",
   "type": "module",
   "main": "server.js",

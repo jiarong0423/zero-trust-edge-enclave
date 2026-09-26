@@ -6,9 +6,12 @@ The original candidate's four AI-scanner HIGH hits and two LocalGuard CRITICAL h
 
 This does not approve arbitrary credential-looking strings or runtime exports. See docs/agent/security-gate-summary.md for current scan results and review.
 
-Environment secrets, runtime directories, credentials, private logs and raw provider evidence are excluded from the explicit export manifest. Git history has not been freshly cleared; no push is authorized.
+Environment secrets, runtime directories, credentials, private logs and raw provider evidence are excluded from the explicit export manifest. The repository has been public since 2026-09-18; each push is gated on a candidate scan recorded in SECURITY_SCAN_EVIDENCE.md.
 
-## Current Scan Result
+## Scan Result, 2026-09-18
+
+Later counts are in SECURITY_SCAN_EVIDENCE.md.
+
 
 2026-09-18 `ai-security-rules rules-check` (secret scan scope): critical=0, high=5, medium=72. The five HIGH hits are synthetic canaries inside test files — file-adviser.test.mjs (2), model-negative.test.mjs (2) and local-adviser-outlet.test.mjs (1) — not provider credentials. The count moved from four to five when the loopback outlet test was added on 2026-09-15; no new credential class appeared. No HIGH or CRITICAL finding sits in runtime source, including the recipient group-code change of 2026-09-18.
 

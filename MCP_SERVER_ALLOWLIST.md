@@ -1,6 +1,6 @@
 # MCP Server Allowlist
 
-Review date: 2026-09-07
+Review date: 2026-09-07 (updated 2026-09-27)
 Owner: project maintainer
 
 ## Legacy Operator Application Surface
@@ -44,7 +44,7 @@ Allowed local tool names:
 
 ## Network Behavior
 
-- Local HTTP only for the app shell.
+- Local HTTP for the app shell; the hosted demo serves the same app over HTTPS behind a judge sign-in.
 - Cloud inference is disabled by default (LOCAL_ONLY). Explicitly configured provider adapters may make bounded Token Factory requests only when cloud mode is enabled; a key alone does not enable file-task inference.
 - Email adapter is dry-run only.
 
@@ -55,7 +55,7 @@ Current dedicated tools: legacy status/recommend/deliver and file_status/file_re
 Status: implemented through the separate `scripts/coordinator-mcp.mjs` adapter and coordinator endpoint. The application HTTP tools require an operator token. Credential issuance is recipient-only and unavailable through MCP. See `docs/agent/local-workflow.md` for configuration and tested limits.
 
 - Humans configure grants and confirm each file-task snapshot twice. Only subsequent bounded worker actions run unattended; AI cannot approve a snapshot.
-- Expose sanitized receipt, fallback, and audit status; allow bounded route, follow-up and notice requests only through a deterministic authorization gate.
+- Expose sanitized receipt, fallback, and audit status; allow bounded route and notice requests (follow-up stays backend-only) only through a deterministic authorization gate.
 - Package creation stays with the sender application. Credential issuance stays with the authenticated recipient service; do not expose credential tokens to Codex.
 - Do not forward raw outputs from the existing tool surface. A dedicated adapter must project approved metadata fields and opaque handles, excluding filenames, recipient addresses, document content, and cryptographic material.
 - Codex may request metadata-only Nemotron recommendations through a dedicated backend adapter; the provider credential never enters model context.

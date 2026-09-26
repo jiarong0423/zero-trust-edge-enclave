@@ -1,15 +1,15 @@
 # Submission Gap Check
 
-Updated: 2026-09-24 Asia/Taipei
+Updated: 2026-09-27 Asia/Taipei
 
 ## Current Gate Status
 
-Local self-checks against the 121-file candidate built from `public-export-manifest.md`:
+Local self-checks against the 122-file candidate built from `public-export-manifest.md` (2026-09-27):
 
 ```text
-export-gate:      pass, blocking 0, P0 0, P1 0, P2 0, critical 0, high 7, medium 97
+export-gate:      pass, blocking 0, P0 0, P1 0, P2 0, critical 0, high 7, medium 99
 release-boundary: PASS, findings 0
-localguard:       91 findings, 3 CRITICAL / 15 HIGH / 62 MEDIUM / 11 LOW
+localguard:       92 findings, 3 CRITICAL / 15 HIGH / 61 MEDIUM / 13 LOW
 npm test:         115 of 115, thirty consecutive runs
 preflight:hosted: 7 of 8, 0 blocking, 1 advisory
 fuzz:             40,000 projections, 2,400 worker ticks, 0 invariant violations (2026-09-18)
@@ -30,16 +30,16 @@ high-entropy literal.
 | README highlights NVIDIA model use | Done | `README.md`, section NVIDIA / Nebius |
 | README states where Token Factory carried the work | Done | same section |
 | README states other Nebius services used | Done | same section, states none are used |
-| Architecture diagrams | Done | `docs/assets/`, redrawn 2026-09-19 for the second adviser |
+| Architecture diagrams | Done | `docs/assets/`, redrawn 2026-09-25 from the code |
 | Working demo URL | Done | `https://zero-trust-edge-enclave.zeabur.app`, behind a judge sign-in, grants valid to 2026-12-16; the repository is also a test build |
 | Runs on Token Factory | Done | Hosted instance calls Token Factory at runtime, under a USD 20 spending cap |
-| Testing instructions for judges | Done | The form has no testing field; sign-in, role tokens and an English walkthrough are in the private Devpost file upload |
-| Track | Form-only | Best Apps and Agents |
-| New or existing project | Form-only | New; first commit 2026-09-07, after the 2026-08-26 start |
+| Judge access | Done | The form has no testing-instructions field; sign-in, role tokens and an English walkthrough are in the private Devpost file upload |
+| Track | Done (form) | Best Apps and Agents |
+| New or existing project | Done (form) | New; first commit 2026-09-07, after the 2026-08-26 start |
 | Platform feedback | Done | Answered in the Devpost form questions on models, Nebius capabilities, improvements and the Nemotron team |
 | Demo video URL | Done | https://youtu.be/klBuNhS5eYM, 1:47, public, narration covers how Token Factory is used; submitted 2026-09-27 ([record](docs/agent/submission-record-2026-09-27.md)) |
-| Builders and Brews city | Form-only | Taipei; attended 2026-09-19 |
-| Submitter type, country, declarations | Form-only | Fill directly in Devpost |
+| Builders and Brews city | Done (form) | Taipei; attended 2026-09-19 |
+| Submitter type, country, declarations | Done (form) | Filled in the Devpost form |
 
 ## Documentation Drift
 

@@ -8,17 +8,18 @@ Review date: 2026-09-08. Revised 2026-09-25 for answer validation, adviser retri
 | --- | --- | --- |
 | Document plaintext | Sender and recipient browsers only | The two humans at each end |
 | Ciphertext packet and wrapped key | Local backend store | Backend process; released to an authenticated recipient |
-| Document key | local-key-vault.js, wrapped per task and version | Backend only; never an adviser, never a browser |
+| Document key | local-key-vault.js, wrapped per task and version | Sender browser (encrypts); backend holds it wrapped; released to the authenticated recipient browser through a one-use ticket; never an adviser |
 | Private mapping | Snapshot, covered by the snapshot hash | Backend only; the file adviser receives no part of it, and the legacy coordinator receives opaque aliases without group codes |
 | Recipient identity, department, address | Access registry | Operator directory view and the dispatch gate |
 | Bearer tokens and key tickets | Registry token hashes; one-use tickets | The holding principal |
-| Audit trail | Append-only local store with archive overflow | Administrator read path |
+| Audit trail | Append-only local store with archive overflow | Owning sender (own tasks) and administrator |
+| Adviser evidence trail | Task record, last 10 calls per adviser | Sender only; each view is audited |
 
 Provider credentials and TOKEN_SIGNING_SECRET are environment-only and enter neither browser code nor model context.
 
 ## Trust Boundary
 
-Sender and recipient browsers handle plaintext. The local backend is trusted for key custody, private mappings and authorization. AI and coordinator tools are outside the private-data boundary.
+Sender and recipient browsers handle plaintext. The backend (local, or the hosted demo instance) is trusted for key custody, private mappings and authorization. AI and coordinator tools are outside the private-data boundary.
 
 ## Data Flow
 
@@ -33,7 +34,7 @@ Revised 2026-09-25. Every adviser answer is validated by fixed code before anyth
 | AI expansion or injection | Strict input/output projection plus current backend checks; prompt text is not the security boundary. |
 | Identity leaking into a group code | Group codes appear in the sender UI, receipts and audit, never in adviser input. Codes are synthesized as letter plus position; source identifiers and department names are used as grouping keys only and are never emitted. Positions are reshuffled on every revision so a code cannot become a durable pseudonym. |
 | Adviser steering the route | Channel choice is the adviser's only real influence, and it is bounded three times: validateFileAdvice accepts only a channel already in the snapshot, resolvePrivateRoute re-checks it against snapshot content, and advanceDelivery checks it again at dispatch. The snapshot channel set is itself re-validated against the current grant on every dispatch, so an adviser can pick among approved transports but can never introduce one. |
-| Adviser withholding delivery | A PAUSE stops that attempt and is recorded with reason ADVICE_PAUSED; it never revokes authorization, deletes staged bytes or hides state. The operator sees the paused job and can resume it. Abstention can delay delivery but cannot destroy it or act as a silent denial. |
+| Adviser withholding delivery | A PAUSE stops that attempt and is recorded with reason ADVICE_PAUSED; it never revokes authorization, deletes staged bytes or hides state. The sender sees the paused job and can request a resume. Abstention can delay delivery but cannot destroy it or act as a silent denial. |
 | Changed list or replay | Immutable version/mapping, fresh confirmation after edits, idempotent job creation. |
 | Self-claimed role | Stored principals and grant membership, not user-entered claims. |
 | Stolen token | Expiry, rotation and one-use tickets; bearer theft remains a risk. |
@@ -52,7 +53,7 @@ See docs/agent/security-gate-summary.md for scoped review; tests are not a produ
 
 # 威脅模型（繁體中文）
 
-檢視日期 2026-09-08。2026-09-18 修訂：新增投遞催促顧問，具備獨立投影與驗證器；私有映射表新增組別代號供發文者介面與收據使用，並刻意排除於所有顧問與協調投影之外。適用目前的檔案流程，非舊版通行碼展示。本節為上方英文內容的翻譯。
+檢視日期 2026-09-08。2026-09-25 修訂：答案驗證、顧問重試、證據鏈、身分與存取分開顯示。2026-09-18 修訂：新增投遞催促顧問，具備獨立投影與驗證器；私有映射表新增組別代號供發文者介面與收據使用，並刻意排除於所有顧問與協調投影之外。適用目前的檔案流程，非舊版通行碼展示。本節為上方英文內容的翻譯。
 
 ## 資產
 
@@ -60,11 +61,12 @@ See docs/agent/security-gate-summary.md for scoped review; tests are not a produ
 | --- | --- | --- |
 | 文件明文 | 僅寄件人與收件人瀏覽器 | 兩端的人 |
 | 密文封包與封裝金鑰 | 本機後端儲存 | 後端程序；通過驗證的收件人 |
-| 文件金鑰 | local-key-vault.js，依任務與版本分別封裝 | 僅後端，不進顧問模型與瀏覽器 |
+| 文件金鑰 | local-key-vault.js，依任務與版本分別封裝 | 寄件人瀏覽器（加密）；後端以封裝形式保存；透過一次性票券交給通過驗證的收件人瀏覽器；不進顧問模型 |
 | 私有映射表 | 快照內，受快照雜湊保護 | 僅後端；檔案顧問模型完全拿不到，legacy 協調端只拿到不含組別代號的不透明別名 |
 | 收件人身分、部門、位址 | 存取名冊 | 發文者目錄檢視與投遞閘門 |
 | Bearer token 與金鑰票券 | 名冊僅存雜湊；票券一次有效 | 持有該憑證的主體 |
-| 稽核軌跡 | 唯附加本機儲存含封存溢位 | 管理員讀取路徑 |
+| 稽核軌跡 | 唯附加本機儲存含封存溢位 | 該任務的發文者與管理員 |
+| 顧問證據紀錄 | 任務紀錄，每種顧問保留最近 10 筆 | 僅發文者；每次查看都寫入稽核 |
 
 供應商金鑰與 TOKEN_SIGNING_SECRET 僅存於環境變數，不進入瀏覽器程式碼，也不進入模型上下文。
 
