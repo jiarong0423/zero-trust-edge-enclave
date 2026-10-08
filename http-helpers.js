@@ -32,31 +32,45 @@ export function sendJson(res, status, payload) {
   res.end(body);
 }
 
-export function readBody(req, limit = 1_000_000) {
+// Every route that reads a body runs on the serial API queue, so a body that never finishes holds
+// every other request. A promise that never settles is therefore a denial of service, not a leak:
+// the request is also settled when the connection is closed or aborted before the body is complete
+// (a malformed chunked body makes Node answer 400 and drop the socket without an 'end'), and a body
+// that stalls is cut off after `timeoutMs`.
+export function readBody(req, limit = 1_000_000, timeoutMs = 120_000) {
   return new Promise((resolve, reject) => {
     const chunks = [];
     let size = 0;
-    let failed = false;
+    let settled = false;
+    const finish = (settle, value) => {
+      if (settled) return;
+      settled = true;
+      clearTimeout(timer);
+      chunks.length = 0;
+      settle(value);
+    };
+    const timer = setTimeout(() => finish(reject, Object.assign(new Error('Request body timed out'), { status: 408 })), timeoutMs);
+    timer.unref();
     req.on('data', chunk => {
-      if (failed) return;
+      if (settled) return;
       size += chunk.length;
       if (size > limit) {
-        failed = true;
-        chunks.length = 0;
-        reject(Object.assign(new Error('Request body too large'), { status: 413 }));
+        finish(reject, Object.assign(new Error('Request body too large'), { status: 413 }));
         return;
       }
       chunks.push(chunk);
     });
     req.on('end', () => {
-      if (failed) return;
+      if (settled) return;
       try {
         const body = Buffer.concat(chunks).toString('utf8');
-        resolve(body ? JSON.parse(body) : {});
+        finish(resolve, body ? JSON.parse(body) : {});
       } catch {
-        reject(Object.assign(new Error('Invalid JSON body'), { status: 422 }));
+        finish(reject, Object.assign(new Error('Invalid JSON body'), { status: 422 }));
       }
     });
-    req.on('error', reject);
+    req.on('aborted', () => finish(reject, Object.assign(new Error('Request aborted'), { status: 400 })));
+    req.on('close', () => { if (!req.complete) finish(reject, Object.assign(new Error('Request aborted'), { status: 400 })); });
+    req.on('error', error => finish(reject, error));
   });
 }
