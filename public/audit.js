@@ -38,6 +38,7 @@ async function refresh() {
   const tokenFactory = health.adviserProvider === 'nebius' && health.nebiusConfigured;
   setText(runtimeMode, tokenFactory && health.nebiusBudget?.exhausted ? 'Demo (Token Factory budget spent)'
     : tokenFactory ? 'Token Factory'
+    : health.adviserProvider === 'local_then_nebius' ? 'Local model first, then Token Factory'
     : health.adviserProvider === 'local_openai_compatible'
       ? () => `${t('Local model outlet')}: ${health.localOutletModel || '-'}` : 'Demo');
   const events = audit.events || [];

@@ -15,13 +15,15 @@ async function showModelRuntime() {
     if (health.ok !== true || typeof health.localOnly !== 'boolean' || typeof health.nebiusConfigured !== 'boolean') throw Error('Invalid health');
     // Describe the outlet that will answer, not merely whether a Token Factory key is present.
     const local = health.adviserProvider === 'local_openai_compatible';
+    const cascade = health.adviserProvider === 'local_then_nebius' && health.nebiusConfigured && !health.localOnly;
     const tokenFactory = health.adviserProvider === 'nebius' && health.nebiusConfigured && !health.localOnly
       && !health.nebiusBudget?.exhausted;
     setText(view, local ? 'Local model outlet configured; successful model call not verified'
+      : cascade ? 'Cascade outlet configured (local model first, Token Factory only if it fails); successful model call not verified'
       : tokenFactory ? 'Provider configured; successful model call not verified'
       : health.nebiusBudget?.exhausted ? 'Token Factory budget spent; synthetic adviser, no real model call'
       : 'Local simulation; no real model call');
-    const model = local ? health.localOutletModel : tokenFactory ? health.nebiusModel : null;
+    const model = local || cascade ? health.localOutletModel : tokenFactory ? health.nebiusModel : null;
     const modelView = document.querySelector('#configuredModel');
     if (typeof model === 'string') setText(modelView, () => `${t('Configured model (not execution evidence)')}: ${model}`);
     else setText(modelView, 'No model is called in this mode');

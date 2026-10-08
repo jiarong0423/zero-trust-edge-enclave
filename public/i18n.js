@@ -2,6 +2,8 @@ export let isChinese = location.pathname.startsWith('/zh-TW/');
 export const labels = {
   'Model and responsibilities': '模型狀態與權責',
   'Model status unavailable': '模型狀態尚未確認，不能視為真實呼叫。',
+  'Cascade outlet configured (local model first, Token Factory only if it fails); successful model call not verified': '目前：串接出口，先問本機模型，失敗才問 Token Factory；尚未驗證成功呼叫。',
+  'Local model first, then Token Factory': '先問本機模型，失敗才問 Token Factory',
   'Local simulation; no real model call': '目前：本機模擬，沒有呼叫真實模型。',
   'Provider configured; successful model call not verified': '已載入模型服務設定；不代表已成功呼叫，須以任務執行證據確認。',
   'Configured model (not execution evidence)': '設定的模型（不代表已執行）',

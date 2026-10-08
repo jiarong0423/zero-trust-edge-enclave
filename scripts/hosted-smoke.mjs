@@ -26,7 +26,7 @@ const SENDER = 'manager-sender';
 const RECIPIENT = 'sales-a';
 const OTHER_RECIPIENT = 'sales-b';
 const PREFERRED_GRANT = 'procurement';
-const PROVIDERS = ['nebius_token_factory', 'synthetic_fixture', 'local_openai_compatible', 'any'];
+const PROVIDERS = ['nebius_token_factory', 'synthetic_fixture', 'local_openai_compatible', 'local_then_nebius', 'any'];
 
 // /api/health reports the configured COORDINATOR_PROVIDER value ("nebius"), while the evidence trail
 // names the outlet that answered ("nebius_token_factory"). They are the same provider; compare in one
