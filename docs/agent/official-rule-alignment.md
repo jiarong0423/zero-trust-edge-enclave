@@ -74,7 +74,7 @@ Best fit:
 Reason:
 
 - The project is a usable enterprise workflow app: sender enclave, decode gate, transport shell, audit dashboard, timed credential, and one-way delivery dry-run.
-- It uses Nemotron on Nebius for two restricted proposal types. Routing adds little over a fixed rule and that must not be overstated; the follow-up decision has no deterministic equivalent, because when to chase an unacknowledged delivery depends on how time remaining, reminders already ignored and partial collection sit against each other.
+- It uses Nemotron on Nebius for two restricted proposal types. Routing adds little over a fixed rule and that must not be overstated; the follow-up decision does have a deterministic stand-in (a lookup table, used as the baseline), and no claim is made that the model beats it. What the model adds is a swappable adviser under a boundary that makes a bad answer harmless, with the policy (how often it acts) held in prompt text; measured on the 24 inputs the real workflow can produce, both models are conservative by default (see `docs/agent/followup-adviser-comparison-2026-10-08.md`).
 
 Status: aligned.
 
