@@ -20,11 +20,12 @@ Order of checks in the request handler and `routeApi` (both in `server.js` at th
 | --- | --- | --- |
 | 1 | Client network allowlist, when `ALLOWED_CLIENT_CIDRS` is set (`server.js` request handler, `networkPolicy.allowsRequest()`; `network-policy.js` `createNetworkPolicy()`). The client address is matched, not the throttle key; loopback is not implicit | 403 `Client network not allowed` |
 | 2 | Hosted demo gate, when `REQUIRE_DEMO_GATE=true`: every page and route except the open paths needs the session cookie (`server.js` request handler, `gateAllows()`; open paths in `demo-gate.js` `openPaths`) | 401 for `/api/*`, 302 to `/judge-login.html` for pages, 503 if the gate is on but not configured |
+| 2a | Optional OIDC sign-in routes, only when `SSO_ISSUER` is set: `/api/sso/*` is answered here, outside the queue, so the identity provider's calls cannot stall other requests (`server.js` request handler, `sso-routes.js` `createSsoRoutes()`; off, it returns false and the request continues). Do not combine with the demo gate: the gate cookie is `SameSite=Strict`, so the provider's redirect to `/api/sso/callback` arrives without it | 401 from the gate, or 503 `SSO is not available` when misconfigured |
 | 3 | Any `/api/*` request is queued and handled one at a time (`api-queue.js` `createApiQueue()`, used by the `server.js` request handler) | n/a |
 | 4 | `GET /api/health` answers here, before authentication (`server.js` route `GET /api/health`) | n/a |
 | 5 | Registry load (`access-control.js` `loadAccess()`, called at the top of `routeApi()` after the health route) | 503 if the registry is missing or invalid |
 | 6 | Failed-sign-in lock (`authThrottle.check()`; `auth-throttle.js` `createAuthThrottle()`) | 429 with `Retry-After`, even for a valid token |
-| 7 | Authentication (`access-control.js` `authenticate()`): `Bearer` plus 32 to 256 URL-safe characters, hash match, person and department enabled. Only a 43-character token that matches no registered identity is counted toward the lock (`auth-throttle.js` `countsAsGuess()`) | 401 `Authentication required` / `Authentication failed` |
+| 7 | Authentication (`access-control.js` `authenticateWithSession()`: a live SSO session token resolves to the same registry principal that `authenticate()` returns, and is re-checked against the registry on every call; any other token goes to `authenticate()` unchanged). `authenticate()`: `Bearer` plus 32 to 256 URL-safe characters, hash match, person and department enabled. Only a 43-character token that matches no registered identity, and is not a live or just-ended SSO session (`sso-session.js` `knows()`), is counted toward the lock (`auth-throttle.js` `countsAsGuess()`) | 401 `Authentication required` / `Authentication failed` |
 | 8 | `GET /api/whoami`, `/api/admin/*` (`server.js` routes of those names) | see table 3 |
 | 9 | Kind gate: administrators stop here (`Administrator endpoint only`); coordinators may only call `/api/coordinator/call` (`Coordinator endpoint only`); recipients may only call the file-access and legacy credential routes (`Recipient endpoint only`) | 403 |
 | 10 | Route handler checks: ownership, grant, snapshot, membership, window, tickets | see table 3 |
@@ -93,6 +94,18 @@ caller of a route are named once in the last column.
 | `POST /api/judge-login` | anyone, only when the gate is on | `server.js` request handler and `demo-gate.js` `gateSignIn()`; per-client limit 20 failures a minute, global 200 (`failureLimit`, `globalFailureLimit`) | 401; 429 with `Retry-After`; 503 not configured; 405 |
 | any other `/api/*` | authenticated caller who passed the kind gate | falls through | 404 `not found` |
 
+## 3a. SSO Routes (only when `SSO_ISSUER` is set)
+
+SSO adds a second way to obtain a bearer token, not a second way to be authorised: a signed-in person is mapped by a local subject map to an existing registry principal, and every check in section 3 then applies unchanged. Details and limits: `docs/agent/sso.md`.
+
+| Route | Who | Enforcing check | Denials |
+| --- | --- | --- | --- |
+| `GET /api/sso/status` | anyone | none | 429 while the client key is locked |
+| `GET /api/sso/login` | anyone | creates a single-use state, nonce and PKCE verifier bound to a flow cookie (`sso-routes.js` `login()`) | 429, 503 |
+| `GET /api/sso/callback` | the browser that started the sign-in | state single use, flow cookie match, full ID-token validation, subject map, principal enabled (`callback()`, `sso-oidc.js` `verifyIdToken()`) | 400, 401, 403, 429, 503 |
+| `POST /api/sso/session` | holder of the one-minute hand-off cookie | header `x-sso-exchange: 1`, single-use hand-off (`exchange()`) | 400, 401, 403, 429, 503 |
+| `POST /api/sso/logout` | any bearer | revokes that session token | none |
+
 ## 4. Unauthenticated Surface
 
 | Resource | Condition | What it exposes |
@@ -101,6 +114,7 @@ caller of a route are named once in the last column.
 | Static pages and scripts (`/`, `/index.html`, `/decode.html`, `/audit.html`, `/admin.html`, `/judge-login.html`, `/styles.css`, `/*.js`, and the `/zh-TW/` aliases) | Served without a token. With the demo gate on, all but the open paths need the session cookie | UI code only. Data comes from authenticated API calls. An unknown path outside `/zh-TW/` returns `index.html` with status 200; an unknown `/zh-TW/` path returns 404 (`static-files.js` `createStaticServer()`, `localizedPages`) |
 | `/api/*` other than health | 401 without a valid token (503 if the registry is missing) | Nothing |
 | `POST /api/judge-login` | Only when `REQUIRE_DEMO_GATE=true` | A session cookie on a correct sign-in |
+| `GET /api/sso/status`, `GET /api/sso/login`, `GET /api/sso/callback`, `POST /api/sso/session`, `POST /api/sso/logout` | Only when `SSO_ISSUER` is set; each answers 503 when SSO is misconfigured | A redirect to the identity provider, a hand-off cookie on a verified sign-in, a session token in the response body of `POST /api/sso/session`; no registry data |
 
 Notes for reviewers:
 

@@ -37,7 +37,7 @@ Revised 2026-09-25. Every adviser answer is validated by fixed code before anyth
 | Adviser withholding delivery | A PAUSE stops that attempt and is recorded with reason ADVICE_PAUSED; it never revokes authorization, deletes staged bytes or hides state. The sender sees the paused job and can request a resume. Abstention can delay delivery but cannot destroy it or act as a silent denial. |
 | Changed list or replay | Immutable version/mapping, fresh confirmation after edits, idempotent job creation. |
 | Self-claimed role | Stored principals and grant membership, not user-entered claims. |
-| Stolen token | Expiry, rotation and one-use tickets; bearer theft remains a risk. |
+| Stolen token | Expiry, rotation and one-use tickets; bearer theft remains a risk. An SSO session token (optional) lives in memory only, has an absolute life of at most 8 hours (30 minutes by default) and is revoked at once when its principal is disabled; it is not revoked when only its subject-map entry is removed (`docs/agent/sso.md`). |
 | Unknown delivery result | Bounded retries; ambiguous outcomes do not automatically resend. |
 | Expired access | Current grant and TIME_LIMITED checks; released bytes/keys cannot be recalled. |
 | Tool or log leakage | Allowlisted codes; no file content, address, key or credential fields. |
