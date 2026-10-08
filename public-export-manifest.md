@@ -1,6 +1,6 @@
 # Public Export Manifest
 
-Review date: 2026-10-08 (178 entries; was 2026-09-27, 122 entries). Status: public on GitHub since 2026-09-18; this list is the allowlist every push is checked against.
+Review date: 2026-10-08 (203 entries; was 2026-09-27, 122 entries). Status: public on GitHub since 2026-09-18; this list is the allowlist every push is checked against.
 
 The following exact paths are the release allowlist, not directory wildcards. Runtime data, credentials, environment secrets, logs, output, dependencies, Git metadata, screenshots and raw provider evidence are excluded even when untracked. New source files require explicit review and a manifest update.
 
@@ -187,6 +187,31 @@ scripts/static-files.test.mjs
 worker-schedule.js
 scripts/hosted-smoke.mjs
 scripts/hosted-smoke.test.mjs
+docs/agent/cascade-outlet.md
+docs/agent/human-labels.md
+docs/agent/sso.md
+docs/agent/webhook-notices.md
+legacy-packages.js
+routes/admin.js
+routes/coordinator.js
+routes/file-tasks.js
+routes/mcp.js
+routes/packages.js
+scripts/cascade-outlet.test.mjs
+scripts/label-followup.mjs
+scripts/label-followup.test.mjs
+scripts/mock-idp.mjs
+scripts/score-labels.mjs
+scripts/score-labels.test.mjs
+scripts/server-routes.test.mjs
+scripts/sso-oidc.test.mjs
+scripts/sso-routes.test.mjs
+scripts/sso-session.test.mjs
+scripts/webhook-adapter.test.mjs
+sso-oidc.js
+sso-routes.js
+sso-session.js
+webhook-adapter.js
 ```
 
 ## Release Conditions
