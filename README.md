@@ -6,10 +6,10 @@ MIT-licensed local hackathon prototype for encrypted document handoff with a res
 
 - What it is: encrypted document handoff in which a restricted AI adviser only proposes routing and follow-up; fixed code verifies and executes. A prototype, not a certified deployment.
 - Two modes, one contract: **edge** (Nemotron 3 Nano 4B on the same machine behind a loopback-only runtime: `LOCAL_ONLY=true`, `COORDINATOR_PROVIDER=local_openai_compatible`) and **hosted** (Nemotron 3 Super 120B on Nebius Token Factory). Switching is configuration. The edge mode targets organisations that keep files inside a private network; that is a design goal, not a deployment.
-- The adviser sees five pseudonymous fields per decision. It never sees the document, the recipient, the address or the key.
+- In the file workflow the adviser sees five pseudonymous fields per decision and never the document, the recipient, the address or the key. Two legacy compatibility paths send more to the hosted model (see "Scope of the five-field promise" below); `LEGACY_HOSTED_ADVICE=off` keeps them local.
 - Edge mode has only been run on a Mac with LM Studio, not on a Jetson or any other NVIDIA edge device.
-- Proof: 307 tests in the full suite (`node --test scripts/*.test.mjs`), and a measured 36-input comparison of both models: [follow-up comparison](docs/agent/followup-adviser-comparison-2026-10-08.md).
-- Details: [dual-mode edge](docs/agent/dual-mode-edge.md), [private-network deployment](docs/agent/private-network-deployment.md).
+- Proof: 320 tests in the full suite (`npm run test:all`), and a measured comparison of both models on the same inputs: [follow-up comparison](docs/agent/followup-adviser-comparison-2026-10-08.md). 12 of its 36 inputs (everything already collected) are never sent to a model in the product, so read it on the other 24.
+- Details: [dual-mode edge](docs/agent/dual-mode-edge.md), [private-network deployment](docs/agent/private-network-deployment.md), [enterprise control mapping and evidence index](docs/compliance/README.md) (a mapping, not a certification), [model provenance](docs/agent/nvidia-model-provenance.md), [server split plan](docs/agent/server-split-plan.md).
 
 ## Try It
 
@@ -30,6 +30,16 @@ What crosses to the model: `taskAlias`, `snapshotVersion`, `channels`, `state`,
 anything else is rejected before dispatch.
 
 What never crosses: the document, the recipient, the address, the key.
+
+**Scope of the five-field promise.** It describes the file workflow, which is what this project is
+about. Two legacy compatibility paths remain and, when the hosted model is configured
+(`COORDINATOR_PROVIDER=nebius`, `LOCAL_ONLY=false`, a key present), send more: `POST
+/api/policy/recommend` sends six enumerated policy categories (data category, confidentiality,
+purpose, expiry, device policy, open limit), and the legacy coordinator `recommend` tool sends the
+package's non-content routing metadata, which includes one opaque alias per recipient and therefore
+the number of recipients. Neither carries document content, names, addresses or keys, but neither is
+limited to five fields. `LEGACY_HOSTED_ADVICE=off` makes both answer from the local fixture and never
+call the hosted model. Details: [data protection and retention](docs/compliance/data-protection-and-retention.md).
 
 The adviser's small surface is the design, not an unfinished part. A model is the
 component an injected instruction attacks, so it cannot also be the component that
@@ -164,7 +174,7 @@ into `reasoning_content` while `content` is left empty. A client reading only `c
 empty success. None of these results prove superiority to deterministic routing, general injection
 resistance, or compatibility with an untested local runtime.
 
-Version 2026-10-08. `npm test` runs one file, `scripts/local-workflow.test.mjs` (117 tests). The full suite is `node --test scripts/*.test.mjs` (307 tests at this revision).
+Version 2026-10-08. `npm test` runs one file, `scripts/local-workflow.test.mjs` (117 tests). The full suite is `node --test scripts/*.test.mjs` (320 tests at this revision).
 
 ## Architecture
 
@@ -215,7 +225,7 @@ node --test scripts/*.test.mjs
 node scripts/generate-business-fixtures.mjs
 ```
 
-`npm run check` is a syntax check (`node --check`) of three entry files: `server.js`, `access-control.js` and `scripts/smoke-test.mjs`. It does not run any test. `npm test` runs only `scripts/local-workflow.test.mjs`; the full suite is `node --test scripts/*.test.mjs`.
+`npm run check` syntax-checks every JavaScript file in the repository (`scripts/check-syntax.mjs`). It does not run any test. `npm test` runs only `scripts/local-workflow.test.mjs`; the full suite is `node --test scripts/*.test.mjs`.
 
 Tests use isolated synthetic stores and no provider requests. The fixture generator creates synthetic CSV and native-document source data, never reads user documents, and refuses differing existing outputs. Optional native rendering/browser testing is documented in [local workflow](docs/agent/local-workflow.md).
 

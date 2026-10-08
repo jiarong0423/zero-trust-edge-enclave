@@ -23,3 +23,5 @@ Single-process serialization is not a distributed transaction. Retention invento
 ## Reporting
 
 Use minimal synthetic reproductions. Never include documents, real identities, credentials, raw provider responses or private logs in public reports. Current finding dispositions are in docs/agent/security-gate-summary.md. Historical passes are not current clearance; every publication is owner-reviewed and preceded by a fresh candidate scan.
+
+See also: [compliance control mapping and evidence index](docs/compliance/README.md) (a mapping of what the code does, not a certification).

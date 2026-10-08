@@ -12,7 +12,7 @@ import { listRecipients } from './recipient-directory.js';
 import { principalEnabled, departmentMap } from './registry-schema.js';
 import { adminDirectory, changeDirectory } from './directory-admin.js';
 import { saveRegistry } from './registry-store.js';
-import { resumeFileTask, resumableReasons } from './task-operations.js';
+import { resumeFileTask } from './task-operations.js';
 import { resolvePrivateRoute } from './private-mapping.js';
 import { packetCommitment } from './public/file-envelope.js';
 import { openLocalKeyVault } from './local-key-vault.js';
@@ -20,7 +20,7 @@ import { advanceFileJobs, advanceFollowups, ADVICE_SOURCE, ADVICE_NO_RETRY } fro
 import { fileRoutingMetadata } from './file-routing.js';
 import { taskEvidence } from './task-evidence.js';
 import { requestFileAdvice } from './file-adviser.js';
-import { receiptSummary, recordFileReceipt, recordOverdueDeliveries, recipientReceiptStatus } from './file-receipts.js';
+import { recordFileReceipt, recordOverdueDeliveries, recipientReceiptStatus } from './file-receipts.js';
 import { initializeArrays, readArray, writeArray } from './local-array-store.js';
 import { findArchivedAudit, retainAuditWindow, auditArchiveIndex } from './audit-retention.js';
 import { checkDownloadAccess, sendDeadlineJson } from './download-policy.js';
@@ -32,6 +32,15 @@ import { fileWorkPass } from './worker-pass.js';
 import { gateConfig, gateAllows, gateSignIn } from './demo-gate.js';
 import { createBudget } from './nebius-budget.js';
 import { loadAccess, authenticate, activeGrant, authorizeRecord, safeMetadata, validateAdvice, advanceDelivery, exact, fail } from './access-control.js';
+import { sendJson, readBody } from './http-helpers.js';
+import { createStaticServer } from './static-files.js';
+import { getMcpToolSchemas, fallbackMessageFromReasons } from './mcp-tools.js';
+import { normalizePolicyMetadata, buildFallbackPolicy, validatePolicy as validatePolicyWithModel, compileEnvelope } from './policy-envelope.js';
+import { hashJson, normalizeString } from './value-helpers.js';
+import { createEmailDraftBuilder } from './email-draft.js';
+import { senderTask } from './task-view.js';
+import { loadLocalEnv } from './local-env.js';
+import { resolveTokenSigningSecret, createCredentialSigner } from './credentials.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -42,6 +51,7 @@ if (process.env.SKIP_LOCAL_ENV !== 'true') {
 }
 
 const publicDir = path.join(__dirname, 'public');
+const serveStatic = createStaticServer(publicDir);
 const dataDir = path.resolve(__dirname, process.env.DATA_DIR || 'data');
 const accessPath = path.join(dataDir, 'access.json');
 const requestContext = new AsyncLocalStorage();
@@ -53,58 +63,23 @@ const host = process.env.HOST || '127.0.0.1';
 const trustProxy = process.env.TRUST_PROXY === 'true';
 const authThrottle = throttleFromEnv(process.env, (key, seconds) => console.error(`WARN auth throttle locked client ${key} for ${seconds}s`));
 const networkPolicy = createNetworkPolicy(process.env.ALLOWED_CLIENT_CIDRS);
+// LEGACY_HOSTED_ADVICE=off: the two legacy compatibility paths (/api/policy/recommend and the coordinator
+// `recommend` tool) answer from the local fixture and never call the hosted model. They send more than
+// the file workflow's five fields, so a deployment that wants that promise to be absolute turns them off.
+const legacyHostedAdviceOff = process.env.LEGACY_HOSTED_ADVICE === 'off';
 const port = Number(process.env.PORT || 3344);
+const buildDryRunEmailDraft = createEmailDraftBuilder(host, port);
 const nebiusBaseUrl = process.env.NEBIUS_BASE_URL || 'https://api.tokenfactory.nebius.com/v1';
 const localModelBaseUrl = process.env.LOCAL_MODEL_BASE_URL || 'http://127.0.0.1:1234/v1';
 const localModelName = process.env.LOCAL_MODEL_NAME || 'nvidia-nemotron-3-nano-4b';
 const nebiusModel = process.env.NEBIUS_MODEL || 'nvidia/nemotron-3-super-120b-a12b';
+const validatePolicy = policy => validatePolicyWithModel(policy, nebiusModel);
 const localOnly = process.env.LOCAL_ONLY !== 'false';
 const demoFallbackEnabled = process.env.DEMO_FALLBACK_ENABLED !== 'false';
 const tokenSigningSecret = resolveTokenSigningSecret();
+const { createSignedCredential, readSignedCredential } = createCredentialSigner(tokenSigningSecret);
 const demoGate = gateConfig(process.env);
 const nebiusBudget = createBudget(process.env, path.join(dataDir, 'nebius-spend.json'));
-
-const mimeTypes = new Map([
-  ['.html', 'text/html; charset=utf-8'],
-  ['.css', 'text/css; charset=utf-8'],
-  ['.js', 'text/javascript; charset=utf-8'],
-  ['.json', 'application/json; charset=utf-8'],
-  ['.svg', 'image/svg+xml']
-]);
-
-async function loadLocalEnv(envPath) {
-  try {
-    const raw = await fs.readFile(envPath, 'utf8');
-    for (const line of raw.split(/\r?\n/)) {
-      const trimmed = line.trim();
-      if (!trimmed || trimmed.startsWith('#')) continue;
-      const separatorIndex = trimmed.indexOf('=');
-      if (separatorIndex < 1) continue;
-      const key = trimmed.slice(0, separatorIndex).trim();
-      let value = trimmed.slice(separatorIndex + 1).trim();
-      if ((value.startsWith('"') && value.endsWith('"')) || (value.startsWith("'") && value.endsWith("'"))) {
-        value = value.slice(1, -1);
-      }
-      if (!process.env[key]) {
-        process.env[key] = value;
-      }
-    }
-  } catch (error) {
-    if (error?.code !== 'ENOENT') {
-      throw error;
-    }
-  }
-}
-
-function resolveTokenSigningSecret() {
-  if (process.env.TOKEN_SIGNING_SECRET) {
-    return process.env.TOKEN_SIGNING_SECRET;
-  }
-  if (process.env.NODE_ENV === 'production') {
-    throw new Error('TOKEN_SIGNING_SECRET is required when NODE_ENV=production');
-  }
-  return crypto.randomBytes(32).toString('hex');
-}
 
 async function ensureStore() {
   await fs.mkdir(dataDir, { recursive: true, mode: 0o700 });
@@ -119,216 +94,8 @@ async function writeJson(filePath, value) {
   return writeArray(filePath, value);
 }
 
-// The pages carry no inline script, no inline style, no event attributes and no external origin,
-// so the strictest policy is also the accurate one. Plaintext and document keys exist only inside
-// these pages, which makes the browser layer part of the boundary rather than decoration.
-function securityHeaders(req) {
-  const forwarded = String(req.headers['x-forwarded-proto'] || '').split(',')[0].trim();
-  // Either TLS terminated in front of this process, or terminated by it. Browsers ignore HSTS on an
-  // IP literal, so a LAN demo address simply does not receive it.
-  const overTls = forwarded === 'https' || Boolean(req.socket?.encrypted);
-  const hostHeader = String(req.headers.host || '').replace(/:\d+$/, '').replace(/^\[|\]$/g, '');
-  const isIpLiteral = /^\d{1,3}(\.\d{1,3}){3}$/.test(hostHeader) || hostHeader.includes(':');
-  return {
-    'content-security-policy': "default-src 'self'; base-uri 'none'; form-action 'none'; " +
-      "frame-ancestors 'none'; object-src 'none'; script-src 'self'; style-src 'self'",
-    'x-content-type-options': 'nosniff',
-    'x-frame-options': 'DENY',
-    'referrer-policy': 'no-referrer',
-    'permissions-policy': 'camera=(), microphone=(), geolocation=(), payment=(), usb=(), interest-cohort=()',
-    'cross-origin-opener-policy': 'same-origin',
-    'cross-origin-resource-policy': 'same-origin',
-    'cross-origin-embedder-policy': 'require-corp',
-    ...(overTls && !isIpLiteral ? { 'strict-transport-security': 'max-age=31536000; includeSubDomains' } : {})
-  };
-}
-
-function sendJson(res, status, payload) {
-  const body = JSON.stringify(payload, null, 2);
-  res.writeHead(status, {
-    'content-type': 'application/json; charset=utf-8',
-    'cache-control': 'no-store',
-    ...securityHeaders(res.req)
-  });
-  res.end(body);
-}
-
-function senderTask(task) {
-  return { id: task.id, authorizationId: task.grantId, hasFile: Boolean(task.file), snapshots: task.snapshots.map(snapshot => ({
-    taskAlias: snapshot.privateMapping?.taskAlias,
-    version: snapshot.version, status: snapshot.status, content: snapshot.content,
-    hash: snapshot.hash, confirmedAt: snapshot.confirmedAt, approvedAt: snapshot.approvedAt,
-    revokedAt: snapshot.revokedAt
-  })), jobs: task.jobs.map(job => ({ version: job.version, status: job.status, attempts: job.attempts,
-    revision: job.revision || 0, reasonCode: job.reasonCode || null, updatedAt: job.updatedAt || null,
-    adviceRetries: job.adviceRetries || 0,
-    canRequestResume: Boolean(task.file && job.status === 'PAUSED' && resumableReasons.has(job.reasonCode)),
-    ...(task.file ? { receiptSummary: receiptSummary(task, job.version) } : {}) })) };
-}
-
-function readBody(req, limit = 1_000_000) {
-  return new Promise((resolve, reject) => {
-    const chunks = [];
-    let size = 0;
-    let failed = false;
-    req.on('data', chunk => {
-      if (failed) return;
-      size += chunk.length;
-      if (size > limit) {
-        failed = true;
-        chunks.length = 0;
-        reject(Object.assign(new Error('Request body too large'), { status: 413 }));
-        return;
-      }
-      chunks.push(chunk);
-    });
-    req.on('end', () => {
-      if (failed) return;
-      try {
-        const body = Buffer.concat(chunks).toString('utf8');
-        resolve(body ? JSON.parse(body) : {});
-      } catch {
-        reject(Object.assign(new Error('Invalid JSON body'), { status: 422 }));
-      }
-    });
-    req.on('error', reject);
-  });
-}
-
-function hashJson(value) {
-  return crypto.createHash('sha256').update(JSON.stringify(value)).digest('hex');
-}
-
-function base64UrlEncode(value) {
-  return Buffer.from(value).toString('base64url');
-}
-
-function base64UrlDecode(value) {
-  return Buffer.from(value, 'base64url').toString('utf8');
-}
-
-function signValue(value) {
-  return crypto.createHmac('sha256', tokenSigningSecret).update(value).digest('base64url');
-}
-
-function createSignedCredential(claims) {
-  const header = {
-    alg: 'HS256',
-    typ: 'ZTEE-TAC',
-    version: '0.1'
-  };
-  const encodedHeader = base64UrlEncode(JSON.stringify(header));
-  const encodedPayload = base64UrlEncode(JSON.stringify(claims));
-  const signingInput = `${encodedHeader}.${encodedPayload}`;
-  return `${signingInput}.${signValue(signingInput)}`;
-}
-
-function readSignedCredential(token) {
-  const parts = normalizeString(token).split('.');
-  if (parts.length !== 3) {
-    throw new Error('invalid credential format');
-  }
-  const [encodedHeader, encodedPayload, signature] = parts;
-  const signingInput = `${encodedHeader}.${encodedPayload}`;
-  const expected = signValue(signingInput);
-  const actualBytes = Buffer.from(signature);
-  const expectedBytes = Buffer.from(expected);
-  if (actualBytes.length !== expectedBytes.length || !crypto.timingSafeEqual(actualBytes, expectedBytes)) {
-    throw new Error('invalid credential signature');
-  }
-  const header = JSON.parse(base64UrlDecode(encodedHeader));
-  const payload = JSON.parse(base64UrlDecode(encodedPayload));
-  if (header.typ !== 'ZTEE-TAC') {
-    throw new Error('invalid credential type');
-  }
-  return payload;
-}
-
-function normalizeString(value, fallback = '') {
-  if (typeof value !== 'string') return fallback;
-  return value.trim().slice(0, 4000);
-}
-
-function normalizeArray(value, fallback) {
-  if (!Array.isArray(value)) return fallback;
-  return value.map(item => normalizeString(item)).filter(Boolean).slice(0, 20);
-}
-
-function normalizePolicyMetadata(value) {
-  const metadata = value && typeof value === 'object' ? value : {};
-  const allowed = {
-    dataCategory: ['finance', 'legal', 'hr', 'engineering'],
-    confidentiality: ['confidential', 'restricted', 'internal'],
-    businessPurpose: ['approval', 'review', 'archive'],
-    requestedExpiry: ['1h', '4h', '24h'],
-    devicePolicy: ['managed_device_only', 'registered_device', 'any_authenticated_device'],
-    openLimit: ['single_use', 'limited_use']
-  };
-  exact(metadata, Object.keys(allowed));
-  for (const [key, options] of Object.entries(allowed)) {
-    if (metadata[key] !== undefined && !options.includes(metadata[key])) fail('Unsupported policy metadata', 422);
-  }
-  return {
-    dataCategory: normalizeString(metadata.dataCategory, 'finance').toLowerCase(),
-    confidentiality: normalizeString(metadata.confidentiality, 'confidential').toLowerCase(),
-    businessPurpose: normalizeString(metadata.businessPurpose, 'approval').toLowerCase(),
-    requestedExpiry: normalizeString(metadata.requestedExpiry, '1h').toLowerCase(),
-    devicePolicy: normalizeString(metadata.devicePolicy, 'managed_device_only').toLowerCase(),
-    openLimit: normalizeString(metadata.openLimit, 'single_use').toLowerCase()
-  };
-}
-
-function buildFallbackPolicy(input, reason = 'Demo fallback was used because NEBIUS_API_KEY is not configured.') {
-  const metadata = normalizePolicyMetadata(input.policyMetadata);
-  const highRisk = metadata.confidentiality === 'confidential' || metadata.dataCategory === 'finance' || metadata.dataCategory === 'legal';
-  const requestedTtl = metadata.requestedExpiry === '24h' ? 1440 : metadata.requestedExpiry === '4h' ? 240 : 60;
-  return {
-    provider: 'demo_fallback',
-    model: 'local-rule-policy-demo',
-    riskLevel: highRisk ? 'high' : 'medium',
-    classification: highRisk ? 'internal_confidential' : 'internal_restricted',
-    summary: highRisk
-      ? 'Non-content metadata requests a high-control route for a confidential internal package.'
-      : 'Non-content metadata requests a policy-bound route for an internal package.',
-    allowedRoles: highRisk ? ['cfo'] : ['cfo', 'manager'],
-    ttlMinutes: Math.min(requestedTtl, highRisk ? 60 : 240),
-    maxOpens: metadata.openLimit === 'limited_use' ? 3 : 1,
-    deviceBindingRequired: metadata.devicePolicy !== 'any_authenticated_device',
-    redactionRules: highRisk
-      ? ['mask customer identifiers for non-cfo roles', 'mask unreleased revenue figures for non-cfo roles']
-      : ['mask direct identifiers for non-manager roles'],
-    watermarkRequired: true,
-    warnings: [`${reason} This is not hackathon submission evidence.`]
-  };
-}
-
-function validatePolicy(policy) {
-  const allowedRisk = new Set(['low', 'medium', 'high', 'critical']);
-  const allowedClassifications = new Set(['public', 'internal', 'internal_restricted', 'internal_confidential', 'regulated']);
-  const normalized = {
-    provider: normalizeString(policy.provider, 'unknown'),
-    model: normalizeString(policy.model, nebiusModel),
-    riskLevel: allowedRisk.has(policy.riskLevel) ? policy.riskLevel : 'high',
-    classification: allowedClassifications.has(policy.classification) ? policy.classification : 'internal_confidential',
-    summary: normalizeString(policy.summary, 'Policy recommendation requires human review.'),
-    allowedRoles: normalizeArray(policy.allowedRoles, ['cfo']),
-    ttlMinutes: Math.min(Math.max(Number(policy.ttlMinutes || 60), 5), 1440),
-    maxOpens: Math.min(Math.max(Number(policy.maxOpens || 1), 1), 10),
-    deviceBindingRequired: Boolean(policy.deviceBindingRequired),
-    redactionRules: normalizeArray(policy.redactionRules, []),
-    watermarkRequired: policy.watermarkRequired !== false,
-    warnings: normalizeArray(policy.warnings, [])
-  };
-
-  if (normalized.allowedRoles.length === 0) {
-    normalized.allowedRoles = ['cfo'];
-  }
-
-  return normalized;
-}
-
 async function callNebiusPolicy(input) {
-  if (localOnly) return validatePolicy(buildFallbackPolicy(input));
+  if (localOnly || legacyHostedAdviceOff) return validatePolicy(buildFallbackPolicy(input));
   const apiKey = process.env.NEBIUS_API_KEY;
   if (!apiKey) {
     if (!demoFallbackEnabled) {
@@ -396,37 +163,6 @@ async function callNebiusPolicy(input) {
   } finally {
     clearTimeout(timeout);
   }
-}
-
-function compileEnvelope(policy, input) {
-  const createdAt = new Date().toISOString();
-  const expiresAt = new Date(Date.now() + policy.ttlMinutes * 60_000).toISOString();
-  const envelope = {
-    version: '0.1',
-    createdAt,
-    expiresAt,
-    packageHash: normalizeString(input.packageHash),
-    fileName: normalizeString(input.fileName, 'sealed-package.txt'),
-    senderRole: normalizeString(input.senderRole, 'employee'),
-    allowedRoles: policy.allowedRoles,
-    classification: policy.classification,
-    riskLevel: policy.riskLevel,
-    ttlMinutes: policy.ttlMinutes,
-    maxOpens: policy.maxOpens,
-    deviceBindingRequired: policy.deviceBindingRequired,
-    redactionRules: policy.redactionRules,
-    watermarkRequired: policy.watermarkRequired,
-    aiRecommendation: {
-      provider: policy.provider,
-      model: policy.model,
-      summary: policy.summary,
-      warnings: policy.warnings
-    }
-  };
-  return {
-    ...envelope,
-    signature: hashJson(envelope)
-  };
 }
 
 function createTimedCredential(record, input) {
@@ -501,108 +237,6 @@ function evaluateDecodeAttempt(record, credential) {
   };
 }
 
-function getMcpToolSchemas() {
-  return [
-    {
-      name: 'create_sealed_package',
-      description: 'Create a sealed package from ciphertext, crypto metadata, and a policy recommendation. Plaintext is not accepted.',
-      inputSchema: {
-        type: 'object',
-        required: ['authorizationId', 'fileName', 'senderRole', 'policy', 'ciphertext', 'iv', 'salt', 'packageHash'],
-        properties: {
-          fileName: { type: 'string' },
-          senderRole: { type: 'string' },
-          authorizationId: { type: 'string' },
-          policy: { type: 'object' },
-          ciphertext: { type: 'string' },
-          iv: { type: 'string' },
-          salt: { type: 'string' },
-          packageHash: { type: 'string' }
-        }
-      },
-      outputBoundary: 'Returns package id, sealed link, and policy envelope only. Does not return plaintext.'
-    },
-    {
-      name: 'route_package',
-      description: 'Record one-way routing intent for a sealed package through a globally portable relay channel.',
-      inputSchema: {
-        type: 'object',
-        required: ['packageId', 'channel', 'endpoint'],
-        properties: {
-          packageId: { type: 'string' },
-          channel: { enum: ['email', 'internal_queue'] },
-          requestId: { type: 'string' }
-        }
-      },
-      outputBoundary: 'Returns delivery status and receipt id. Does not send plaintext.'
-    },
-    {
-      name: 'prepare_email_delivery',
-      description: 'Create a dry-run one-way email notification for a sealed package without sending mail.',
-      inputSchema: {
-        type: 'object',
-        required: ['packageId', 'recipientLabel', 'baseUrl'],
-        properties: {
-          packageId: { type: 'string' },
-          recipientLabel: { type: 'string' },
-          baseUrl: { type: 'string' }
-        }
-      },
-      outputBoundary: 'Returns email subject/body text containing only sealed-link metadata. Does not include plaintext, ciphertext, keys, IV, or salt.'
-    },
-    {
-      name: 'check_endpoint_receipt',
-      description: 'Read the latest delivery receipt state for a sealed package.',
-      inputSchema: {
-        type: 'object',
-        required: ['packageId'],
-        properties: {
-          packageId: { type: 'string' }
-        }
-      },
-      outputBoundary: 'Returns delivery metadata only.'
-    },
-    {
-      name: 'issue_timed_credential',
-      description: 'Issue a short-lived signed decode credential bound to package hash, policy hash, role, device claim, and revocation version.',
-      inputSchema: {
-        type: 'object',
-        required: ['packageId', 'role', 'deviceClaim'],
-        properties: {
-          packageId: { type: 'string' },
-          role: { type: 'string' },
-          deviceClaim: { type: 'string' }
-        }
-      },
-      outputBoundary: 'Returns a signed timed credential. The credential is not plaintext and still requires Decode Gate validation.'
-    },
-    {
-      name: 'read_fallback_status',
-      description: 'Read the latest fallback status for a package from denied decode attempts or routing failures.',
-      inputSchema: {
-        type: 'object',
-        required: ['packageId'],
-        properties: {
-          packageId: { type: 'string' }
-        }
-      },
-      outputBoundary: 'Returns denial reasons and safe fallback message only.'
-    },
-    {
-      name: 'read_audit_log',
-      description: 'Read recent package-scoped audit events.',
-      inputSchema: {
-        type: 'object',
-        properties: {
-          packageId: { type: 'string' },
-          limit: { type: 'number' }
-        }
-      },
-      outputBoundary: 'Returns audit metadata without plaintext, ciphertext, keys, IV, or salt.'
-    }
-  ];
-}
-
 async function findPackage(packageId) {
   const packages = await readJson(packagesPath, []);
   const index = packages.findIndex(item => item.id === packageId);
@@ -615,76 +249,6 @@ async function findPackage(packageId) {
 
 function sanitizeAuditEvent(event) {
   return auditProjection(event);
-}
-
-function fallbackMessageFromReasons(reasons) {
-  const joined = Array.isArray(reasons) ? reasons.join(' ').toLowerCase() : '';
-  if (joined.includes('expired')) return 'This timed access credential is expired. Request a fresh sealed-package access grant.';
-  if (joined.includes('device')) return 'This endpoint is not eligible for local decryption. Use a managed device or contact the sender.';
-  if (joined.includes('role') || joined.includes('recipient')) return 'This recipient is not eligible for this sealed package.';
-  if (joined.includes('revoked')) return 'This sealed package has been revoked.';
-  if (joined.includes('signature') || joined.includes('format')) return 'This access credential is invalid.';
-  return 'This sealed package cannot be opened under the current policy.';
-}
-
-function hasForbiddenEmailMaterial(value) {
-  const text = String(value).toLowerCase();
-  const forbidden = [
-    'ciphertext',
-    'smoke-ciphertext',
-    'content key',
-    'encryption key',
-    'decryption key',
-    '"iv"',
-    '"salt"',
-    'plaintext',
-    'raw payload'
-  ];
-  return forbidden.some(term => text.includes(term));
-}
-
-function buildDryRunEmailDraft(record, input) {
-  const baseUrl = normalizeString(input.baseUrl, `http://${host}:${port}`).replace(/\/$/, '');
-  const recipientLabel = normalizeString(input.recipientLabel, 'authorized-recipient');
-  const decodeUrl = `${baseUrl}/decode.html?id=${encodeURIComponent(record.id)}`;
-  const bodyLines = [
-    `You have received a sealed enterprise data package.`,
-    ``,
-    `Package ID: ${record.id}`,
-    `Classification: ${record.envelope.classification}`,
-    `Risk level: ${record.envelope.riskLevel}`,
-    `Expires at: ${record.envelope.expiresAt}`,
-    `Allowed roles: ${record.envelope.allowedRoles.join(', ')}`,
-    ``,
-    `Open through the Decode Gate:`,
-    decodeUrl,
-    ``,
-    `This is a one-way sealed-package notification. The message contains only sealed-link metadata and no protected content or cryptographic material.`,
-    `If access fails, request a fresh timed credential from the sender or security operator.`
-  ];
-  const draft = {
-    mode: 'dry_run_only',
-    to: recipientLabel,
-    subject: `Sealed package access notice: ${record.envelope.classification}`,
-    body: bodyLines.join('\n'),
-    sealedLink: decodeUrl,
-    packageId: record.id,
-    packageHash: record.packageHash,
-    expiresAt: record.envelope.expiresAt,
-    safetyChecks: {
-      includesPlaintext: false,
-      includesCiphertext: false,
-      includesKeyMaterial: false,
-      sendsEmail: false
-    }
-  };
-  const outboundText = [draft.subject, draft.body, draft.sealedLink].join('\n');
-  if (hasForbiddenEmailMaterial(outboundText)) {
-    const error = new Error('dry-run email draft contains forbidden material');
-    error.status = 500;
-    throw error;
-  }
-  return draft;
 }
 
 async function approvedPackage(record) {
@@ -1024,7 +588,7 @@ async function coordinatorCall(input) {
   if (input.tool !== 'recommend') fail('Coordinator tool not allowed', 422);
   let provider = 'synthetic_fixture';
   let advice = { action: 'DELIVER', channel: metadata.channels[0], reasonCode: 'CAPABILITY_MATCH' };
-  if (process.env.COORDINATOR_PROVIDER === 'nebius' && !(await nebiusBudget.exhausted())) {
+  if (process.env.COORDINATOR_PROVIDER === 'nebius' && !legacyHostedAdviceOff && !(await nebiusBudget.exhausted())) {
     if (localOnly) fail('External inference disabled in local-only mode', 503);
     if (!process.env.NEBIUS_API_KEY) fail('Coordinator provider unavailable', 503);
     const response = await nebiusBudget.fetch(`${nebiusBaseUrl.replace(/\/$/, '')}/chat/completions`, {
@@ -1586,37 +1150,6 @@ async function routeApi(req, res, pathname) {
   }
 
   sendJson(res, 404, { ok: false, error: 'not found' });
-}
-
-async function serveStatic(req, res, pathname) {
-  const localizedPages = { '/zh-TW/': '/index.html', '/zh-TW/index.html': '/index.html', '/zh-TW/decode.html': '/decode.html', '/zh-TW/audit.html': '/audit.html', '/zh-TW/admin.html': '/admin.html' };
-  if (pathname === '/zh-TW') { res.writeHead(302, { location: '/zh-TW/' }); res.end(); return; }
-  if (pathname.startsWith('/zh-TW/') && !localizedPages[pathname]) { res.writeHead(404); res.end('Not found'); return; }
-  const safePathname = localizedPages[pathname] || (pathname === '/' ? '/index.html' : pathname);
-  const filePath = path.normalize(path.join(publicDir, safePathname));
-  if (!filePath.startsWith(publicDir)) {
-    res.writeHead(403);
-    res.end('forbidden');
-    return;
-  }
-  try {
-    const data = await fs.readFile(filePath);
-    const ext = path.extname(filePath);
-    res.writeHead(200, {
-      'content-type': mimeTypes.get(ext) || 'application/octet-stream',
-      'cache-control': 'no-store',
-      ...securityHeaders(req)
-    });
-    res.end(data);
-  } catch {
-    const fallback = await fs.readFile(path.join(publicDir, 'index.html'));
-    res.writeHead(200, {
-      'content-type': 'text/html; charset=utf-8',
-      'cache-control': 'no-store',
-      ...securityHeaders(req)
-    });
-    res.end(fallback);
-  }
 }
 
 let apiQueue = Promise.resolve();

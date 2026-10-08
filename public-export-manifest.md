@@ -1,6 +1,6 @@
 # Public Export Manifest
 
-Review date: 2026-09-27 (122 entries; was 2026-09-24). Status: public on GitHub since 2026-09-18; this list is the allowlist every push is checked against.
+Review date: 2026-10-08 (166 entries; was 2026-09-27, 122 entries). Status: public on GitHub since 2026-09-18; this list is the allowlist every push is checked against.
 
 The following exact paths are the release allowlist, not directory wildcards. Runtime data, credentials, environment secrets, logs, output, dependencies, Git metadata, screenshots and raw provider evidence are excluded even when untracked. New source files require explicit review and a manifest update.
 
@@ -131,6 +131,50 @@ snapshot-lifecycle.js
 task-evidence.js
 task-operations.js
 zbpack.json
+auth-throttle.js
+credentials.js
+docs/agent/bench-adviser.md
+docs/agent/dual-mode-edge.md
+docs/agent/followup-adviser-comparison-2026-10-08.md
+docs/agent/followup-prompt-profile-2026-10-08.md
+docs/agent/nvidia-model-provenance.md
+docs/agent/private-network-deployment.md
+docs/agent/server-split-plan.md
+docs/compliance/README.md
+docs/compliance/access-control-matrix.md
+docs/compliance/ai-governance.md
+docs/compliance/change-and-release-checklist.md
+docs/compliance/control-mapping.md
+docs/compliance/data-protection-and-retention.md
+docs/compliance/key-management.md
+docs/compliance/sbom.md
+email-draft.js
+followup-floor.js
+http-helpers.js
+local-env.js
+mcp-tools.js
+network-policy.js
+notice-outbox.js
+policy-envelope.js
+scripts/auth-throttle-server.test.mjs
+scripts/auth-throttle.test.mjs
+scripts/bench-adviser.mjs
+scripts/bench-adviser.test.mjs
+scripts/check-syntax.mjs
+scripts/generate-sbom.test.mjs
+scripts/generate-sbom.mjs
+scripts/followup-floor.test.mjs
+scripts/followup-prompt-profile.test.mjs
+scripts/legacy-hosted-advice.test.mjs
+scripts/network-policy.test.mjs
+scripts/notice-outbox.test.mjs
+scripts/verify-audit-chain.mjs
+scripts/verify-audit-chain.test.mjs
+scripts/worker-pass.test.mjs
+static-files.js
+task-view.js
+value-helpers.js
+worker-pass.js
 ```
 
 ## Release Conditions
