@@ -1,4 +1,5 @@
 import { setText, t } from './i18n.js';
+import { recipientLabel } from './recipient-label.js';
 
 export function createRecipientPicker(postJson, onEdit) {
   const grantInput = document.querySelector('#authorizationId');
@@ -29,7 +30,7 @@ export function createRecipientPicker(postJson, onEdit) {
         renderCount();
       });
       const name = document.createElement('span');
-      name.textContent = `${person.displayName}${person.email ? ` (${person.email})` : ''}`;
+      name.textContent = recipientLabel(person);
       row.append(check, name);
       list.append(row);
     }
