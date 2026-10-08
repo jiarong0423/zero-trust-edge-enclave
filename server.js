@@ -163,6 +163,7 @@ async function routeApi(req, res, pathname) {
 
 const apiQueue = createApiQueue();
 let workerTimer;
+let webhookTimer;
 const { scheduleFileWork } = createFileWorker({ queue: apiQueue, readJson, writeJson, tasksPath, accessPath, dataDir, recoverAudit, fileAdviser, webhook });
 // Web Crypto only exists in a secure context, so a second device on the LAN needs https: a phone
 // reaching http://<lan-ip> connects and renders, then finds crypto.subtle undefined. Supplying a
@@ -227,7 +228,9 @@ await lock.close();
 for (const signal of ['SIGTERM', 'SIGINT']) {
   process.once(signal, () => {
     clearInterval(workerTimer);
+    clearInterval(webhookTimer);
     server.close(async () => {
+      await webhook.close();
       await apiQueue.drain();
       await fs.unlink(lockPath);
       process.exit(0);
@@ -237,12 +240,19 @@ for (const signal of ['SIGTERM', 'SIGINT']) {
 }
 server.on('error', async () => {
   clearInterval(workerTimer);
+  clearInterval(webhookTimer);
   await fs.unlink(lockPath).catch(() => {});
   process.exitCode = 1;
 });
 server.listen(port, host, () => {
   workerTimer = setInterval(scheduleFileWork, 250);
   workerTimer.unref();
+  // A notice deferred by a receiver outage is retried when its backoff has passed, not only after the
+  // next export. kick() never throws and does nothing while the webhook is off.
+  if (webhook.enabled) {
+    webhookTimer = setInterval(() => void webhook.kick(), 60_000);
+    webhookTimer.unref();
+  }
   scheduleFileWork();
   console.log(`Zero-Trust Edge Enclave listening at ${tlsOptions ? 'https' : 'http'}://${host}:${server.address().port}`);
 });
