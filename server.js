@@ -8,22 +8,17 @@ import { auditProjection } from './audit-boundary.js';
 import { queueAudit } from './audit-outbox.js';
 import { dispatchSnapshot } from './snapshot-lifecycle.js';
 import { principalEnabled } from './registry-schema.js';
-import { adminDirectory, changeDirectory } from './directory-admin.js';
-import { saveRegistry } from './registry-store.js';
 import { resolvePrivateRoute } from './private-mapping.js';
-import { fileRoutingMetadata } from './file-routing.js';
 import { initializeArrays, readArray, writeArray } from './local-array-store.js';
-import { auditArchiveIndex } from './audit-retention.js';
 import { clientKey, countsAsGuess, throttleFromEnv } from './auth-throttle.js';
 import { createNetworkPolicy } from './network-policy.js';
-import { retentionInventory } from './retention-policy.js';
 import { gateConfig, gateAllows, gateSignIn } from './demo-gate.js';
 import { createBudget } from './nebius-budget.js';
-import { loadAccess, authenticate, activeGrant, authorizeRecord, safeMetadata, validateAdvice, advanceDelivery, exact, fail } from './access-control.js';
+import { loadAccess, authenticate, activeGrant, authorizeRecord, safeMetadata, advanceDelivery, exact, fail } from './access-control.js';
 import { sendJson, readBody } from './http-helpers.js';
 import { createStaticServer } from './static-files.js';
 import { getMcpToolSchemas, fallbackMessageFromReasons } from './mcp-tools.js';
-import { normalizePolicyMetadata, buildFallbackPolicy, validatePolicy as validatePolicyWithModel, compileEnvelope } from './policy-envelope.js';
+import { validatePolicy as validatePolicyWithModel, compileEnvelope } from './policy-envelope.js';
 import { hashJson, normalizeString } from './value-helpers.js';
 import { createEmailDraftBuilder } from './email-draft.js';
 import { loadLocalEnv } from './local-env.js';
@@ -35,6 +30,8 @@ import { createFileAdviser } from './file-adviser-outlet.js';
 import { createFileWorker } from './worker-schedule.js';
 import { createFileAccessRoutes } from './routes/file-access.js';
 import { createFileTaskRoutes } from './routes/file-tasks.js';
+import { createAdminRoutes } from './routes/admin.js';
+import { createCoordinatorRoutes } from './routes/coordinator.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -93,77 +90,7 @@ async function writeJson(filePath, value) {
 const { appendAudit, recoverAudit, auditRejection } = createAudit({ auditsPath, readJson, writeJson });
 const fileAccess = createFileAccessRoutes({ dataDir, tasksPath, readJson, writeJson, appendAudit, recoverAudit });
 const fileTasks = createFileTaskRoutes({ dataDir, tasksPath, packagesPath, auditsPath, readJson, writeJson, appendAudit, recoverAudit });
-
-async function callNebiusPolicy(input) {
-  if (localOnly || legacyHostedAdviceOff) return validatePolicy(buildFallbackPolicy(input));
-  const apiKey = process.env.NEBIUS_API_KEY;
-  if (!apiKey) {
-    if (!demoFallbackEnabled) {
-      throw new Error('NEBIUS_API_KEY is required and demo fallback is disabled');
-    }
-    return validatePolicy(buildFallbackPolicy(input));
-  }
-  if (await nebiusBudget.exhausted()) {
-    return validatePolicy(buildFallbackPolicy(input, 'Demo fallback was used because the Token Factory budget is spent.'));
-  }
-
-  const controller = new AbortController();
-  const timeout = setTimeout(() => controller.abort(), 30000);
-  const messages = [
-    {
-      role: 'system',
-      content: [
-        'You are an enterprise security policy assistant.',
-        'Return only JSON with keys: riskLevel, classification, summary, allowedRoles, ttlMinutes, maxOpens, deviceBindingRequired, redactionRules, watermarkRequired, warnings.',
-        'You must not ask for document content, summaries, snippets, extracted fields, or decryption keys.',
-        'Use only non-content policy metadata. Do not approve access. Recommend policy only.'
-      ].join(' ')
-    },
-    {
-      role: 'user',
-      content: JSON.stringify({
-        policyMetadata: normalizePolicyMetadata(input.policyMetadata)
-      })
-    }
-  ];
-
-  try {
-    const response = await nebiusBudget.fetch(`${nebiusBaseUrl.replace(/\/$/, '')}/chat/completions`, {
-      method: 'POST',
-      headers: {
-        authorization: `Bearer ${apiKey}`,
-        'content-type': 'application/json'
-      },
-      body: JSON.stringify({
-        model: nebiusModel,
-        temperature: 0.1,
-        messages
-      }),
-      signal: controller.signal
-    });
-    if (!response.ok) {
-      throw new Error(`Nebius request failed with HTTP ${response.status}`);
-    }
-    const payload = await response.json();
-    const content = payload?.choices?.[0]?.message?.content;
-    if (typeof content !== 'string') {
-      throw new Error('Nebius response did not include message content');
-    }
-    const jsonStart = content.indexOf('{');
-    const jsonEnd = content.lastIndexOf('}');
-    if (jsonStart < 0 || jsonEnd < jsonStart) {
-      throw new Error('Nebius response was not JSON');
-    }
-    const parsed = JSON.parse(content.slice(jsonStart, jsonEnd + 1));
-    return validatePolicy({
-      ...parsed,
-      provider: 'nebius_token_factory',
-      model: nebiusModel
-    });
-  } finally {
-    clearTimeout(timeout);
-  }
-}
+const adminRoutes = createAdminRoutes({ accessPath, tasksPath, auditsPath, readJson });
 
 function createTimedCredential(record, input) {
   const { config, principal } = currentRequest();
@@ -519,64 +446,6 @@ async function performLocalDelivery(input) {
     ...safeMetadata(packages[index], grant), nextAttemptAt: delivery.nextAttemptAt || null };
 }
 
-async function coordinatorCall(input) {
-  exact(input, ['tool', 'arguments']);
-  const args = input.arguments;
-  if (['file_status', 'file_recommend'].includes(input.tool)) {
-    exact(args, ['taskAlias', 'snapshotVersion']);
-    const { config, principal } = currentRequest();
-    const tasks = await readJson(tasksPath, []);
-    const task = tasks.find(item => item.file && item.snapshots.some(snapshot =>
-      snapshot.version === args.snapshotVersion && snapshot.privateMapping?.taskAlias === args.taskAlias));
-    if (!task) fail('File task unavailable', 404);
-    const grant = activeGrant(config, task.grantId);
-    if ((principal.kind === 'coordinator' && principal.id !== grant.coordinatorId) ||
-        (principal.kind === 'operator' && principal.id !== task.ownerId)) fail('Task access denied');
-    const snapshot = dispatchSnapshot(task, grant, args.snapshotVersion);
-    const job = task.jobs.find(item => item.version === snapshot.version);
-    if (!job) fail('File task unavailable', 404);
-    const metadata = fileRoutingMetadata(snapshot, job);
-    if (input.tool === 'file_status') return { ok: true, metadata };
-    const recommendation = await fileAdviser(metadata);
-    return { ok: true, provider: recommendation.provider, metadata, recommendation: recommendation.advice };
-  }
-  exact(args, input.tool === 'deliver' ? ['taskAlias', 'snapshotVersion', 'requestId', 'channel'] : ['taskAlias', 'snapshotVersion']);
-  const { config, principal } = currentRequest();
-  if (typeof args.taskAlias !== 'string' || !Number.isSafeInteger(args.snapshotVersion)) fail('Invalid routing reference', 422);
-  const tasks = await readJson(tasksPath, []);
-  const task = tasks.find(item => !item.file && item.snapshots.some(snapshot =>
-    snapshot.version === args.snapshotVersion && snapshot.privateMapping?.taskAlias === args.taskAlias));
-  if (!task) fail('Package not found', 404);
-  const packages = await readJson(packagesPath, []);
-  const record = packages.find(item => item.snapshot?.taskId === task.id && item.snapshot?.version === args.snapshotVersion);
-  if (!record) fail('Package not found', 404);
-  const grant = await approvedPackage(record);
-  if (input.tool === 'deliver') return performLocalDelivery({ packageId: record.id, requestId: args.requestId, channel: args.channel });
-  const metadata = safeMetadata(record, grant);
-  if (input.tool === 'status') return { ok: true, metadata };
-  if (input.tool !== 'recommend') fail('Coordinator tool not allowed', 422);
-  let provider = 'synthetic_fixture';
-  let advice = { action: 'DELIVER', channel: metadata.channels[0], reasonCode: 'CAPABILITY_MATCH' };
-  if (process.env.COORDINATOR_PROVIDER === 'nebius' && !legacyHostedAdviceOff && !(await nebiusBudget.exhausted())) {
-    if (localOnly) fail('External inference disabled in local-only mode', 503);
-    if (!process.env.NEBIUS_API_KEY) fail('Coordinator provider unavailable', 503);
-    const response = await nebiusBudget.fetch(`${nebiusBaseUrl.replace(/\/$/, '')}/chat/completions`, {
-      method: 'POST', signal: AbortSignal.timeout(15000),
-      headers: { 'content-type': 'application/json', authorization: `Bearer ${process.env.NEBIUS_API_KEY}` },
-      body: JSON.stringify({ model: nebiusModel, temperature: 0,
-        messages: [
-          { role: 'system', content: 'Return JSON only with action DELIVER or PAUSE, channel from channels, and reasonCode CAPABILITY_MATCH, INSUFFICIENT_INFORMATION, or CHANNEL_UNAVAILABLE. Compare requiredCapability against recipientCapabilities. Never grant access.' },
-          { role: 'user', content: JSON.stringify(metadata) }
-        ] })
-    });
-    if (!response.ok) fail('Coordinator provider failed', 502);
-    try { advice = JSON.parse((await response.json()).choices[0].message.content); }
-    catch { fail('Invalid provider response', 502); }
-    provider = 'nebius_token_factory';
-  }
-  return { ok: true, provider, metadata, recommendation: validateAdvice(advice, metadata) };
-}
-
 async function routeApi(req, res, pathname) {
   if (req.method === 'GET' && pathname === '/api/health') {
     sendJson(res, 200, {
@@ -608,39 +477,7 @@ async function routeApi(req, res, pathname) {
     throw error;
   }
   Object.assign(currentRequest(), { config, principal });
-  // Answers only "is this token a registered identity, and of which kind". It says nothing about
-  // any task or grant: being authenticated is not being authorized, and the pages show the two apart.
-  if (pathname === '/api/whoami') {
-    if (req.method !== 'GET') fail('Method not allowed', 405);
-    sendJson(res, 200, { ok: true, kind: principal.kind });
-    return;
-  }
-  if (pathname === '/api/admin/retention') {
-    if (principal.kind !== 'administrator') fail('Administrator required');
-    if (req.method !== 'GET') fail('Method not allowed', 405);
-    sendJson(res, 200, retentionInventory(await readJson(tasksPath, [])));
-    return;
-  }
-  if (pathname === '/api/admin/audit-retention') {
-    if (principal.kind !== 'administrator') fail('Administrator required');
-    if (req.method !== 'GET') fail('Method not allowed', 405);
-    sendJson(res, 200, await auditArchiveIndex(auditsPath));
-    return;
-  }
-  if (pathname === '/api/admin/directory') {
-    if (req.method === 'GET') {
-      sendJson(res, 200, adminDirectory(config, principal));
-      return;
-    }
-    if (req.method === 'POST') {
-      const input = await readBody(req);
-      const result = changeDirectory(config, principal, input);
-      await saveRegistry(accessPath, result.config, input.expectedRevision);
-      sendJson(res, 200, { ...adminDirectory(result.config, principal), credential: result.credential });
-      return;
-    }
-    fail('Method not allowed', 405);
-  }
+  if (await adminRoutes.handleAdmin(req, res, pathname, { config, principal })) return;
   if (principal.kind === 'administrator') fail('Administrator endpoint only');
   await recoverAudit(tasksPath);
   await recoverAudit(packagesPath);
@@ -653,11 +490,7 @@ async function routeApi(req, res, pathname) {
     return;
   }
   if (await fileTasks.handleFileTasks(req, res, pathname, { config, principal })) return;
-  if (pathname === '/api/coordinator/call' && req.method === 'POST') {
-    if (!['operator', 'coordinator'].includes(principal.kind)) fail('Coordinator required');
-    sendJson(res, 200, await coordinatorCall(await readBody(req)));
-    return;
-  }
+  if (await coordinator.handleCoordinator(req, res, pathname, { config, principal })) return;
   if (req.method === 'GET' && pathname === '/api/mcp/tools') {
     sendJson(res, 200, {
       ok: true,
@@ -702,26 +535,6 @@ async function routeApi(req, res, pathname) {
         error: error instanceof Error ? error.message : 'email dry-run failed'
       });
     }
-    return;
-  }
-
-  if (req.method === 'POST' && pathname === '/api/policy/recommend') {
-    const input = await readBody(req);
-    exact(input, ['fileName', 'senderRole', 'intendedRecipientRole', 'policyMetadata', 'packageHash']);
-    const policy = await callNebiusPolicy({
-      fileName: normalizeString(input.fileName, 'internal-document.txt'),
-      senderRole: normalizeString(input.senderRole, 'employee'),
-      intendedRecipientRole: normalizeString(input.intendedRecipientRole, 'cfo'),
-      policyMetadata: normalizePolicyMetadata(input.policyMetadata)
-    });
-    sendJson(res, 200, {
-      policy,
-      envelopePreview: compileEnvelope(policy, {
-        packageHash: normalizeString(input.packageHash, 'pending-client-hash'),
-        fileName: input.fileName,
-        senderRole: input.senderRole
-      })
-    });
     return;
   }
 
@@ -904,6 +717,8 @@ async function routeApi(req, res, pathname) {
 
 const apiQueue = createApiQueue();
 const fileAdviser = createFileAdviser({ nebiusBudget, localOnly, localModelBaseUrl, localModelName, nebiusBaseUrl, nebiusModel });
+const coordinator = createCoordinatorRoutes({ tasksPath, packagesPath, readJson, fileAdviser, nebiusBudget, nebiusBaseUrl, nebiusModel,
+  localOnly, legacyHostedAdviceOff, demoFallbackEnabled, validatePolicy, approvedPackage, performLocalDelivery });
 let workerTimer;
 const { scheduleFileWork } = createFileWorker({ queue: apiQueue, readJson, writeJson, tasksPath, accessPath, dataDir, recoverAudit, fileAdviser });
 // Web Crypto only exists in a secure context, so a second device on the LAN needs https: a phone
