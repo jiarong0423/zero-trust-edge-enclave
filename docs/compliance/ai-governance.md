@@ -17,7 +17,10 @@ the deterministic `synthetic_fixture`, needs no model and is the default. Two ou
 | --- | --- | --- | --- |
 | Hosted | `nvidia/nemotron-3-super-120b-a12b` | Nebius Token Factory (`https://api.tokenfactory.nebius.com/v1`) | `COORDINATOR_PROVIDER=nebius`, `LOCAL_ONLY=false`, `NEBIUS_API_KEY` |
 | Local | `nvidia-nemotron-3-nano-4b` | A loopback OpenAI-compatible runtime on the same host | `COORDINATOR_PROVIDER=local_openai_compatible` |
+| Cascade (opt-in) | Local first, then hosted | Local call on loopback; a hosted call only after the local call failed | `COORDINATOR_PROVIDER=local_then_nebius`, `LOCAL_ONLY=false`, `NEBIUS_API_KEY` |
 | None | `synthetic_fixture` | In process | Default |
+
+The cascade is not a third model. It asks the local outlet first, and asks the hosted outlet only when the local call was unreachable (refused connection, timeout, transport error) or its output was unusable (HTTP error, malformed body, or an answer the validator refuses). A valid local answer, including WAIT, ESCALATE or PAUSE, is final and the hosted model is not called. The hosted outlet is asked at most once per adviser call, with the identical five-field projection, and `LOCAL_ONLY=true` makes the server refuse to start in this mode. Default off. Details and tests: [cascade outlet](../agent/cascade-outlet.md).
 
 The outlet is chosen per call in `file-adviser-outlet.js` `createFileAdviser()`. The two decisions are asked at different times: **routing** (once a job is approved: send on an approved
 channel, or hold) and **follow-up** (only for a delivery that must be acknowledged and has not been
@@ -117,7 +120,9 @@ escalation or an overdue delivery; the sender sees them only in the page and in 
 
 - **Per job, persisted in `tasks.json` (`adviceTrail`):** call kind, time, outlet label
   (`nebius_token_factory`, `local_openai_compatible`, `synthetic_fixture`), the exact projection sent, and
-  either the validated answer or a refusal code. Unreachable-adviser failures are recorded as well
+  either the validated answer or a refusal code. When the opt-in cascade asked a second outlet, the entry also
+  carries `cascade: { from: 'local_openai_compatible', reason: 'LOCAL_UNREACHABLE' | 'LOCAL_REJECTED' }`, a closed
+  vocabulary (`file-worker.js` `normalizeCascade()`); `source` still names the outlet that answered. Unreachable-adviser failures are recorded as well
   (`file-worker.js` `recordAdvice()`). Retention: the last 20 entries, 10 per kind.
 - **Fixed-code decisions (`followups`):** each follow-up decision with `floor: true/false`, so a floored
   escalation is distinguishable from the adviser's own answer (`file-worker.js` `advanceFollowups()`; `task-evidence.js` `taskEvidence()`).
@@ -125,7 +130,9 @@ escalation or an overdue delivery; the sender sees them only in the page and in 
   `ADVICE_INVALID`, `ADVICE_PAUSED`; `DELIVERY_FOLLOWUP` with `FOLLOWUP_WAIT`, `FOLLOWUP_REMIND`,
   `FOLLOWUP_ESCALATE`; `EVIDENCE_VIEWED` (`audit-boundary.js` `auditProjection()`).
 - **Process log:** one line per call with kind, outlet, model, latency, action and reason, never the alias
-  or an identity (`file-adviser-outlet.js` `createFileAdviser()`); failures log an `ERROR adviser` line.
+  or an identity (`file-adviser-outlet.js` `createFileAdviser()`); failures log an `ERROR adviser` line. In
+  the cascade each outlet call has its own line and any line after a local failure ends in
+  `cascade=LOCAL_UNREACHABLE` or `cascade=LOCAL_REJECTED`.
 - **Computed leak check:** the evidence chain reports how many real identifiers appear in each stored
   input (`task-evidence.js` `countRealValues()`).
 - **Not recorded:** the content of a refused answer, the provider's reported token usage per call (only
@@ -138,8 +145,8 @@ escalation or an overdue delivery; the sender sees them only in the page and in 
 
 | Control | Default | Effect |
 | --- | --- | --- |
-| `COORDINATOR_PROVIDER` | `synthetic_fixture` (no model request) | `nebius` or `local_openai_compatible` selects an outlet (`file-adviser-outlet.js` `createFileAdviser()`). It also gates the legacy coordinator `recommend` (`nebius` only); it does not gate `POST /api/policy/recommend` |
-| `LOCAL_ONLY` | on (anything but the string `false`) (`server.js` `localOnly`) | Blocks the hosted outlet with `FILE_EXTERNAL_INFERENCE_DISABLED`; does not block loopback; keeps both legacy paths local |
+| `COORDINATOR_PROVIDER` | `synthetic_fixture` (no model request) | `nebius`, `local_openai_compatible` or `local_then_nebius` (the cascade) selects an outlet (`file-adviser-outlet.js` `createFileAdviser()`). It also gates the legacy coordinator `recommend` (`nebius` only; the cascade value does not enable it); it does not gate `POST /api/policy/recommend` |
+| `LOCAL_ONLY` | on (anything but the string `false`) (`server.js` `localOnly`) | Blocks the hosted outlet with `FILE_EXTERNAL_INFERENCE_DISABLED`; does not block loopback; keeps both legacy paths local. With `COORDINATOR_PROVIDER=local_then_nebius` it stops start-up (`CASCADE_REQUIRES_LOCAL_ONLY_FALSE`), and the request path never asks the hosted outlet either (`scripts/cascade-outlet.test.mjs` test "under LOCAL_ONLY the cascade never reaches the hosted outlet") |
 | `NEBIUS_API_KEY` | unset | A key alone does not enable the hosted file-workflow outlet (that also needs `COORDINATOR_PROVIDER=nebius` and `LOCAL_ONLY=false`). With `LOCAL_ONLY=false` it does enable the hosted call in `POST /api/policy/recommend` whatever `COORDINATOR_PROVIDER` is, unless `LEGACY_HOSTED_ADVICE=off` (`server.js` `callNebiusPolicy()`) |
 | `LEGACY_HOSTED_ADVICE` | unset (legacy paths may call the hosted model when it is configured); only the exact string `off` changes behaviour | `POST /api/policy/recommend` and the legacy coordinator `recommend` answer from local code and never call the hosted model (`server.js` `legacyHostedAdviceOff`, `callNebiusPolicy()`, `coordinatorCall()`; `scripts/legacy-hosted-advice.test.mjs` tests "LEGACY_HOSTED_ADVICE=off keeps the legacy policy path entirely local" and "only the exact value off changes behaviour", which cover the policy path; the coordinator path is established by reading the code) |
 | `NEBIUS_BUDGET_USD` with prices | unset (no cap) | Spending ceiling; a budget without prices counts as spent (`nebius-budget.js` `createBudget()`, `usable`) |
@@ -215,3 +222,8 @@ record does not show that either model beats a rule, or the reverse.
    per-decision human check.
 10. **Extension.** Any new adviser kind must add its own projection, validator and tests; the shared request
     path does not do that automatically.
+11. **Cascade (opt-in).** Needs `LOCAL_ONLY=false`, which also lets the legacy paths reach the hosted model
+    unless `LEGACY_HOSTED_ADVICE=off`. A local outage costs one hosted call per adviser call, and the worker's
+    existing retries each ask again, so a local runtime that stays down sends the five fields to the hosted
+    model on every retry until the spending cap is spent; a spent cap then answers from the fixture, so a local
+    outage plus a spent cap lets the fixture decide (recorded as `synthetic_fixture` with the cascade marker).

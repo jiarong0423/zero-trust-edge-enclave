@@ -39,9 +39,28 @@ export const ADVICE_SOURCE = Symbol('adviceSource');
 // metadata refused). Asking again cannot change the answer, so it is not retried.
 export const ADVICE_NO_RETRY = Symbol('adviceNoRetry');
 const ADVICE_SOURCES = new Set(['nebius_token_factory', 'local_openai_compatible', 'synthetic_fixture']);
-function recordAdvice(job, kind, input, outcome, now, source) {
+// The opt-in cascade (COORDINATOR_PROVIDER=local_then_nebius) asks the local model first and a second
+// outlet only when the local answer was unusable. The marker that says so is a closed vocabulary,
+// never free text: where the question started, why that outlet could not answer, and nothing else.
+// It is only meaningful next to a source that is not the local outlet itself.
+export const CASCADE_FROM = 'local_openai_compatible';
+export const CASCADE_REASONS = Object.freeze(['LOCAL_UNREACHABLE', 'LOCAL_REJECTED']);
+const CASCADE_SOURCES = new Set(['nebius_token_factory', 'synthetic_fixture']);
+export function normalizeCascade(cascade) {
+  return cascade && typeof cascade === 'object' && cascade.from === CASCADE_FROM && CASCADE_REASONS.includes(cascade.reason)
+    ? { from: CASCADE_FROM, reason: cascade.reason } : null;
+}
+// What ADVICE_SOURCE may carry: a bare label (every outlet before the cascade existed), or this pair
+// when the answer or the failure came after a cascade.
+export function adviceOrigin(source, cascade) {
+  return Object.freeze({ source, cascade: normalizeCascade(cascade) });
+}
+function recordAdvice(job, kind, input, outcome, now, origin) {
+  const { source, cascade } = origin && typeof origin === 'object' ? origin : { source: origin, cascade: null };
   const entry = { kind, input: structuredClone(input), at: new Date(now).toISOString(),
     source: ADVICE_SOURCES.has(source) ? source : null };
+  const marker = CASCADE_SOURCES.has(source) ? normalizeCascade(cascade) : null;
+  if (marker) entry.cascade = marker;
   if (outcome.answer) entry.answer = structuredClone(outcome.answer);
   else entry.refusal = { reasonCode: outcome.reasonCode,
     detail: outcome.detail === undefined ? null

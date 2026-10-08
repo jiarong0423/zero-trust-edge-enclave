@@ -30,6 +30,10 @@ function step(number, title, note) {
 
 const SOURCE_LABELS = { nebius_token_factory: 'Token Factory', local_openai_compatible: 'Local model outlet',
   synthetic_fixture: 'Synthetic fixture (no model call)' };
+// The opt-in cascade (local model first, hosted model only after a local failure) is a closed
+// vocabulary of two reasons; anything else is shown as no cascade rather than as stored text.
+const CASCADE_LABELS = { LOCAL_UNREACHABLE: 'After the local model gave no answer',
+  LOCAL_REJECTED: 'After the local answer was unusable' };
 let shown = null;
 // Bumped whenever the identity changes or a new request starts; a response for an older number is
 // dropped, so a slow reply cannot redraw a previous sender's chain.
@@ -108,7 +112,8 @@ function render(evidence) {
   for (const entry of evidence.trail) {
     const clean = entry.realValuesInInput === 0;
     const row = element('div', 'evidence-call');
-    const source = t(SOURCE_LABELS[entry.source] || 'Outlet not recorded');
+    const source = [t(SOURCE_LABELS[entry.source] || 'Outlet not recorded'),
+      ...(entry.cascade && CASCADE_LABELS[entry.cascade.reason] ? [t(CASCADE_LABELS[entry.cascade.reason])] : [])].join(' · ');
     row.append(element('p', 'evidence-meta', `${t(entry.kind === 'route' ? 'Routing' : 'Follow-up')} · ${source} · ${when(entry.at)}`));
     row.append(json(entry.input));
     row.append(element('p', `pill ${clean ? 'allow' : 'deny'}`,
