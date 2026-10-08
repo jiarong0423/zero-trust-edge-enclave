@@ -1,6 +1,6 @@
 # Public Export Manifest
 
-Review date: 2026-10-08 (206 entries; was 2026-09-27, 122 entries). Status: public on GitHub since 2026-09-18; this list is the allowlist every push is checked against.
+Review date: 2026-10-08 (211 entries; was 2026-09-27, 122 entries). Status: public on GitHub since 2026-09-18; this list is the allowlist every push is checked against.
 
 The following exact paths are the release allowlist, not directory wildcards. Runtime data, credentials, environment secrets, logs, output, dependencies, Git metadata, screenshots and raw provider evidence are excluded even when untracked. New source files require explicit review and a manifest update.
 
@@ -215,6 +215,11 @@ webhook-adapter.js
 scripts/read-body.test.mjs
 public/recipient-label.js
 scripts/recipient-label.test.mjs
+public/sso-client.js
+scripts/sso-client.test.mjs
+scripts/keycloak-local.mjs
+scripts/keycloak-local.test.mjs
+scripts/sso-keycloak-check.mjs
 ```
 
 ## Release Conditions

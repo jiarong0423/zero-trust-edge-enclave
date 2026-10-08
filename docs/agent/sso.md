@@ -180,10 +180,23 @@ With SSO off, `sso.resolveSession` returns `null` and `sso.knowsSession` returns
 
 **Also needed outside this change** (pages are not mine to edit):
 
-- A "Sign in with SSO" control that appears when `GET /api/sso/status` returns `enabled: true` and links to `/api/sso/login`.
+- (Done, see `public/sso-client.js`.) A "Sign in with SSO" control that appears when `GET /api/sso/status` returns `enabled: true` and links to `/api/sso/login`.
 - On load of `/`, one `POST /api/sso/session` with header `x-sso-exchange: 1` and `credentials: 'same-origin'`; on 200 use `token` as the Bearer token, on 401 do nothing. Call `POST /api/sso/logout` with the Bearer token to sign out.
 - Interplay: the network allowlist and the demo gate run first. **Do not combine SSO with the demo gate.** The gate cookie is `SameSite=Strict` and `/api/sso/*` is not an open path, so the identity provider's redirect back to `/api/sso/callback` (a cross-site navigation) arrives without the gate cookie and is answered 401 before SSO runs. The gate is a device for the hosted judge demo; SSO is for a deployment that does not use it. Behind a proxy set `TRUST_PROXY=true` so the client key is the real address, and make the proxy preserve `Host` or set `SSO_REDIRECT_URI` explicitly (it is always explicit here).
 - `docs/compliance/access-control-matrix.md` (a new row 7a in section 1 and five routes in section 3) and `THREAT_MODEL.md` ("Stolen token" row: a session token has an absolute life of at most 8 hours) should mention SSO when it is wired.
+
+## Try it against a real provider (Keycloak, Docker)
+
+Needs Docker running. About 0.5 GB for the image `quay.io/keycloak/keycloak:26.0`, pulled on first use. Everything is bound to `127.0.0.1`; the passwords and the client secret are random, written only into the directory you give (mode 0700, files 0600) and never printed.
+
+```
+node scripts/keycloak-local.mjs ~/enclave-kc                     # create files, start Keycloak, create a test registry
+cd <project> && set -a && . ~/enclave-kc/enclave.env && set +a && node server.js
+node scripts/sso-keycloak-check.mjs ~/enclave-kc                 # 12 checks as a scripted browser
+node scripts/keycloak-local.mjs --stop                           # remove the container
+```
+
+Or open `http://127.0.0.1:3345/` and press "Sign in with SSO"; the test user is `manager.test` and its password is `KC_USER_PASSWORD` in `~/enclave-kc/creds.env`. `unverified.test` (mapped, e-mail unverified) and `unmapped.test` are refused on purpose. Measured on 2026-10-08 on one machine with Keycloak beside the app: the whole sign-in takes about 56 ms warm (median of 10, worst 77 ms) and about 680 ms the first time (discovery and key fetch); a real network adds its own round trips.
 
 ## Tests
 
@@ -204,7 +217,7 @@ I ran nine one-line mutations of the validation code (nonce check removed, signa
 - Exercised once against a real provider, **Keycloak 26.0 in Docker on loopback over plain http** (`SSO_ALLOW_LOOPBACK_IDP=true`, a confidential client with `client_secret_basic`, RS256 ID tokens, realm created from an import file), 2026-10-08: sign-in with a mapped, verified user; the one-use hand-off exchange; a session token that authenticates as the mapped registry operator; logout revoking it; a mapped user whose e-mail the provider reports as unverified refused (403); an unmapped user refused (403); a wrong password never reaching the callback; a tampered state, a replayed callback and a callback from a browser without the flow cookie each refused (400). 12 of 12 checks passed. Not covered by that run: https (a real redirect URI), a public client without a secret, ES256, a `sub`-keyed map entry, and any other provider. Earlier statements below that no real provider was contacted describe the module's own test suite, which still uses only the mock.
 - No other real identity provider has been contacted. Behaviour with Entra ID, Okta, Keycloak, Google or others (claim quirks such as `email_verified` sent as a string, different `iss` forms, `client_secret_post`-only token endpoints, opaque or non-RS256/ES256 signing) is untested.
 - Only `client_secret_basic` or a public client is supported. No `private_key_jwt`, no mTLS, no refresh tokens, no logout at the provider (RP-initiated or back-channel), no session binding to IP or user agent.
-- The browser pages are not changed, so nothing in the UI uses these routes yet.
+- The sign-in button (`public/auth.js`, `public/sso-client.js`) was driven in headless Chromium against the Keycloak rig on 2026-10-08: the button appears only when `/api/sso/status` says enabled; a sign-in lands on the sender page with the session token in the token field; the identity badge reads IDENTITY VERIFIED; nothing is written to browser storage; sign-out clears the field and the server then refuses that token. The session lives in the page only, so each page (`/`, decode, audit, admin) needs its own SSO sign-in, and the hand-off cookie returns to `/`. Not run in Safari, Firefox or on a phone.
 - Sign-in and sign-out events go to the process log, not to the hash-chained audit trail.
 - TLS validation of the provider relies on Node's default trust store. There is no pinning, and no check that discovery endpoints resolve to public addresses (SSRF through a hostile discovery document is limited to https URLs of the provider's choosing).
 - Single process only; sessions and pending sign-ins are memory-resident.

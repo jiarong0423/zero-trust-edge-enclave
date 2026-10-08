@@ -1,4 +1,5 @@
 import { setText, t } from './i18n.js';
+import { ssoEnabled, ssoExchange, ssoLogout } from './sso-client.js';
 
 export function authenticatedFetch(url, options = {}) {
   const token = document.querySelector('#accessToken').value.trim();
@@ -88,4 +89,47 @@ window.addEventListener('authenticationchange', () => {
     }
   }, 250);
 });
+
+// Optional single sign-on. The row appears only when the server says SSO is on; with it off, the page
+// is exactly the token panel above. The session token is kept in the same field as a pasted one and is
+// not written to any browser storage.
+const ssoRow = document.createElement('div');
+ssoRow.className = 'token-file-row';
+ssoRow.hidden = true;
+const ssoLink = document.createElement('a');
+ssoLink.className = 'button';
+ssoLink.href = '/api/sso/login';
+setText(ssoLink, 'Sign in with SSO');
+const ssoOut = document.createElement('button');
+ssoOut.type = 'button';
+ssoOut.className = 'button';
+ssoOut.hidden = true;
+setText(ssoOut, 'Sign out of SSO');
+const ssoStatus = document.createElement('span');
+ssoStatus.setAttribute('role', 'status');
+let ssoToken = null;
+ssoOut.addEventListener('click', async () => {
+  const token = ssoToken;
+  ssoToken = null;
+  input.value = '';
+  ssoOut.hidden = true;
+  ssoLink.hidden = false;
+  setText(ssoStatus, 'Signed out of SSO');
+  window.dispatchEvent(new Event('authenticationchange'));
+  if (token) await ssoLogout(token);
+});
+ssoRow.append(ssoLink, ssoOut, ssoStatus);
+panel.append(ssoRow);
+(async () => {
+  if (!(await ssoEnabled())) return;
+  ssoRow.hidden = false;
+  const token = await ssoExchange();
+  if (!token) return;
+  ssoToken = token;
+  input.value = token;
+  ssoLink.hidden = true;
+  ssoOut.hidden = false;
+  setText(ssoStatus, 'Signed in with SSO');
+  window.dispatchEvent(new Event('authenticationchange'));
+})();
 document.querySelector('main').before(panel);

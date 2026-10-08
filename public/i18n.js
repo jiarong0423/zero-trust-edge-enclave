@@ -106,6 +106,7 @@ export const labels = {
   CREDENTIAL_EXPIRED: '憑證已到期', POLICY_EXPIRED: '政策已到期', OPEN_LIMIT: '已達開啟上限',
   RECIPIENT_DENIED: '收件人未獲授權', DEVICE_DENIED: '裝置未獲授權', UNCLASSIFIED: '未分類原因',
   SIGNATURE_ACCEPTED: '簽章通過', RECIPIENT_ACCEPTED: '收件人通過', REGISTERED_RECIPIENT: '已登記收件人', TIME_ACCEPTED: '有效期限內',
+  'Sign in with SSO': '用 SSO 登入', 'Sign out of SSO': '登出 SSO', 'Signed in with SSO': '已用 SSO 登入', 'Signed out of SSO': '已登出 SSO',
   'Choose token file': '選擇身分憑據檔', 'No token file loaded': '尚未載入憑據檔',
   'Token file loaded': '身分憑據已載入', 'Invalid token file': '憑據檔格式不符',
   'Zero-Trust Edge Enclave': '零信任密件傳輸',
