@@ -82,13 +82,13 @@ test('PICKUP_ALL is unreachable for the product: fixed code accepts only WAIT th
   assert.deepEqual(ACTION_ORDER, ['WAIT', 'REMIND', 'ESCALATE']);
 });
 
-test('parseActionSet is a set: order, repeats, case and separators do not matter; unknown words are reported', () => {
-  assert.deepEqual(parseActionSet('escalate, wait'), { actions: ['WAIT', 'ESCALATE'], invalid: [] });
-  assert.deepEqual(parseActionSet('WAIT WAIT/remind;wait|ESCALATE'), { actions: ['WAIT', 'REMIND', 'ESCALATE'], invalid: [] });
-  assert.deepEqual(parseActionSet(['REMIND', 'remind']), { actions: ['REMIND'], invalid: [] });
-  assert.deepEqual(parseActionSet('WAIT, PANIC, panic'), { actions: ['WAIT'], invalid: ['PANIC'] });
-  assert.deepEqual(parseActionSet(''), { actions: [], invalid: [] });
-  assert.deepEqual(parseActionSet(null), { actions: [], invalid: [] });
+test('parseActionSet is a set: order, case and ASCII separators do not matter; unknown words and repeats are reported', () => {
+  assert.deepEqual(parseActionSet('escalate, wait'), { actions: ['WAIT', 'ESCALATE'], invalid: [], duplicates: [] });
+  assert.deepEqual(parseActionSet('WAIT/remind;ESCALATE'), { actions: ['WAIT', 'REMIND', 'ESCALATE'], invalid: [], duplicates: [] });
+  assert.deepEqual(parseActionSet(['REMIND', 'wait']), { actions: ['WAIT', 'REMIND'], invalid: [], duplicates: [] });
+  assert.deepEqual(parseActionSet('WAIT, PANIC, panic'), { actions: ['WAIT'], invalid: ['PANIC', 'panic'], duplicates: [] });
+  assert.deepEqual(parseActionSet(''), { actions: [], invalid: [], duplicates: [] });
+  assert.deepEqual(parseActionSet(null), { actions: [], invalid: [], duplicates: [] });
 });
 
 test('normalizeEntry: unlabeled, invalid and complete', () => {
@@ -144,10 +144,10 @@ test('--sheet never overwrites an existing file', async () => {
   assert.equal(await fs.readFile(file, 'utf8'), 'precious human work\n');
 });
 
-test('a filled Markdown sheet round-trips; a note may contain a pipe', async () => {
+test('a filled Markdown sheet round-trips; a note may contain an escaped pipe', async () => {
   const blank = renderSheet('md');
   const filled = fillMarkdown(blank, key => (key === 'WINDOW_LAST/PICKUP_NONE/0'
-    ? ['ESCALATE, REMIND', 'remind', 'a | b'] : ['wait', 'WAIT', '']));
+    ? ['ESCALATE, REMIND', 'remind', 'a \\| b'] : ['wait', 'WAIT', '']));
   const checked = checkLabels(parseLabelsText(filled, 'md'));
   assert.deepEqual(checked.problems, []);
   assert.equal(checked.policy, POLICY);
@@ -265,7 +265,7 @@ test('--interactive refuses to overwrite and re-asks on bad answers; it never pr
 
   const fresh = path.join(dir, 'fresh.json');
   const io = sinks();
-  const input = ttyInput(['', POLICY, 'bogus', 'WAIT', 'ESCALATE', 'WAIT, WAIT', '', 'q']);
+  const input = ttyInput(['', POLICY, 'bogus', 'WAIT', 'ESCALATE', 'wait', '', 'q']);
   assert.equal(await main(['--interactive', '--labels-out', fresh], { ...io, stdin: input }), 0);
   const output = io.lines.out.join('');
   assert.match(output, /The policy statement cannot be empty/);
@@ -391,4 +391,304 @@ test('the label tools contain no model or network call and offer no default labe
   const source = await fs.readFile(SCRIPT, 'utf8');
   assert.doesNotMatch(source, /\bfetch\(|node:http|node:https|node:net|XMLHttpRequest|process\.env/);
   assert.doesNotMatch(source, /syntheticFollowupAdvice|requestFileAdvice/);
+});
+
+// --- Red-team fixes (B1-B10) -------------------------------------------------------------------------
+
+// A complete CSV sheet (all 24 rows answered) with a chosen POLICY line, written the way a spreadsheet
+// application would after a round trip when `pad` is set: every short row padded with trailing commas.
+function completeCsv(policyLine, { pad = false } = {}) {
+  const filled = fillCsv(renderSheet('csv'), () => ['WAIT, REMIND', 'WAIT', '']).split('\n')
+    .map(line => (/^# POLICY:/.test(line) ? policyLine : line));
+  return filled.map(line => (pad && line.startsWith('#') ? `${line}${','.repeat(7)}` : line)).join('\n');
+}
+
+test('B1: a blank policy stays blank after spreadsheet padding and is refused', () => {
+  const padded = completeCsv('# POLICY: ', { pad: true });
+  assert.match(padded, /^# POLICY: ,{7}$/m);
+  const parsed = parseLabelsText(padded, 'csv');
+  assert.equal(parsed.policy, '');
+  const checked = checkLabels(parsed);
+  assert.equal(checked.ok, false);
+  assert.ok(checked.problems.some(problem => problem.includes('policy statement is empty')));
+  // Padding must not change a real policy either, and a comma inside it survives.
+  assert.equal(parseLabelsText(completeCsv('# POLICY: compliance first, then speed', { pad: true }), 'csv').policy,
+    'compliance first, then speed');
+});
+
+test('B1: a policy with no letter or digit is no policy (punctuation, zero-width and space characters)', () => {
+  for (const policy of ['-', '.', '\u200b', '\u00a0', '\ufeff', '\u3000', ',,,', '- . -', '\u2014\u2014']) {
+    const checked = checkLabels(parseLabelsText(completeCsv(`# POLICY: ${policy}`), 'csv'));
+    assert.equal(checked.ok, false, `policy ${JSON.stringify(policy)} must be refused`);
+    assert.ok(checked.problems.some(problem => /policy statement is empty|no letter or digit/.test(problem)), JSON.stringify(policy));
+  }
+  const json = JSON.stringify({ schema: SCHEMA, policy: '.', labels: [] });
+  assert.ok(checkLabels(parseLabelsText(json, 'json')).problems.some(problem => /no letter or digit/.test(problem)));
+  for (const policy of ['A', '7', '\u5408\u898f\u512a\u5148', 'compliance-first!']) {
+    assert.equal(checkLabels(parseLabelsText(completeCsv(`# POLICY: ${policy}`), 'csv')).ok, true, policy);
+  }
+});
+
+test('B1: the interactive session refuses a policy without a letter or digit, and resume re-prompts a blank one', async () => {
+  const dir = await tempDir();
+  const file = path.join(dir, 'labels.json');
+  const io = sinks();
+  assert.equal(await main(['--interactive', '--labels-out', file], { ...io, stdin: ttyInput(['-', '\u200b', POLICY, 'q']) }), 0);
+  assert.equal(io.lines.out.join('').match(/The policy statement cannot be empty/g).length, 2);
+  assert.equal(JSON.parse(await fs.readFile(file, 'utf8')).policy, POLICY);
+
+  const blank = path.join(dir, 'blank.json');
+  await fs.writeFile(blank, JSON.stringify({ schema: SCHEMA, policy: '  ', labels: [{ timeCode: 'WINDOW_FULL', pickupCode: 'PICKUP_NONE',
+    nudgeCount: 0, acceptable: ['WAIT'], preferred: 'WAIT', note: 'kept' }] }));
+  const second = sinks();
+  assert.equal(await main(['--interactive', '--labels-out', blank, '--resume'], { ...second, stdin: ttyInput(['.', 'A new policy, written now', 'q']) }), 0);
+  const output = second.lines.out.join('');
+  assert.match(output, /policy on file is blank/i);
+  assert.match(output, /Policy statement \(your own/);
+  const doc = JSON.parse(await fs.readFile(blank, 'utf8'));
+  assert.equal(doc.policy, 'A new policy, written now');
+  assert.equal(doc.labels.length, 1, 'the earlier answer is kept');
+  assert.equal(doc.labels[0].note, 'kept');
+
+  // Input ending at the re-prompt leaves the file untouched.
+  const untouched = path.join(dir, 'untouched.json');
+  const text = JSON.stringify({ schema: SCHEMA, policy: '', labels: [] });
+  await fs.writeFile(untouched, text);
+  const ended = ttyInput();
+  ended.end();
+  assert.equal(await main(['--interactive', '--labels-out', untouched, '--resume'], { ...sinks(), stdin: ended }), 3);
+  assert.equal(await fs.readFile(untouched, 'utf8'), text);
+});
+
+// A complete CSV whose row for WINDOW_FULL/PICKUP_NONE/0 carries the given raw (already quoted) note cell.
+function csvWithNote(noteCell, policyLine = '# POLICY: the real policy') {
+  return completeCsv(policyLine).split('\n').map(line => {
+    if (!line.startsWith('12345678-1234-4234-8234-123456789012,1,WINDOW_FULL,PICKUP_NONE,0,')) return line;
+    return `${line.split(',').slice(0, 5).join(',')},"WAIT, REMIND",WAIT,${noteCell}`;
+  }).join('\n');
+}
+
+test('B2: lines inside a quoted note are note text, never comments or policy', () => {
+  const text = csvWithNote('"first line\n# POLICY: convenience-first (injected)\n# second hash line\nlast line"');
+  const parsed = parseLabelsText(text, 'csv');
+  assert.equal(parsed.policy, 'the real policy');
+  assert.deepEqual(parsed.problems, []);
+  assert.equal(parsed.entries.get('WINDOW_FULL/PICKUP_NONE/0').note,
+    'first line\n# POLICY: convenience-first (injected)\n# second hash line\nlast line');
+  const checked = checkLabels(parsed);
+  assert.deepEqual(checked.problems, []);
+  assert.equal(checked.policy, 'the real policy');
+});
+
+test('B2: a note line that starts with # and holds the closing quote does not swallow the next row', () => {
+  const text = csvWithNote('"see below\n#2 closing quote on a # line"');
+  const parsed = parseLabelsText(text, 'csv');
+  assert.equal(parsed.entries.size, 24);
+  assert.equal(parsed.entries.get('WINDOW_FULL/PICKUP_NONE/0').note, 'see below\n#2 closing quote on a # line');
+  assert.deepEqual(checkLabels(parsed).problems, []);
+});
+
+test('B2: # POLICY: is recognised only before the header row', () => {
+  const lines = completeCsv('# POLICY: the real policy').split('\n');
+  const afterHeader = [...lines, '# POLICY: convenience-first, appended after the table'].join('\n');
+  const parsed = parseLabelsText(afterHeader, 'csv');
+  assert.equal(parsed.policy, 'the real policy');
+  assert.ok(parsed.problems.some(problem => problem.includes('not one of the 24 reachable inputs')),
+    'a stray # line after the header is a problem, not a silently deleted line');
+  assert.equal(checkLabels(parsed).ok, false);
+});
+
+test('B2: comment lines before the header are raw lines; a spreadsheet may quote them and pad them', () => {
+  const quoted = ['"# a comment, with a comma",,,,,,,', '"# POLICY: speed, then safety",,,,,,,',
+    ...completeCsv('# POLICY: ignored').split('\n').filter(line => !line.startsWith('#'))].join('\n');
+  const parsed = parseLabelsText(quoted, 'csv');
+  assert.equal(parsed.policy, 'speed, then safety');
+  assert.deepEqual(checkLabels(parsed).problems, []);
+  // A raw policy line may hold a comma followed by a quote; it is a line, not CSV.
+  assert.equal(parseLabelsText(completeCsv('# POLICY: a, "b'), 'csv').policy, 'a, "b');
+  // A leading byte order mark does not hide the comment lines.
+  assert.equal(parseLabelsText(`\ufeff${completeCsv('# POLICY: with a BOM')}`, 'csv').policy, 'with a BOM');
+});
+
+test('B4: a Markdown row whose cell count differs from the header is refused, not repaired', () => {
+  const ROW = '12345678-1234-4234-8234-123456789012 | 1 | WINDOW_FULL | PICKUP_NONE | 0';
+  const base = fillMarkdown(renderSheet('md'), key => (key === 'WINDOW_FULL/PICKUP_NONE/0' ? null : allWait()));
+  const withRow = row => `${base.trimEnd().replace(/^\| 12345678[^\n]*WINDOW_FULL \| PICKUP_NONE \| 0 \|[^\n]*$/m, row)}\n`;
+  // The pipe shift: WAIT|WAIT in the acceptable cell, preferred left blank, would read as a complete label.
+  const shifted = parseLabelsText(withRow(`| ${ROW} | WAIT|WAIT |  | n |`), 'md');
+  assert.ok(shifted.problems.some(problem => /9 cells, the header has 8/.test(problem)), shifted.problems.join('; '));
+  assert.equal(shifted.entries.has('WINDOW_FULL/PICKUP_NONE/0'), false);
+  const checked = checkLabels(shifted);
+  assert.equal(checked.ok, false);
+  assert.equal(checked.labels.has('WINDOW_FULL/PICKUP_NONE/0'), false);
+  // An unescaped pipe in the note is also a different cell count: refused with a hint.
+  const note = parseLabelsText(withRow(`| ${ROW} | WAIT | WAIT | a | b |`), 'md');
+  assert.ok(note.problems.some(problem => /escape a pipe in a note as \\\|/.test(problem)), note.problems.join('; '));
+  // A short row is refused as well.
+  const short = parseLabelsText(withRow(`| ${ROW} | WAIT | WAIT |`), 'md');
+  assert.ok(short.problems.some(problem => /7 cells, the header has 8/.test(problem)), short.problems.join('; '));
+  // An escaped pipe is the supported way to write one.
+  const ok = parseLabelsText(withRow(`| ${ROW} | WAIT | WAIT | a \\| b |`), 'md');
+  assert.deepEqual(ok.problems, []);
+  assert.equal(ok.entries.get('WINDOW_FULL/PICKUP_NONE/0').note, 'a | b');
+});
+
+test('B4: the pipe is not an action separator', () => {
+  assert.deepEqual(parseActionSet('WAIT|REMIND'), { actions: [], invalid: ['WAIT|REMIND'], duplicates: [] });
+  assert.equal(normalizeEntry({ acceptable: 'WAIT|WAIT', preferred: 'WAIT' }).state, 'invalid');
+});
+
+test('B5: lookalike letters, non-ASCII separators and numbers are not actions', () => {
+  // Dotless i and long s upper-case into plain ASCII letters; they must be rejected before that happens.
+  for (const word of ['WA\u0131T', 'rem\u0131nd', '\u017fcalate', 'E\u017fCALATE', 'W\u0410IT', '\uff37\uff21\uff29\uff34', 'WA\u200bIT', 'WAIT\u200b', 'K\u212aELVIN']) {
+    const set = parseActionSet(word);
+    assert.deepEqual(set.actions, [], JSON.stringify(word));
+    assert.equal(set.invalid.length, 1, JSON.stringify(word));
+    assert.equal(normalizeEntry({ acceptable: word, preferred: 'WAIT' }).state, 'invalid', JSON.stringify(word));
+  }
+  // A no-break space is not a separator: WAIT<NBSP>REMIND is one invalid word, not two actions.
+  assert.deepEqual(parseActionSet('WAIT\u00a0REMIND').actions, []);
+  assert.deepEqual(parseActionSet('WAIT\u2003REMIND').actions, []);
+  assert.deepEqual(parseActionSet('WAIT\tREMIND\nESCALATE').actions, ['WAIT', 'REMIND', 'ESCALATE']);
+  // Not strings.
+  assert.deepEqual(parseActionSet(1).actions, []);
+  assert.equal(parseActionSet(1).invalid.length, 1);
+  assert.equal(parseActionSet([['WAIT']]).invalid.length, 1);
+  assert.equal(parseActionSet({}).invalid.length, 1);
+});
+
+test('B5: a repeated action inside a set is refused, not collapsed', () => {
+  assert.deepEqual(parseActionSet('WAIT, WAIT'), { actions: ['WAIT'], invalid: [], duplicates: ['WAIT'] });
+  assert.deepEqual(parseActionSet(['REMIND', 'remind']).duplicates, ['REMIND']);
+  const set = normalizeEntry({ acceptable: 'WAIT, WAIT', preferred: 'WAIT' });
+  assert.equal(set.state, 'invalid');
+  assert.match(set.problems.join(' '), /repeats WAIT/);
+  const preferred = normalizeEntry({ acceptable: 'WAIT, REMIND', preferred: 'WAIT, WAIT' });
+  assert.equal(preferred.state, 'invalid');
+  assert.match(preferred.problems.join(' '), /preferred action/);
+});
+
+test('B5: JSON labels need a string timeCode and pickupCode and an integer nudgeCount, not coerced values', () => {
+  const base = { timeCode: 'WINDOW_FULL', pickupCode: 'PICKUP_NONE', nudgeCount: 0, acceptable: 'WAIT', preferred: 'WAIT' };
+  assert.equal(inputKey(base), 'WINDOW_FULL/PICKUP_NONE/0');
+  for (const bad of [{ nudgeCount: '0' }, { nudgeCount: [0] }, { nudgeCount: 0.5 }, { nudgeCount: null }, { timeCode: ['WINDOW_FULL'] },
+    { pickupCode: ['PICKUP_NONE'] }, { timeCode: 7 }]) {
+    assert.equal(inputKey({ ...base, ...bad }), null, JSON.stringify(bad));
+    const parsed = parseLabelsText(JSON.stringify({ schema: SCHEMA, policy: 'p', labels: [{ ...base, ...bad }] }), 'json');
+    assert.equal(parsed.entries.size, 0, JSON.stringify(bad));
+    assert.match(parsed.problems.join(' '), /label 1/, JSON.stringify(bad));
+  }
+  assert.equal(inputKey(null), null);
+  assert.equal(inputKey('WINDOW_FULL'), null);
+});
+
+test('B5: the interactive session refuses a repeated or lookalike action', async () => {
+  const dir = await tempDir();
+  const io = sinks();
+  const lines = [POLICY, 'WAIT, WAIT', 'WA\u0131T', 'WAIT\u00a0REMIND', 'WAIT, REMIND', 'WAIT, WAIT', 'WAIT', 'x', 'q'];
+  assert.equal(await main(['--interactive', '--labels-out', path.join(dir, 'l.json')], { ...io, stdin: ttyInput(lines) }), 0);
+  const output = io.lines.out.join('');
+  assert.equal(output.match(/Not understood: use only/g).length, 3);
+  assert.equal(output.match(/Not understood: give exactly one of/g).length, 1);
+  const doc = JSON.parse(await fs.readFile(path.join(dir, 'l.json'), 'utf8'));
+  assert.deepEqual(doc.labels.map(label => [label.acceptable, label.preferred]), [[['WAIT', 'REMIND'], 'WAIT']]);
+});
+
+test('B6: a policy typed with terminal escape sequences is stored and echoed without them', async () => {
+  const dir = await tempDir();
+  const file = path.join(dir, 'labels.json');
+  const ESC = '\u001b';
+  const typed = `${ESC}[2J${ESC}[1;31mCOMPLIANCE-FIRST${ESC}]0;pwned\u0007 \u009b31m end`;
+  const first = sinks();
+  assert.equal(await main(['--interactive', '--labels-out', file], { ...first, stdin: ttyInput([typed, 'q']) }), 0);
+  assert.doesNotMatch(first.lines.out.join(''), /[\u0000-\u0008\u000b-\u001f\u007f-\u009f]/);
+  assert.match(first.lines.out.join(''), /control characters were removed/i);
+  const stored = JSON.parse(await fs.readFile(file, 'utf8')).policy;
+  assert.doesNotMatch(stored, /[\u0000-\u001f\u007f-\u009f]/);
+  assert.match(stored, /COMPLIANCE-FIRST/);
+
+  // A file edited by hand to hold the raw sequences is cleaned on the way to the terminal.
+  const doc = JSON.parse(await fs.readFile(file, 'utf8'));
+  doc.policy = typed;
+  await fs.writeFile(file, JSON.stringify(doc));
+  const second = sinks();
+  assert.equal(await main(['--interactive', '--labels-out', file, '--resume'], { ...second, stdin: ttyInput(['q']) }), 0);
+  assert.doesNotMatch(second.lines.out.join(''), /[\u0000-\u0008\u000b-\u001f\u007f-\u009f]/);
+  assert.match(second.lines.out.join(''), /Resuming\. Policy statement on file: .*COMPLIANCE-FIRST/);
+});
+
+test('B6: problem messages never echo raw control characters from a label file', () => {
+  const doc = { schema: SCHEMA, policy: 'p', labels: [{ timeCode: 'WINDOW_FULL', pickupCode: 'PICKUP_NONE', nudgeCount: 0,
+    acceptable: 'WAIT\u001b[2J\u009b', preferred: 'WAIT' }, { timeCode: 'WINDOW_FULL\u001b[2J', pickupCode: 'PICKUP_NONE', nudgeCount: 0 }] };
+  const checked = checkLabels(parseLabelsText(JSON.stringify(doc), 'json'));
+  assert.equal(checked.ok, false);
+  assert.doesNotMatch(checked.problems.join('\n'), /[\u0000-\u0008\u000b-\u001f\u007f-\u009f]/);
+});
+
+const lockOf = file => `${file}.lock`;
+
+test('B8: a second session on the same labels file is refused while the first runs, and the lock is released after', async () => {
+  const dir = await tempDir();
+  const file = path.join(dir, 'labels.json');
+  const firstInput = ttyInput();
+  const first = runInteractive({ input: firstInput, output: sinks().stdout, labelsOut: file });
+  const saved = async () => { try { return JSON.parse(await fs.readFile(file, 'utf8')); } catch { return null; } };
+  firstInput.write(`${POLICY}\n`);
+  for (let attempt = 0; attempt < 400 && !(await saved()); attempt += 1) await new Promise(resolve => setTimeout(resolve, 10));
+  assert.equal(await exists(lockOf(file)), true, 'the lock exists while the session is open');
+
+  const second = sinks();
+  assert.equal(await main(['--interactive', '--labels-out', file, '--resume'], { ...second, stdin: ttyInput(['q']) }), 2);
+  const message = second.lines.err.join('');
+  assert.match(message, /another session/);
+  assert.ok(message.includes(lockOf(file)));
+  assert.match(message, /never deleted automatically|delete it yourself/);
+  assert.equal(await exists(lockOf(file)), true, 'the refused session did not remove the first one\'s lock');
+  const created = sinks();
+  assert.equal(await main(['--interactive', '--labels-out', path.join(dir, 'other.json')], { ...created, stdin: ttyInput([POLICY, 'q']) }), 0,
+    'a different labels file is not blocked');
+
+  firstInput.write('WAIT\nWAIT\nfirst\nq\n');
+  assert.equal((await first).code, 0);
+  assert.equal(await exists(lockOf(file)), false, 'released on quit');
+  assert.equal((await saved()).labels.length, 1, 'the first session\'s answer was not overwritten');
+  assert.equal(await main(['--interactive', '--labels-out', file, '--resume'], { ...sinks(), stdin: ttyInput(['q']) }), 0);
+  assert.equal(await exists(lockOf(file)), false);
+});
+
+test('B8: the lock is released at end of input and on errors, and a stale lock is never deleted automatically', async () => {
+  const dir = await tempDir();
+  const file = path.join(dir, 'labels.json');
+  const ended = ttyInput([POLICY]);
+  ended.end();
+  assert.equal(await main(['--interactive', '--labels-out', file], { ...sinks(), stdin: ended }), 3);
+  assert.equal(await exists(lockOf(file)), false, 'released at EOF');
+
+  const damaged = path.join(dir, 'damaged.json');
+  await fs.writeFile(damaged, '{ not json');
+  assert.equal(await main(['--interactive', '--labels-out', damaged, '--resume'], { ...sinks(), stdin: ttyInput() }), 2);
+  assert.equal(await exists(lockOf(damaged)), false, 'released after a refusal');
+
+  const stale = path.join(dir, 'stale.json');
+  await fs.writeFile(lockOf(stale), 'pid 1 from last week\n');
+  const io = sinks();
+  assert.equal(await main(['--interactive', '--labels-out', stale], { ...io, stdin: ttyInput([POLICY, 'q']) }), 2);
+  assert.match(io.lines.err.join(''), /another session/);
+  assert.equal(await fs.readFile(lockOf(stale), 'utf8'), 'pid 1 from last week\n', 'a stale lock is left for the owner to remove');
+  assert.equal(await exists(stale), false, 'nothing was created behind a lock');
+});
+
+test('B9: a missing parent directory is a clean refusal, exit 2, not an uncaught exception', async () => {
+  const dir = await tempDir();
+  const sheet = path.join(dir, 'no-such-dir', 'sheet.md');
+  const io = sinks();
+  assert.equal(await main(['--sheet', sheet], io), 2);
+  assert.match(io.lines.err.join(''), /ERROR cannot write .*ENOENT/);
+  const labels = path.join(dir, 'no-such-dir', 'labels.json');
+  const second = sinks();
+  assert.equal(await main(['--interactive', '--labels-out', labels], { ...second, stdin: ttyInput([POLICY]) }), 2);
+  assert.match(second.lines.err.join(''), /ERROR cannot (write|create)/);
+  const run = spawnSync(process.execPath, [SCRIPT, '--sheet', sheet], { encoding: 'utf8' });
+  assert.equal(run.status, 2);
+  assert.doesNotMatch(run.stderr, /\n\s+at /);
 });

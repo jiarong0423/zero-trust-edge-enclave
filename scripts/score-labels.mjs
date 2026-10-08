@@ -15,7 +15,7 @@ import { pathToFileURL } from 'node:url';
 import { MAX_NUDGES, syntheticFollowupAdvice } from '../delivery-followup.js';
 import {
   ACTION_ORDER, ACTION_RANK, ALL_INPUTS, EXCLUDED, EXCLUSION_NOTE, REACHABLE, Refusal, UNREACHABLE_PICKUP,
-  checkLabels, inputKey, readLabelsFile, writeNew,
+  checkLabels, inputKey, readLabelsFile, safeText, writeNew,
 } from './label-followup.mjs';
 
 const KEYS = new Set(ALL_INPUTS.map(inputKey));
@@ -38,13 +38,18 @@ export function classify(action, acceptable) {
 
 // --- Result files -------------------------------------------------------------------------------
 
-const cleanText = value => String(value).replace(/[|\r\n]+/g, ' ').trim();
+const markdown = value => safeText(value, 'markdown');
 
 function actionOfValue(value, where) {
   if (value === null || value === undefined) return null;
   if (typeof value !== 'string') throw new Refusal(`${where}: expected an "ACTION/REASON" string or null`);
-  const action = value.split('/')[0].trim().toUpperCase();
-  if (!ACTION_ORDER.includes(action)) throw new Refusal(`${where}: unrecognised action in ${JSON.stringify(value.slice(0, 40))}`);
+  // ASCII letters only, checked before upper-casing: toUpperCase would turn a dotless i or a long s into
+  // a plain ASCII letter and accept a lookalike as an action.
+  const word = value.split('/')[0].replace(/^[ \t]+|[ \t]+$/g, '');
+  const action = /^[A-Za-z]+$/.test(word) ? word.toUpperCase() : null;
+  if (action === null || !ACTION_ORDER.includes(action)) {
+    throw new Refusal(`${where}: unrecognised action in ${safeText(value.slice(0, 40), 'ascii')}`);
+  }
   return action;
 }
 
@@ -72,6 +77,7 @@ export function sourcesFromResults(doc, fileName) {
   const groups = new Map();
   let ignoredUnreachable = 0;
   let fixtureMismatches = 0;
+  let malformedFlags = 0;
   doc.rows.forEach((row, index) => {
     const where = `${fileName} row ${index + 1}`;
     if (!row || typeof row.timeCode !== 'string' || typeof row.pickupCode !== 'string' || !Number.isInteger(row.nudgeCount)) {
@@ -87,33 +93,46 @@ export function sourcesFromResults(doc, fileName) {
     }
     const variant = typeof row.variant === 'string' ? row.variant : null;
     const add = (column, outlet, value, rowWhere) => {
-      const id = `${outlet ? `outlets.${outlet}` : column}|${variant ?? ''}`;
+      // A structured key: names are free text and may contain any separator.
+      const id = JSON.stringify([column, outlet, variant]);
       if (!groups.has(id)) {
         const model = modelNameFor(doc, column, outlet);
         const label = `${fileName}: ${outlet ? `outlets.${outlet}` : column}${variant ? ` [variant ${variant}]` : ''}${model ? ` (${model})` : ''}`;
-        groups.set(id, { name: cleanText(label), answers: new Map() });
+        groups.set(id, { name: safeText(label), answers: new Map() });
       }
       const group = groups.get(id);
       if (group.answers.has(key)) throw new Refusal(`${rowWhere}: ${JSON.stringify(key)} appears twice for ${group.name}`);
       group.answers.set(key, value);
     };
+    // A row carries the flag or it does not. When it does, only the boolean true is an answer: false
+    // is a refusal, and any other value (0, "false", null, ...) is not trusted and is counted.
+    const flagPresent = Object.hasOwn(row, 'accepted');
+    const flagMalformed = flagPresent && typeof row.accepted !== 'boolean';
+    let flagCounted = false;
     for (const column of FLAT_COLUMNS) {
       if (!(column in row)) continue;
       // The prompt-variants file keeps the refused answer's text in `model` and marks the row
       // accepted:false; the compare-cloud file's `accepted` describes only cloud120b. local4b carries
-      // null when its answer was refused, so it needs no flag.
-      const refused = row.accepted === false && ACCEPTED_FLAG_COLUMNS.includes(column);
+      // null when its answer was refused, so it needs no flag. A format that never carries the flag
+      // (no `accepted` key at all) keeps its answers.
+      const gated = flagPresent && ACCEPTED_FLAG_COLUMNS.includes(column);
+      const refused = gated && row.accepted !== true;
+      if (gated && flagMalformed) flagCounted = true;
       add(column, null, refused ? null : actionOfValue(row[column], `${where} ${column}`), where);
     }
     if (row.outlets && typeof row.outlets === 'object') {
       for (const [outlet, result] of Object.entries(row.outlets)) {
-        const refused = !result || result.accepted === false;
+        // The bench-adviser format always writes `accepted`; anything but the boolean true is no answer.
+        const flag = result && typeof result === 'object' ? result.accepted : undefined;
+        if (typeof flag !== 'boolean') malformedFlags += 1;
+        const refused = flag !== true;
         add(null, outlet, refused ? null : actionOfValue(result.advice, `${where} outlets.${outlet}.advice`), where);
       }
     }
+    if (flagCounted) malformedFlags += 1;
   });
   if (!groups.size) throw new Refusal(`${fileName}: no model, local4b, cloud120b or outlets column found; nothing to score`);
-  return { sources: [...groups.values()], ignoredUnreachable, fixtureMismatches };
+  return { sources: [...groups.values()], ignoredUnreachable, fixtureMismatches, malformedFlags };
 }
 
 /** The deterministic fixture as a source, computed from the live `syntheticFollowupAdvice`. */
@@ -152,9 +171,9 @@ const KIND_TEXT = { over: 'over-action', under: 'under-action', between: 'outsid
 export function renderReport({ policy, labelsFile, labels, scored, warnings = [] }) {
   const lines = [];
   lines.push('# Follow-up adviser scored against human labels', '');
-  lines.push(`Labels: \`${cleanText(labelsFile)}\`. The labels are the owner's judgement under the owner's own policy, written by a person; this report did not produce or alter any of them.`, '');
+  lines.push(`Labels: \`${safeText(labelsFile, 'code')}\`. The labels are the owner's judgement under the owner's own policy, written by a person; this report did not produce or alter any of them.`, '');
   lines.push('Policy statement, as written by the owner:', '');
-  for (const line of policy.split(/\r?\n/)) lines.push(`> ${line}`);
+  for (const line of policy.split(/\r\n|\n|\r/)) lines.push(`> ${markdown(line)}`);
   lines.push('');
   lines.push(`**${EXCLUSION_NOTE}** They are not scored and not counted below; every rate is out of ${REACHABLE.length} inputs.`, '');
   lines.push(`Action order for over/under: ${ACTION_ORDER.join(' < ')}. A row is *acceptable* when the source's action is inside the owner's acceptable set, *preferred* when it equals the single preferred action, *over-action* when it is stronger than every acceptable action, *under-action* when it is weaker than every acceptable action, and *between* when it is outside the set but neither stronger nor weaker than all of it. A refused, missing or unusable answer counts as *no answer*: it is not acceptable and not over or under.`, '');
@@ -168,7 +187,7 @@ export function renderReport({ policy, labelsFile, labels, scored, warnings = []
   lines.push('| Source | answered | acceptable | acceptable of answered | preferred | over-action | under-action | between | no answer |');
   lines.push('| --- | --- | --- | --- | --- | --- | --- | --- | --- |');
   for (const { name, totals } of scored) {
-    lines.push(`| ${cleanText(name)} | ${percent(totals.answered, totals.inputs)} | ${percent(totals.acceptable, totals.inputs)} | ` +
+    lines.push(`| ${markdown(name)} | ${percent(totals.answered, totals.inputs)} | ${percent(totals.acceptable, totals.inputs)} | ` +
       `${percent(totals.acceptable, totals.answered)} | ${percent(totals.preferred, totals.inputs)} | ${percent(totals.over, totals.inputs)} | ` +
       `${percent(totals.under, totals.inputs)} | ${percent(totals.between, totals.inputs)} | ${percent(totals.none, totals.inputs)} |`);
   }
@@ -176,7 +195,7 @@ export function renderReport({ policy, labelsFile, labels, scored, warnings = []
     'Disagreement means the source\'s answer is not inside the acceptable set, or there is no usable answer.', '');
   for (const { name, rows } of scored) {
     const off = rows.filter(row => row.category !== 'acceptable');
-    lines.push(`### ${cleanText(name)}`, '');
+    lines.push(`### ${markdown(name)}`, '');
     if (!off.length) { lines.push('No disagreements.', ''); continue; }
     lines.push('| input (timeCode/pickupCode/nudgeCount) | acceptable | preferred | source answered | kind |', '| --- | --- | --- | --- | --- |');
     for (const row of off) {
@@ -211,7 +230,7 @@ export function parseArgs(argv) {
       while (argv[index + 1] && !argv[index + 1].startsWith('--')) { index += 1; taken += 1; options.results.push(argv[index]); }
       if (!taken) throw new Refusal('--results needs at least one file path');
     } else if (arg === '--help' || arg === '-h') options.help = true;
-    else throw new Refusal(`unknown argument ${JSON.stringify(arg.slice(0, 40))}`);
+    else throw new Refusal(`unknown argument ${safeText(JSON.stringify(arg.slice(0, 40)))}`);
   }
   if (options.help) return options;
   if (!options.labels) throw new Refusal('--labels <file> is required');
@@ -222,10 +241,10 @@ export function parseArgs(argv) {
 async function loadResults(file) {
   let text;
   try { text = await fs.readFile(file, 'utf8'); } catch (error) {
-    throw new Refusal(`cannot read ${file}: ${error.code ?? error.message}`);
+    throw new Refusal(`cannot read ${safeText(file)}: ${safeText(error.code ?? error.message)}`);
   }
   let doc;
-  try { doc = JSON.parse(text); } catch { throw new Refusal(`${file} is not valid JSON`); }
+  try { doc = JSON.parse(text); } catch { throw new Refusal(`${safeText(file)} is not valid JSON`); }
   return doc;
 }
 
@@ -251,28 +270,31 @@ export async function main(argv, io = {}) {
     const sources = [fixtureSource()];
     const seen = new Map();
     for (const file of options.results) {
-      const base = path.basename(file);
+      const base = safeText(path.basename(file));
       const count = (seen.get(base) ?? 0) + 1;
       seen.set(base, count);
       const parsed = sourcesFromResults(await loadResults(file), count > 1 ? `${base} (#${count})` : base);
       sources.push(...parsed.sources);
       if (parsed.ignoredUnreachable) {
-        warnings.push(`${base}: ${parsed.ignoredUnreachable} ${UNREACHABLE_PICKUP} row(s) ignored (unreachable, excluded).`);
+        warnings.push(`${markdown(base)}: ${parsed.ignoredUnreachable} ${UNREACHABLE_PICKUP} row(s) ignored (unreachable, excluded).`);
+      }
+      if (parsed.malformedFlags) {
+        warnings.push(`${markdown(base)}: ${parsed.malformedFlags} row(s) carry an "accepted" flag that is not a boolean (or an outlets entry has none); those answers were counted as no answer, because only accepted: true is trusted.`);
       }
       if (parsed.fixtureMismatches) {
-        warnings.push(`${base}: the fixture column of ${parsed.fixtureMismatches} row(s) differs from the current syntheticFollowupAdvice; the fixture source here is computed from the current code.`);
+        warnings.push(`${markdown(base)}: the fixture column of ${parsed.fixtureMismatches} row(s) differs from the current syntheticFollowupAdvice; the fixture source here is computed from the current code.`);
       }
     }
     const report = renderReport({ policy: checked.policy, labelsFile: options.labels, labels: checked.labels,
       scored: sources.map(source => scoreSource(checked.labels, source)), warnings });
     if (options.out) {
       await writeNew(options.out, report);
-      stdout.write(`wrote the report to ${options.out}\n`);
+      stdout.write(`wrote the report to ${safeText(options.out)}\n`);
     } else stdout.write(report);
     return 0;
   } catch (error) {
     if (!(error instanceof Refusal)) throw error;
-    stderr.write(`ERROR ${error.message}\n${USAGE}\n`);
+    stderr.write(`ERROR ${safeText(error.message, 'lines')}\n${USAGE}\n`);
     return 2;
   }
 }

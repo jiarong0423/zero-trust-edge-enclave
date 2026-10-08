@@ -27,10 +27,10 @@ import { normalizeDownloadPolicy } from './download-policy.js';
 // without offering anything to arithmetic on. The boundaries are cut from each task's own span, so
 // an identical WINDOW_LITTLE means a different hour on a two-day task and a two-month one, and no
 // sequence of calls reveals the sender's schedule.
-const TIME_CODES = ['WINDOW_FULL', 'WINDOW_MOST', 'WINDOW_LITTLE', 'WINDOW_LAST'];
+export const TIME_CODES = ['WINDOW_FULL', 'WINDOW_MOST', 'WINDOW_LITTLE', 'WINDOW_LAST'];
 // Ordinal, never a count. "Some" is the whole of what the adviser learns from a partial pickup;
 // how many of how many stays inside the boundary, as it does for every other projection here.
-const PICKUP_CODES = ['PICKUP_NONE', 'PICKUP_SOME', 'PICKUP_ALL'];
+export const PICKUP_CODES = ['PICKUP_NONE', 'PICKUP_SOME', 'PICKUP_ALL'];
 // The reminder state stays an integer, and the field name says so. Turning it into a coined label
 // was tried and measured: on the hosted model it changed nothing, and on a 4B local model (2026-09-18,
 // before reasoning was turned off) it cost two of six cases and pushed latency to the timeout. The earlier win from removing digits was in

@@ -5,10 +5,10 @@ import path from 'node:path';
 import { promises as fs } from 'node:fs';
 import { spawnSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
-import { ACTION_ORDER, ALL_INPUTS, REACHABLE, Refusal, inputKey, renderLabelsDocument, renderSheet } from './label-followup.mjs';
+import { ACTION_ORDER, ALL_INPUTS, REACHABLE, Refusal, inputKey, renderLabelsDocument, renderSheet, safeText } from './label-followup.mjs';
 import { syntheticFollowupAdvice } from '../delivery-followup.js';
 import {
-  classify, fixtureSource, main, parseArgs, scoreSource, sourcesFromResults,
+  classify, fixtureSource, main, parseArgs, renderReport, scoreSource, sourcesFromResults,
 } from './score-labels.mjs';
 
 const SCRIPT = fileURLToPath(new URL('./score-labels.mjs', import.meta.url));
@@ -394,4 +394,156 @@ test('the command line entry point scores and exits 0, and exits 2 on incomplete
 test('the scorer contains no model or network call', async () => {
   const source = await fs.readFile(SCRIPT, 'utf8');
   assert.doesNotMatch(source, /\bfetch\(|node:http|node:https|node:net|XMLHttpRequest|process\.env|requestFileAdvice/);
+});
+
+// --- Red-team fixes (B3, B5, B6, B7, B9) ----------------------------------------------------------------
+
+const FIRST_KEY = 'WINDOW_FULL/PICKUP_NONE/0';
+const firstRow = doc => doc.rows.find(row => row.timeCode === 'WINDOW_FULL' && row.pickupCode === 'PICKUP_NONE' && row.nudgeCount === 0);
+
+test('B3: only accepted === true counts as an answer; any other value of the flag is no answer and is counted', () => {
+  for (const flag of [0, 1, 'false', 'true', 'yes', null, [], {}, 'TRUE']) {
+    const doc = promptVariants({ current: constant('ESCALATE') });
+    firstRow(doc).accepted = flag;
+    const parsed = sourcesFromResults(doc, 'v.json');
+    assert.equal(parsed.sources[0].answers.get(FIRST_KEY), null, `accepted ${JSON.stringify(flag)} must not be an answer`);
+    assert.equal(parsed.sources[0].answers.get('WINDOW_FULL/PICKUP_NONE/1'), 'ESCALATE');
+    assert.equal(parsed.malformedFlags, 1, JSON.stringify(flag));
+  }
+  // The literal false is a legitimate refusal, not a malformed flag.
+  const refused = promptVariants({ current: constant('WAIT') });
+  firstRow(refused).accepted = false;
+  const parsed = sourcesFromResults(refused, 'v.json');
+  assert.equal(parsed.sources[0].answers.get(FIRST_KEY), null);
+  assert.equal(parsed.malformedFlags, 0);
+  assert.equal(sourcesFromResults(promptVariants({ current: constant('WAIT') }), 'v.json').malformedFlags, 0);
+});
+
+test('B3: a row of a format that carries no flag keeps being answered; local4b never depends on the flag', () => {
+  const plain = { model: 'm', rows: REACHABLE.map(input => gridRow(input, { model: 'WAIT/WINDOW_EARLY' })) };
+  const parsed = sourcesFromResults(plain, 'plain.json');
+  assert.equal(parsed.sources[0].answers.get(FIRST_KEY), 'WAIT');
+  assert.equal(parsed.malformedFlags, 0);
+  const cloud = compareCloud(constant('WAIT'), constant('ESCALATE'));
+  firstRow(cloud).accepted = 'false';
+  const [local, hosted] = sourcesFromResults(cloud, 'cloud.json').sources;
+  assert.equal(local.answers.get(FIRST_KEY), 'WAIT');
+  assert.equal(hosted.answers.get(FIRST_KEY), null);
+});
+
+test('B3: an outlets entry needs accepted === true; other values and a missing flag are no answer and are counted', () => {
+  for (const flag of [0, 1, 'false', 'true', null, undefined]) {
+    const doc = benchFile(constant('REMIND'));
+    const entry = firstRow(doc).outlets.cloud;
+    if (flag === undefined) delete entry.accepted; else entry.accepted = flag;
+    const parsed = sourcesFromResults(doc, 'bench.json');
+    assert.equal(parsed.sources[0].answers.get(FIRST_KEY), null, `accepted ${JSON.stringify(flag)}`);
+    assert.equal(parsed.malformedFlags, 1);
+  }
+  for (const entry of [5, 'WAIT/X', null]) {
+    const doc = benchFile(constant('REMIND'));
+    firstRow(doc).outlets.cloud = entry;
+    assert.equal(sourcesFromResults(doc, 'bench.json').sources[0].answers.get(FIRST_KEY), null);
+  }
+});
+
+test('B3: the report lists how many flags were not booleans', async () => {
+  const dir = await tempDir();
+  const labels = await writeLabels(dir);
+  const doc = compareLocal(constant('WAIT'));
+  firstRow(doc).accepted = 0;
+  firstRow(doc).model = 'ESCALATE/X';
+  const results = path.join(dir, 'odd.json');
+  await fs.writeFile(results, JSON.stringify(doc));
+  const io = sinks();
+  assert.equal(await main(['--labels', labels, '--results', results], io), 0);
+  const report = io.lines.out.join('');
+  assert.match(report, /odd\.json: 1 row\(s\) carry an "accepted" flag that is not a boolean/);
+  assert.match(report, /no answer/);
+});
+
+test('B5: result answers must be ASCII letters; lookalikes and no-break spaces are refused, not folded', () => {
+  const doc = answer => ({ model: 'm', rows: [{ timeCode: 'WINDOW_FULL', pickupCode: 'PICKUP_NONE', nudgeCount: 0, model: answer }] });
+  for (const answer of ['WA\u0131T/X', 'rem\u0131nd/X', '\u017fcalate/X', 'E\u017fCALATE/X', 'W\u0410IT/X', 'WAIT\u200b/X', 'WAIT\u00a0/X', 'WA IT/X', '/X', '']) {
+    assert.throws(() => sourcesFromResults(doc(answer), 'x.json'), /unrecognised action/, JSON.stringify(answer));
+  }
+  for (const answer of ['WAIT/X', 'wait/x', ' Remind /X', 'ESCALATE']) {
+    assert.doesNotThrow(() => sourcesFromResults(doc(answer), 'x.json'), JSON.stringify(answer));
+  }
+});
+
+test('B5: result rows need a string timeCode and pickupCode and an integer nudgeCount', () => {
+  for (const fields of [{ nudgeCount: '0' }, { nudgeCount: [0] }, { nudgeCount: 0.5 }, { timeCode: ['WINDOW_FULL'] }, { pickupCode: ['PICKUP_NONE'] }]) {
+    const row = { timeCode: 'WINDOW_FULL', pickupCode: 'PICKUP_NONE', nudgeCount: 0, model: 'WAIT/X', ...fields };
+    assert.throws(() => sourcesFromResults({ model: 'm', rows: [row] }, 'x.json'), /lacks timeCode, pickupCode or nudgeCount/, JSON.stringify(fields));
+  }
+});
+
+test('B7: sources are keyed by (column, outlet, variant), so crafted names cannot merge two of them', () => {
+  const rows = [
+    ...REACHABLE.slice(0, 12).map(input => gridRow(input, { variant: '|', outlets: { x: { accepted: true, advice: 'WAIT/X' } } })),
+    ...REACHABLE.slice(12).map(input => gridRow(input, { outlets: { 'x|': { accepted: true, advice: 'ESCALATE/X' } } })),
+  ];
+  const { sources } = sourcesFromResults({ rows }, 'r.json');
+  assert.equal(sources.length, 2);
+  assert.deepEqual(sources.map(source => source.answers.size), [12, 12]);
+  // The same name used as a column-like outlet and as a variant also stays apart.
+  const more = sourcesFromResults({ rows: [
+    ...REACHABLE.slice(0, 12).map(input => gridRow(input, { variant: 'a|b', model: 'WAIT/X' })),
+    ...REACHABLE.slice(12).map(input => gridRow(input, { variant: 'a', model: 'WAIT/X', outlets: { b: { accepted: true, advice: 'WAIT/X' } } })),
+  ] }, 'r.json');
+  assert.equal(more.sources.length, 3);
+  // A real duplicate inside one source is still refused.
+  const twice = REACHABLE.slice(0, 1).flatMap(input => [gridRow(input, { outlets: { x: { accepted: true, advice: 'WAIT/X' } } }),
+    gridRow(input, { outlets: { x: { accepted: true, advice: 'WAIT/X' } } })]);
+  assert.throws(() => sourcesFromResults({ rows: twice }, 'r.json'), /appears twice/);
+});
+
+const ESC = '\u001b';
+
+test('B6: safeText strips controls and invisible characters and escapes Markdown only when asked', () => {
+  const hostile = `${ESC}[2J${ESC}[1;31mRED${ESC}]0;title\u0007 \u009b31m\u007f\u2028\u2029\u0085 \u202eevil\u200b`;
+  const clean = safeText(hostile);
+  assert.doesNotMatch(clean, /[\u0000-\u001f\u007f-\u009f\u2028\u2029\u202e\u200b]/);
+  assert.match(clean, /RED/);
+  assert.equal(safeText('a\r\nb\nc\rd\te'), 'a b c d e');
+  assert.equal(safeText(null), '');
+  assert.equal(safeText('plain text, 1.5 - ok'), 'plain text, 1.5 - ok');
+  assert.equal(safeText('a|b `c` *d* _e_ [f](g) <h> #i ~j &k \\l', 'markdown'),
+    'a\\|b \\`c\\` \\*d\\* \\_e\\_ \\[f\\](g) \\<h\\> \\#i \\~j \\&k \\\\l');
+  assert.equal(safeText('- item', 'markdown'), '\\- item');
+  assert.equal(safeText('1. item', 'markdown'), '\\1. item');
+  assert.equal(safeText('a`b`c', 'code'), "a'b'c");
+});
+
+test('B6: the report never carries raw controls, forged lines, tags or links from names or the policy', () => {
+  const labels = new Map(REACHABLE.map(input => [inputKey(input), { acceptable: ['WAIT'], preferred: 'WAIT' }]));
+  const doc = { model: `${ESC}[2J${ESC}[31mEVIL${ESC}[0m \`x\` [click](javascript:alert(1)) <img src=x onerror=1> **bold**`,
+    rows: REACHABLE.map(input => gridRow(input, { model: 'WAIT/X', variant: 'v\u2028# H\u0085' })) };
+  const { sources } = sourcesFromResults(doc, `res${ESC}]0;t\u0007.json`);
+  for (const policy of ['ok\r# FORGED HEADING\r| forged | table |', 'ok\u2028# FORGED\u2029| x |', `ok\n# FORGED\n${ESC}[2J`, 'ok\r\n# FORGED']) {
+    const report = renderReport({ policy, labelsFile: `a\`b\`**forged**${ESC}[2J`, labels, scored: sources.map(source => scoreSource(labels, source)) });
+    assert.doesNotMatch(report, /[\u001b\u0007\u2028\u2029\u0085]/, JSON.stringify(policy));
+    const lines = report.split(/\r\n|\n|\r/);
+    assert.ok(!lines.some(line => /^#+ *FORGED/.test(line) || /^\| forged/.test(line)), JSON.stringify(policy));
+    const quote = lines.slice(lines.indexOf('Policy statement, as written by the owner:') + 2).findIndex(line => !line.startsWith('>'));
+    assert.ok(quote >= 1, 'every policy line stays inside the block quote');
+    // Once the backslash-escaped characters are set aside, no tag, link or emphasis from a name is left live.
+    const live = report.replace(/\\./g, '');
+    assert.ok(!live.includes('<img'), 'tag');
+    assert.ok(!live.includes('](javascript:') && !live.includes('[click'), 'link');
+    assert.ok(!live.includes('**bold'), 'emphasis');
+  }
+});
+
+test('B6: an error message that names a hostile path is clean', async () => {
+  const dir = await tempDir();
+  const labels = await writeLabels(dir);
+  const results = path.join(dir, 'r.json');
+  await fs.writeFile(results, JSON.stringify(compareLocal(constant('WAIT'))));
+  const io = sinks();
+  const hostile = path.join(dir, `no${ESC}[2Jdir`, 'report.md');
+  assert.equal(await main(['--labels', labels, '--results', results, '--out', hostile], io), 2);
+  assert.doesNotMatch(io.lines.err.join(''), /\u001b/);
+  assert.match(io.lines.err.join(''), /ERROR cannot write/);
 });
