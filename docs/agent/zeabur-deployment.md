@@ -31,6 +31,7 @@ or newer.
 | `TOKEN_SIGNING_SECRET` | Zeabur secret | Signs timed decode credentials. |
 | `DEMO_FALLBACK_ENABLED` | `false` | The default is `true`, which returns a synthetic result carrying its own warning that it is not submission evidence. A demo should fail visibly instead of quietly serving that. The one exception is the spending-cap fallback, which the page labels. |
 | `NODE_ENV` | `production` | Makes `TOKEN_SIGNING_SECRET` mandatory, so credentials survive a restart. |
+| `TRUST_PROXY` | `true`, only after confirming the platform proxy overwrites `X-Forwarded-For` | Without it every client arrives from the proxy's address, so the failed sign-in throttle and the judge sign-in limit act on all judges together: one noisy client could lock the others out for a minute. With it set behind a proxy that does not overwrite the header, a client could spoof its address. Check which case applies before enabling. |
 | `REQUIRE_DEMO_GATE` | `true` | Puts the judge sign-in in front of every page and API route except `/api/health`. |
 | `DEMO_GATE_USER` / `DEMO_GATE_PASSWORD` | Zeabur secrets | The judge sign-in. Given to judges in the file uploaded privately with the submission. |
 | `HOSTED_REGISTRY_B64` | hash-only registry | A registry prepared locally with `setup-local.mjs --business --until`. It carries token hashes only; the plaintext role tokens stay with the owner and go to judges with the sign-in. Installed only when the volume has no registry. |

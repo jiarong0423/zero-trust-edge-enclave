@@ -1,7 +1,17 @@
 # Official Rule Alignment
 
-Review date: 2026-09-07; rechecked 2026-09-24; submission status 2026-09-27.
+Review date: 2026-09-07; rechecked 2026-09-24 and 2026-10-08; submission status 2026-09-27.
 Sources: [Official rules](https://nebiusglobalaihackathon.devpost.com/rules) and [overview](https://nebiusglobalaihackathon.devpost.com/), reviewed 2026-09-07. Alignment is a project assessment, not organizer approval.
+
+## 2026-10-08 Recheck
+
+The official page was read again on 2026-10-08. No required item changed since 2026-09-27.
+
+- Submission Period: 2026-08-26 9:00 PT to 2026-10-30 10:00 PT. After it ends, submissions cannot be changed.
+- Judging Period: 2026-12-01 9:00 PT to 2026-12-15 12:00 PT. Winners are expected on or around 2027-01-11.
+- Stage One is pass/fail: the submission fits the theme and reasonably applies the required APIs.
+- Stage Two scores four equally weighted criteria: Technological Implementation, Design, Potential Impact and Quality of the Idea.
+- Testing access must be free and unrestricted. The hosted instance and judge access described below remain the means.
 
 ## 2026-09-24 Recheck (Supersedes Everything Below Where They Differ)
 

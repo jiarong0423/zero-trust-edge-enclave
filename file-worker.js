@@ -6,6 +6,7 @@ import { packetCommitment } from './public/file-envelope.js';
 import { queueAudit } from './audit-outbox.js';
 import { fileRoutingMetadata, syntheticFileAdvice, validateFileAdvice } from './file-routing.js';
 import { followupMetadata, syntheticFollowupAdvice, validateFollowupAdvice } from './delivery-followup.js';
+import { applyFloor, followupFloorEnabled } from './followup-floor.js';
 import { receiptSummary } from './file-receipts.js';
 import { normalizeDownloadPolicy } from './download-policy.js';
 import { principalEnabled } from './registry-schema.js';
@@ -242,10 +243,15 @@ export async function advanceFollowups(original, config, now = Date.now(), advis
       if (destinations.some(destination => !currentConfig.principals.some(person => person.id === destination.recipientId && principalEnabled(currentConfig, person)))) {
         throw new Error('RECIPIENT_DISABLED');
       }
-      action = advice.action;
-      job.followupAdvice = advice;
-      job.followups = [...(job.followups || []), { action: advice.action, reasonCode: advice.reasonCode, at: new Date(now).toISOString() }];
-      if (advice.action === 'REMIND') {
+      // Opt-in fixed floor (FOLLOWUP_FLOOR=true, read now): the trail above keeps the adviser's own
+      // answer; the effective decision and the fact that fixed code made it are recorded here.
+      const floor = applyFloor(advice, metadata, followupFloorEnabled());
+      const effective = floor.advice;
+      action = effective.action;
+      job.followupAdvice = floor.floored ? { ...effective, floor: true } : effective;
+      job.followups = [...(job.followups || []), { action: effective.action, reasonCode: effective.reasonCode,
+        at: new Date(now).toISOString(), ...(floor.floored ? { floor: true } : {}) }];
+      if (effective.action === 'REMIND') {
         // The adviser said to remind; who is reminded is resolved here from receipts the adviser
         // never saw, exactly as the routing pass resolves recipients from the snapshot rather than
         // from the advice. Anyone who already collected is passed over in silence: reminding them
@@ -259,7 +265,7 @@ export async function advanceFollowups(original, config, now = Date.now(), advis
           targets: outstanding.map(entry => entry.groupCode).filter(Boolean).sort(),
           preparedAt: new Date(now).toISOString(), sendsEmail: false };
       }
-      if (advice.action === 'ESCALATE' && !(task.deliveryEscalations || []).some(entry => entry.version === job.version)) {
+      if (effective.action === 'ESCALATE' && !(task.deliveryEscalations || []).some(entry => entry.version === job.version)) {
         task.deliveryEscalations = [...(task.deliveryEscalations || []),
           { version: job.version, code: 'FOLLOWUP_ESCALATED', at: new Date(now).toISOString() }];
       }

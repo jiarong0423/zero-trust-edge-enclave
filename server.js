@@ -24,7 +24,11 @@ import { receiptSummary, recordFileReceipt, recordOverdueDeliveries, recipientRe
 import { initializeArrays, readArray, writeArray } from './local-array-store.js';
 import { findArchivedAudit, retainAuditWindow, auditArchiveIndex } from './audit-retention.js';
 import { checkDownloadAccess, sendDeadlineJson } from './download-policy.js';
+import { clientKey, countsAsGuess, throttleFromEnv } from './auth-throttle.js';
+import { createNetworkPolicy } from './network-policy.js';
 import { retentionInventory } from './retention-policy.js';
+import { exportNoticesSafe } from './notice-outbox.js';
+import { fileWorkPass } from './worker-pass.js';
 import { gateConfig, gateAllows, gateSignIn } from './demo-gate.js';
 import { createBudget } from './nebius-budget.js';
 import { loadAccess, authenticate, activeGrant, authorizeRecord, safeMetadata, validateAdvice, advanceDelivery, exact, fail } from './access-control.js';
@@ -46,6 +50,9 @@ const auditsPath = path.join(dataDir, 'audit.json');
 const tasksPath = path.join(dataDir, 'tasks.json');
 
 const host = process.env.HOST || '127.0.0.1';
+const trustProxy = process.env.TRUST_PROXY === 'true';
+const authThrottle = throttleFromEnv(process.env, (key, seconds) => console.error(`WARN auth throttle locked client ${key} for ${seconds}s`));
+const networkPolicy = createNetworkPolicy(process.env.ALLOWED_CLIENT_CIDRS);
 const port = Number(process.env.PORT || 3344);
 const nebiusBaseUrl = process.env.NEBIUS_BASE_URL || 'https://api.tokenfactory.nebius.com/v1';
 const localModelBaseUrl = process.env.LOCAL_MODEL_BASE_URL || 'http://127.0.0.1:1234/v1';
@@ -1056,7 +1063,16 @@ async function routeApi(req, res, pathname) {
   }
 
   const config = await loadAccess(accessPath);
-  const principal = authenticate(config, req.headers.authorization);
+  const throttleKey = clientKey(req, trustProxy);
+  authThrottle.check(throttleKey);
+  let principal;
+  try { principal = authenticate(config, req.headers.authorization); }
+  catch (error) {
+    // Only a real guess counts: a 43-character token that belongs to no registered identity. Every
+    // prefix of a token being typed reaches this point too; see auth-throttle.js.
+    if (error.status === 401 && countsAsGuess(config, req.headers.authorization)) authThrottle.fail(throttleKey);
+    throw error;
+  }
   Object.assign(requestContext.getStore(), { config, principal });
   // Answers only "is this token a registered identity, and of which kind". It says nothing about
   // any task or grant: being authenticated is not being authorized, and the pages show the two apart.
@@ -1645,26 +1661,23 @@ async function fileAdviser(metadata, kind = 'route') {
 let workerBusy = false;
 let workerTimer;
 let workerFailureReported = false;
+const workerState = { dirty: true };
+const workerIo = {
+  readTasks: () => readJson(tasksPath, []),
+  writeTasks: tasks => writeJson(tasksPath, tasks),
+  loadConfig: () => loadAccess(accessPath),
+  advanceFileJobs, advanceFollowups,
+  routeAdvise: async metadata => (await fileAdviser(metadata)).advice,
+  followupAdvise: async metadata => (await fileAdviser(metadata, 'followup')).advice,
+  recordOverdue: recordOverdueDeliveries,
+  recover: () => recoverAudit(tasksPath),
+  exportNotices: tasks => exportNoticesSafe(tasks, path.join(dataDir, 'outbox')),
+};
 function scheduleFileWork() {
   if (workerBusy) return;
   workerBusy = true;
   const run = apiQueue.then(async () => {
-    const tasks = await readJson(tasksPath, []);
-    if (!tasks.some(task => task.file)) return;
-    const config = await loadAccess(accessPath);
-    let changed = false;
-    for (let index = 0; index < tasks.length; index++) {
-      const routed = await advanceFileJobs(tasks[index], config, Date.now(),
-        async metadata => (await fileAdviser(metadata)).advice, () => loadAccess(accessPath));
-      // Follow-up runs after routing so a notice prepared on this tick is reconsidered on a later
-      // one, never in the same pass that created it.
-      const chased = await advanceFollowups(routed, config, Date.now(),
-        async metadata => (await fileAdviser(metadata, 'followup')).advice, () => loadAccess(accessPath));
-      const next = recordOverdueDeliveries(chased);
-      if (next !== tasks[index]) { tasks[index] = next; changed = true; }
-    }
-    if (changed) await writeJson(tasksPath, tasks);
-    await recoverAudit(tasksPath);
+    await fileWorkPass(workerIo, workerState);
     workerFailureReported = false;
   });
   apiQueue = run.catch(() => {
@@ -1684,13 +1697,18 @@ const tlsOptions = tlsCert && tlsKey
 const createServer = handler => tlsOptions ? https.createServer(tlsOptions, handler) : http.createServer(handler);
 const server = createServer(async (req, res) => {
   try {
-    const url = new URL(req.url || '/', `http://${req.headers.host || `${host}:${port}`}`);
+    // First, before anything is parsed: a client outside the allowlist gets the same 403 whatever it sends.
+    if (!networkPolicy.allowsRequest(req, trustProxy)) fail('Client network not allowed', 403);
+    let url;
+    try { url = new URL(req.url || '/', `http://${req.headers.host || `${host}:${port}`}`); }
+    catch { fail('Bad request', 400); }
     if (demoGate && url.pathname === '/api/judge-login') {
       if (req.method !== 'POST') fail('Method not allowed', 405);
       const input = await readBody(req, 4096);
       const secure = String(req.headers['x-forwarded-proto'] || '').split(',')[0].trim() === 'https' || Boolean(req.socket?.encrypted);
-      const result = gateSignIn(demoGate, input, secure);
-      if (result.status) fail(result.status === 401 ? 'Sign-in rejected' : 'Sign-in unavailable', result.status);
+      const result = gateSignIn(demoGate, input, secure, Date.now(), clientKey(req, trustProxy));
+      if (result.status) throw Object.assign(new Error(result.status === 401 ? 'Sign-in rejected' : 'Sign-in unavailable'),
+        { status: result.status, retryAfter: result.retryAfter });
       res.setHeader('set-cookie', result.cookie);
       sendJson(res, 200, { ok: true });
       return;
@@ -1713,6 +1731,7 @@ const server = createServer(async (req, res) => {
     }
     await serveStatic(req, res, url.pathname);
   } catch (error) {
+    if (error?.status === 429 && Number.isSafeInteger(error.retryAfter)) res.setHeader('retry-after', String(error.retryAfter));
     sendJson(res, error.status || 500, {
       ok: false,
       error: error instanceof Error ? error.message : 'unknown error'

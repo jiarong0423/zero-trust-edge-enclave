@@ -2,6 +2,15 @@
 
 MIT-licensed local hackathon prototype for encrypted document handoff with a restricted AI adviser. Extracted from the Shared Room MCP direction; not a production security certification.
 
+**At a glance**
+
+- What it is: encrypted document handoff in which a restricted AI adviser only proposes routing and follow-up; fixed code verifies and executes. A prototype, not a certified deployment.
+- Two modes, one contract: **edge** (Nemotron 3 Nano 4B on the same machine behind a loopback-only runtime: `LOCAL_ONLY=true`, `COORDINATOR_PROVIDER=local_openai_compatible`) and **hosted** (Nemotron 3 Super 120B on Nebius Token Factory). Switching is configuration. The edge mode targets organisations that keep files inside a private network; that is a design goal, not a deployment.
+- The adviser sees five pseudonymous fields per decision. It never sees the document, the recipient, the address or the key.
+- Edge mode has only been run on a Mac with LM Studio, not on a Jetson or any other NVIDIA edge device.
+- Proof: 307 tests in the full suite (`node --test scripts/*.test.mjs`), and a measured 36-input comparison of both models: [follow-up comparison](docs/agent/followup-adviser-comparison-2026-10-08.md).
+- Details: [dual-mode edge](docs/agent/dual-mode-edge.md), [private-network deployment](docs/agent/private-network-deployment.md).
+
 ## Try It
 
 - **Demo video (1:47):** https://youtu.be/klBuNhS5eYM
@@ -98,6 +107,16 @@ LM Studio applies the schema only after reasoning, so the local outlet now also 
 `reasoning_effort: "none"` and temperature 0: 0 reasoning tokens, 40 of 40 accepted at 2.3 to 2.7
 seconds per call.
 
+Measured 2026-10-08, same 36 follow-up inputs, same production path, one run each: the local 4B (LM
+Studio llama.cpp runtime 2.46.0, one Mac) had a median of 2.86 s per call and 34 of 36 answers
+accepted by the validator; the 120B on Token Factory had a median of 0.99 s and 36 of 36 accepted. The
+2.3 to 2.7 s figure above was measured on an earlier runtime and is kept as recorded. Both models were
+passive near the deadline (4B: WAIT in all 34 accepted answers; 120B: WAIT 31, REMIND 4, ESCALATE 1,
+where the deterministic fixture escalates in 12), so the project does not rely on the model to chase:
+fixed code decides who is contacted, the validator checks coherence, and the opt-in `FOLLOWUP_FLOOR=true`
+escalates a WAIT in the last part of the window. The fixture is not ground truth. See the
+[follow-up comparison](docs/agent/followup-adviser-comparison-2026-10-08.md).
+
 Neither is the boundary. `validateFileAdvice` decides what is valid, and a schema the server honours
 only means fewer answers reach it malformed.
 
@@ -132,8 +151,8 @@ collected: `taskAlias`, `snapshotVersion`, `timeCode`, `nudgeCount`, `pickupCode
 
 Neither adviser can read documents, addresses, real identities or keys, change recipients, extend
 expiry or authorize execution, and neither is told who the recipients are, how many there are, or
-how they are grouped. The follow-up projection is starved further still: `timeCode` is a position in
-the task's own window rather than a time, so an identical value means a different hour on a two-day
+how they are grouped. The follow-up projection is starved further still: `timeCode` is a countdown of
+how much of the task's own window is left, in words (`WINDOW_FULL`, `WINDOW_MOST`, `WINDOW_LITTLE`, `WINDOW_LAST`) rather than a time, so an identical value means a different hour on a two-day
 task and a two-month one, and `pickupCode` is `PICKUP_NONE`, `PICKUP_SOME` or `PICKUP_ALL`, never a
 count. Fixed code decides who a reminder reaches, resolving it from receipts the adviser never saw.
 
@@ -145,7 +164,7 @@ into `reasoning_content` while `content` is left empty. A client reading only `c
 empty success. None of these results prove superiority to deterministic routing, general injection
 resistance, or compatibility with an untested local runtime.
 
-Version 2026-09-25. Test evidence at this revision: 115 of 115, thirty consecutive runs.
+Version 2026-10-08. `npm test` runs one file, `scripts/local-workflow.test.mjs` (117 tests). The full suite is `node --test scripts/*.test.mjs` (307 tests at this revision).
 
 ## Architecture
 
@@ -157,7 +176,7 @@ from `file-routing.js` and `delivery-followup.js`, and the evidence chain from `
 **What each party can reach.** Plaintext exists only on the two human devices, and each signs in with
 its own token (the hosted demo adds a judge sign-in in front). Inside the boundary, next to the
 snapshot, mapping and key vault, the backend keeps an evidence trail of every adviser call and a
-hash-chained audit log. The adviser sits outside and is reached by two dashed edges and nothing else;
+hash-chained audit log (unkeyed SHA-256 links: `node scripts/verify-audit-chain.mjs <DATA_DIR>` detects edits, deletions and reordering, but not tail truncation or a full rewrite by someone who can recompute every hash). The adviser sits outside and is reached by two dashed edges and nothing else;
 the hosted Token Factory outlet is behind a spending cap.
 
 ![Trust boundary](docs/assets/architecture-trust-boundary.svg)
@@ -192,10 +211,15 @@ Backend storage includes ciphertext AND wrapped keys. The key service shares the
 ```bash
 npm run check
 npm test
+node --test scripts/*.test.mjs
 node scripts/generate-business-fixtures.mjs
 ```
 
+`npm run check` is a syntax check (`node --check`) of three entry files: `server.js`, `access-control.js` and `scripts/smoke-test.mjs`. It does not run any test. `npm test` runs only `scripts/local-workflow.test.mjs`; the full suite is `node --test scripts/*.test.mjs`.
+
 Tests use isolated synthetic stores and no provider requests. The fixture generator creates synthetic CSV and native-document source data, never reads user documents, and refuses differing existing outputs. Optional native rendering/browser testing is documented in [local workflow](docs/agent/local-workflow.md).
+
+Optional hardening, described in [private-network deployment](docs/agent/private-network-deployment.md): `ALLOWED_CLIENT_CIDRS` (refuse clients outside listed networks), `TRUST_PROXY` (take the client address from `X-Forwarded-For` behind a proxy that overwrites it), `AUTH_MAX_FAILURES` / `AUTH_WINDOW_SECONDS` / `AUTH_LOCK_SECONDS` (failed sign-in throttle, which is on by default with 10 / 60 / 60) and `TLS_CERT_FILE` / `TLS_KEY_FILE`. `FOLLOWUP_FLOOR=true` (also off by default) makes fixed code escalate to a person when the follow-up adviser answers WAIT in the last part of the window with the pickup incomplete; the adviser's own answer stays in the evidence trail. Prepared dry-run notices are also appended to `<DATA_DIR>/outbox/notices.jsonl` for a gateway you operate, with group codes only and no sending. Beyond loopback, https is required: the document key is returned in a JSON response and Web Crypto needs a secure context.
 
 Email remains dry-run. No enterprise identity, malware inspection of ciphertext, legal signature or multi-host delivery guarantee is implemented. Legacy text/passphrase endpoints are compatibility paths, not this file workflow.
 

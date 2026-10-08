@@ -52,6 +52,10 @@ export function taskEvidence(task, version = task.jobs.at(-1)?.version) {
     mapping: { taskAlias: mapping.taskAlias,
       recipients: mapping.recipients.map(entry => ({ recipientId: entry.recipientId, groupCode: entry.groupCode })) },
     trail,
+    // What fixed code actually decided at each follow-up point. The adviser's own answers are in the
+    // trail above; where the opt-in floor replaced a WAIT, the decision is marked here and nowhere else.
+    followups: (job.followups || []).map(entry => ({ action: entry.action, reasonCode: entry.reasonCode,
+      at: entry.at, floor: entry.floor === true })),
     mappedBack: { channel, recipients: channel ? resolvePrivateRoute(mapping, content, channel)
       .map(route => ({ recipientId: route.recipientId, groupCode: route.groupCode })) : [] },
     keyReleases: (task.fileKeyReleases || []).filter(entry => entry.version === version)

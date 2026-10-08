@@ -12,7 +12,12 @@ import crypto from 'node:crypto';
 const cookieName = 'enclave_gate';
 const openPaths = new Set(['/judge-login.html', '/judge-login.js', '/styles.css', '/api/judge-login', '/api/health']);
 const failureWindowMs = 60_000;
+// One client is limited well below the global ceiling, so a single client guessing (or merely
+// hammering the form) cannot sign every judge out. The global ceiling still bounds a distributed
+// attempt against the shared password.
 const failureLimit = 20;
+const globalFailureLimit = 200;
+const maxClients = 5_000;
 
 export function gateConfig(env) {
   if (env.REQUIRE_DEMO_GATE !== 'true') return null;
@@ -43,12 +48,23 @@ export function gateAllows(gate, req, pathname) {
 }
 
 // Returns the Set-Cookie value on success, or an HTTP status on failure.
-export function gateSignIn(gate, input, secure, now = Date.now()) {
+export function gateSignIn(gate, input, secure, now = Date.now(), client = 'shared') {
   if (!gate.ready) return { status: 503 };
   gate.failures = gate.failures.filter(time => now - time < failureWindowMs);
-  if (gate.failures.length >= failureLimit) return { status: 429 };
+  gate.clients ??= new Map();
+  const mine = (gate.clients.get(client) ?? []).filter(time => now - time < failureWindowMs);
+  if (mine.length >= failureLimit || gate.failures.length >= globalFailureLimit) {
+    const oldest = mine.length >= failureLimit ? mine[0] : gate.failures[0];
+    return { status: 429, retryAfter: Math.max(1, Math.ceil((oldest + failureWindowMs - now) / 1000)) };
+  }
   const ok = input && typeof input.user === 'string' && typeof input.password === 'string' &&
     same(input.user, gate.user) & same(input.password, gate.password);
-  if (!ok) { gate.failures.push(now); return { status: 401 }; }
+  if (!ok) {
+    gate.failures.push(now);
+    gate.clients.delete(client);
+    gate.clients.set(client, [...mine, now]);
+    while (gate.clients.size > maxClients) gate.clients.delete(gate.clients.keys().next().value);
+    return { status: 401 };
+  }
   return { cookie: `${cookieName}=${sessionValue(gate)}; Path=/; HttpOnly; SameSite=Strict; Max-Age=43200${secure ? '; Secure' : ''}` };
 }

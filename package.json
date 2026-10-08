@@ -11,7 +11,9 @@
     "check": "node --check server.js && node --check access-control.js && node --check scripts/smoke-test.mjs",
     "setup:local": "node scripts/setup-local.mjs",
     "preflight:hosted": "node scripts/hosted-preflight.mjs",
-    "test": "node --test scripts/local-workflow.test.mjs"
+    "test": "node --test scripts/local-workflow.test.mjs",
+    "bench": "node scripts/bench-adviser.mjs",
+    "test:all": "node --test \"scripts/*.test.mjs\""
   },
   "engines": {
     "node": ">=20.11.0"

@@ -232,7 +232,10 @@ export async function requestFileAdvice(metadata, options = {}, request = fetch)
       ['ENVELOPE_PARSE', 'ADVICE_PARSE'].includes(diagnostics.stage) ? 'PARSE_ERROR' : 'TRANSPORT_ERROR';
     mark(diagnostics.stage);
     emit();
-    fail('FILE_PROVIDER_RESPONSE_REJECTED', 502);
+    // A request that never produced an answer (refused connection, timeout) is not an answer that was
+    // refused. The two read differently to whoever is debugging a runtime that is not up, and a
+    // refused connection reported as a rejected response sends them looking at the model.
+    fail(['TRANSPORT_ERROR', 'TIMEOUT'].includes(diagnostics.code) ? 'FILE_PROVIDER_UNREACHABLE' : 'FILE_PROVIDER_RESPONSE_REJECTED', 502);
   }
   mark('VALIDATION');
   try {

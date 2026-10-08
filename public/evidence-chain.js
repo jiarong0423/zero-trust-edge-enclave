@@ -126,7 +126,8 @@ function render(evidence) {
     back.append(element('p', 'pill deny', t('Not routed: no validated route, so nothing was sent.')));
   }
   back.append(json({ channel: evidence.mappedBack.channel, recipients: evidence.mappedBack.recipients,
-    keyReleases: evidence.keyReleases, receipts: evidence.receipts, status: evidence.status, reasonCode: evidence.reasonCode }));
+    keyReleases: evidence.keyReleases, receipts: evidence.receipts, followups: evidence.followups,
+    status: evidence.status, reasonCode: evidence.reasonCode }));
 
   chain.replaceChildren(approved, mapping, sent, answered, back);
   setText(status, 'Evidence loaded.');

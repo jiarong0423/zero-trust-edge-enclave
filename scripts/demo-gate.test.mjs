@@ -34,3 +34,19 @@ test('demo gate fails closed when required but not configured, and throttles gue
   assert.equal(gateSignIn(gate, { user: 'judge', password: 'pw' }, false, 1000).status, 429);
   assert.ok(gateSignIn(gate, { user: 'judge', password: 'pw' }, false, 70_000).cookie);
 });
+
+test('one client cannot lock every judge out, and a lock says how long to wait', () => {
+  const gate = gateConfig({ REQUIRE_DEMO_GATE: 'true', DEMO_GATE_USER: 'judge', DEMO_GATE_PASSWORD: 'pw' });
+  for (let i = 0; i < 20; i += 1) assert.equal(gateSignIn(gate, { user: 'x', password: 'y' }, false, 1000, 'attacker').status, 401);
+  const locked = gateSignIn(gate, { user: 'judge', password: 'pw' }, false, 1000, 'attacker');
+  assert.equal(locked.status, 429);
+  assert.ok(Number.isInteger(locked.retryAfter) && locked.retryAfter >= 1 && locked.retryAfter <= 60);
+  assert.ok(gateSignIn(gate, { user: 'judge', password: 'pw' }, false, 1000, 'judge-laptop').cookie);
+  assert.ok(gateSignIn(gate, { user: 'judge', password: 'pw' }, false, 70_000, 'attacker').cookie);
+});
+
+test('a distributed attempt against the shared password still hits a global ceiling', () => {
+  const gate = gateConfig({ REQUIRE_DEMO_GATE: 'true', DEMO_GATE_USER: 'judge', DEMO_GATE_PASSWORD: 'pw' });
+  for (let i = 0; i < 200; i += 1) gateSignIn(gate, { user: 'x', password: 'y' }, false, 1000, `client-${i}`);
+  assert.equal(gateSignIn(gate, { user: 'judge', password: 'pw' }, false, 1000, 'fresh-client').status, 429);
+});

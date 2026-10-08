@@ -267,7 +267,9 @@ try {
     checkPrivateMapping(snapshot.privateMapping, id, version, snapshot.content);
     for (const channel of snapshot.content.channels) {
       assert.deepEqual(resolvePrivateRoute(snapshot.privateMapping, snapshot.content, channel),
-        scenario.selectedRecipients.map(recipientId => ({ recipientId, endpointId: `dry-run:${recipientId}:${channel}` })));
+        scenario.selectedRecipients.map(recipientId => ({ recipientId,
+          groupCode: snapshot.privateMapping.recipients.find(entry => entry.recipientId === recipientId).groupCode,
+          endpointId: `dry-run:${recipientId}:${channel}` })));
     }
     const projection = JSON.stringify(mappingProjection(snapshot.privateMapping));
     for (const recipientId of scenario.selectableRecipients) assert.ok(!projection.includes(recipientId));

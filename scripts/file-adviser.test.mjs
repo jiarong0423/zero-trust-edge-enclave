@@ -57,6 +57,10 @@ test('file adviser forbids private fields and local-mode cloud calls, validates 
       async () => Response.json({ choices: [{ message: { content } }] })));
   }
   await assert.rejects(requestFileAdvice(metadata, options, async () => new Response('x'.repeat(16385))));
+  // A request that fails before any answer is reported as unreachable, and never leaks the provider's own error.
   await assert.rejects(requestFileAdvice(metadata, options, async () => { throw new Error('PRIVATE_PROVIDER_ERROR'); }),
-    error => error.message === 'FILE_PROVIDER_RESPONSE_REJECTED');
+    error => error.message === 'FILE_PROVIDER_UNREACHABLE' && error.status === 502);
+  // An answer that arrived but could not be used stays a rejected response.
+  await assert.rejects(requestFileAdvice(metadata, options, async () => Response.json({ choices: [{ message: { content: 'not json' } }] })),
+    error => error.message === 'FILE_PROVIDER_RESPONSE_REJECTED' && error.status === 502);
 });
