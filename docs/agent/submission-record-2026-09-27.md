@@ -49,6 +49,21 @@ WAIT NO_PICKUP_YET).
 - One Devpost answer still quoted the retired local latency of 3.7 to 4.1 s; it now reads 2.3 to
   2.7 s with reasoning turned off.
 
+## Update 2026-10-09: code and hosted instance
+
+The submission itself is unchanged. What changed afterwards, in the repository and on the hosted instance:
+
+| Item | State |
+| --- | --- |
+| GitHub `main` | `4098255` (was `7001730`, 27 commits, fast-forward) |
+| Hosted instance | redeployed from the `4098255` tree on 2026-10-09; owner ran `scripts/hosted-smoke.mjs` against it: 12 of 12 steps passed with the Token Factory provider, a non-recipient was refused (403) and the task was revoked; the spend ledger was kept across the redeploy |
+| Tests | 595 in the full suite (`npm run test:all`), 117 in `npm test`; a candidate built from `public-export-manifest.md` (211 files) passes the same 595 |
+| Fixed since the submission | the first reminder notice could be lost when the follow-up pass replaced it; IPv6 clients were refused when a network allowlist was set; half-typed tokens counted toward the sign-in lock; a request body that never completed could stall the serial API queue |
+| Added, all off by default | OIDC sign-in (run once against Keycloak 26.0 on loopback http, with a sign-in button), signed webhook notices, a failure-driven local-then-hosted cascade, tooling for human-labelled answers, department and id shown next to every candidate recipient |
+| Not changed on the hosted instance | environment variables (`LEGACY_HOSTED_ADVICE` is still on); SSO, webhook and cascade are not configured there |
+
+The Devpost description and the video are still the versions of 2026-09-27 until the owner replaces them; the replacement drafts are kept with the project notes, not in this repository. Known limits are in `README.md`, `docs/agent/sso.md`, `docs/agent/webhook-notices.md` and `docs/agent/cascade-outlet.md`.
+
 ## After judging
 
 - Rotate the judge role tokens from the administrator page.
