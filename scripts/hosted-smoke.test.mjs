@@ -1,6 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { promises as fs } from 'node:fs';
+import http from 'node:http';
 import net from 'node:net';
 import os from 'node:os';
 import path from 'node:path';
@@ -165,4 +166,27 @@ test('a wrong sign-in value is never echoed and a stopped server fails cleanly',
   assert.match(result.stdout, /^FAIL judge-signin: /m);
   assert.match(result.stdout, /task_revoked=n\/a/);
   assert.ok(!result.all.includes('unit-test-password-value'));
+});
+
+test('the health step treats the configured value "nebius" and the outlet label "nebius_token_factory" as the same provider', async t => {
+  const { providerLabel, loadConfig, runSmoke } = await import('./hosted-smoke.mjs');
+  assert.equal(providerLabel('nebius'), 'nebius_token_factory');
+  for (const same of ['synthetic_fixture', 'local_openai_compatible', 'anything-else']) assert.equal(providerLabel(same), same);
+  // A stand-in /api/health shaped like the real hosted answer; every later step fails against it, which is fine.
+  const server = http.createServer((req, res) => {
+    res.writeHead(req.url === '/api/health' ? 200 : 404, { 'content-type': 'application/json' });
+    res.end(JSON.stringify(req.url === '/api/health' ? { ok: true, adviserProvider: 'nebius', nebiusConfigured: true, demoFallbackEnabled: false,
+      nebiusBudget: { limited: true, limitUsd: 20, spentUsd: 0.006, exhausted: false } } : { ok: false }));
+  });
+  server.listen(0, '127.0.0.1');
+  await once(server, 'listening');
+  const dir = await fs.mkdtemp(path.join(os.tmpdir(), 'smoke-health-'));
+  t.after(async () => { await new Promise(resolve => server.close(resolve)); await fs.rm(dir, { recursive: true, force: true }); });
+  await fs.chmod(dir, 0o700);
+  for (const name of ['manager-sender', 'sales-a', 'sales-b']) await fs.writeFile(path.join(dir, `${name}.token`), 'x'.repeat(43), { mode: 0o600 });
+  const config = await loadConfig({ SMOKE_BASE_URL: `http://127.0.0.1:${server.address().port}`, SMOKE_TOKEN_DIR: dir, SMOKE_EXPECT_PROVIDER: 'nebius_token_factory' });
+  const lines = [];
+  await runSmoke(config, { out: line => lines.push(String(line)) });
+  assert.ok(lines.some(line => /^PASS health/.test(line)), lines.join('\n'));
+  assert.ok(!lines.some(line => /^FAIL health/.test(line)));
 });

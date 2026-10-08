@@ -27,6 +27,13 @@ const RECIPIENT = 'sales-a';
 const OTHER_RECIPIENT = 'sales-b';
 const PREFERRED_GRANT = 'procurement';
 const PROVIDERS = ['nebius_token_factory', 'synthetic_fixture', 'local_openai_compatible', 'any'];
+
+// /api/health reports the configured COORDINATOR_PROVIDER value ("nebius"), while the evidence trail
+// names the outlet that answered ("nebius_token_factory"). They are the same provider; compare in one
+// vocabulary. (A first version compared them raw and reported a healthy hosted instance as a failure.)
+export function providerLabel(configured) {
+  return configured === 'nebius' ? 'nebius_token_factory' : configured;
+}
 const REQUEST_TIMEOUT_MS = 20_000;
 const POLL_LIMIT_MS = 60_000;
 const POLL_INTERVAL_MS = 1_000;
@@ -159,7 +166,7 @@ export async function runSmoke(config, { out = line => writeOut(process.stdout, 
     if (expect === 'nebius_token_factory' && health.demoFallbackEnabled === true) {
       throw new Error(`demoFallbackEnabled is true while a Nebius answer is expected (${detail})`);
     }
-    if (expect !== 'any' && health.adviserProvider !== expect) throw new Error(`adviserProvider is not ${expect} (${detail})`);
+    if (expect !== 'any' && providerLabel(health.adviserProvider) !== expect) throw new Error(`adviserProvider is not ${expect} (${detail})`);
     if (expect === 'nebius_token_factory' && budget.limited && budget.exhausted === true) throw new Error(`Nebius budget is exhausted (${detail})`);
     return detail;
   });
