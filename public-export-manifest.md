@@ -1,6 +1,6 @@
 # Public Export Manifest
 
-Review date: 2026-10-08 (176 entries; was 2026-09-27, 122 entries). Status: public on GitHub since 2026-09-18; this list is the allowlist every push is checked against.
+Review date: 2026-10-08 (178 entries; was 2026-09-27, 122 entries). Status: public on GitHub since 2026-09-18; this list is the allowlist every push is checked against.
 
 The following exact paths are the release allowlist, not directory wildcards. Runtime data, credentials, environment secrets, logs, output, dependencies, Git metadata, screenshots and raw provider evidence are excluded even when untracked. New source files require explicit review and a manifest update.
 
@@ -185,6 +185,8 @@ scripts/api-queue.test.mjs
 scripts/audit.test.mjs
 scripts/static-files.test.mjs
 worker-schedule.js
+scripts/hosted-smoke.mjs
+scripts/hosted-smoke.test.mjs
 ```
 
 ## Release Conditions

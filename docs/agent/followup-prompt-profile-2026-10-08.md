@@ -1,6 +1,6 @@
 # Follow-up prompt profile `FOLLOWUP_PROMPT=directive` (2026-10-08)
 
-Status: opt-in, off by default, measured on the local 4B only. Not recommended for the hosted model until it has been tested there (see Limitations).
+Status: opt-in, off by default. Measured on the local 4B (tuned there) and, afterwards, once on the hosted 120B (see "Hosted 120B, same day"). Both are single runs; neither is a held-out evaluation.
 
 ## Why
 
@@ -62,13 +62,26 @@ Honest note on form: V4 states the reason for each branch in words (cheap tool b
 - The opt-in floor `FOLLOWUP_FLOOR` (`followup-floor.js`) still applies after the adviser answers.
 - The system text contains no identifier-like content (test: no UUID, address, URL, long hex or long number, in either profile).
 
+## Hosted 120B, same day
+
+Run: `FOLLOWUP_PROMPT=directive node scripts/bench-adviser.mjs --cloud --yes-spend` on 2026-10-08, model `nvidia/nemotron-3-super-120b-a12b`, hosted defaults (temperature 1, `top_p` 0.95, JSON-object response format), 36 inputs, one call each. Only the 24 inputs the product can send (pickup not complete) are counted; the 12 `PICKUP_ALL` inputs are never sent to a model.
+
+| Reachable inputs (24) | Accepted | WAIT | REMIND | ESCALATE | Same action as the fixture |
+|---|---|---|---|---|---|
+| Hosted 120B, current prompt (earlier run) | 24 | 19 | 4 | 1 | 6 of 24 |
+| Hosted 120B, directive prompt | 24 | 4 | 11 | 9 | 20 of 24 |
+
+Median latency 1.0 s for the accepted answers (network path from the owner's machine included). The four inputs where it differs from the fixture: `WINDOW_FULL`/`PICKUP_SOME` with nudge 1 (REMIND where the fixture waits), `WINDOW_FULL`/`PICKUP_SOME` with nudge 2 (WAIT where the fixture escalates), `WINDOW_LAST`/`PICKUP_NONE` with nudge 0 and `WINDOW_LAST`/`PICKUP_SOME` with nudge 1 (REMIND where the fixture escalates). Whether those are wrong is a policy question the fixture cannot answer. One of the 36 answers (a `PICKUP_ALL` input, never sent in the product) was refused by the validator as reason-incoherent.
+
+Read this as: with the directive text the hosted model acts, as the 4B did; it is not evidence that either model decides well, and it is one run at temperature 1.
+
 ## Limitations
 
-- 4B only; the hosted 120B was NOT tested with the new prompt and must be tested before the profile is recommended for it.
+- The variants were tuned on the 4B. The hosted 120B was run once with the chosen variant (below); that run was not used to select anything, but it is still one run at the hosted default temperature (1), so it is not repeatable to the response.
 - One run per variant per input at temperature 0; no run-to-run or model-version variance measured. Four variants only, selected on the same 24 inputs they were measured on (selection bias; no held-out set).
 - The fixture is not ground truth; agreement with it is not accuracy. No claim is made that the profile is better in general, only that on these 24 inputs it was active and the validator accepted all 24 answers.
 - 12 of the earlier 36 inputs were unreachable (`PICKUP_ALL`), so earlier counts are not directly comparable.
-- No cloud or hosted-model calls were made; the local server was stopped afterwards.
+- The 4B experiments made no cloud calls; the local server was stopped afterwards. The 120B run (below) made 36 calls to Nebius Token Factory with the owner's key (about $0.01), through `scripts/bench-adviser.mjs --cloud --yes-spend` with `FOLLOWUP_PROMPT=directive`; the key was never printed or written to a result.
 
 ## Verification
 

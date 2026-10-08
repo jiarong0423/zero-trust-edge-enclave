@@ -124,3 +124,15 @@ sign-in, never the password, and changing either value signs every session out. 
 role still presents its own token, checked against the hash-only registry. The registry's grants
 run to 2026-12-16, past the end of judging. Both the sign-in and the role tokens are given to judges
 in the file uploaded privately with the submission, and the spending cap bounds what a shared credential can cost.
+
+## Owner Smoke Test (credentials stay in your terminal)
+
+`scripts/hosted-smoke.mjs` runs one synthetic delivery end to end against the hosted instance and prints one `PASS`/`FAIL` line per step: health (adviser provider, whether the demo fallback is off, budget), judge sign-in, identities, staging, approval, worker routing, which provider answered (from the evidence trail), recipient decrypt, refusal of a non-recipient, and revoke. Configuration comes only from the process environment; nothing is read from a `.env` file, and no token, password, cookie, key or ciphertext is printed.
+
+```bash
+SMOKE_BASE_URL=https://<host> SMOKE_TOKEN_DIR=<private-dir> \
+SMOKE_GATE_USER=<user> SMOKE_GATE_PASSWORD=<password> \
+SMOKE_EXPECT_PROVIDER=nebius_token_factory node scripts/hosted-smoke.mjs
+```
+
+`<private-dir>` holds `manager-sender.token`, `sales-a.token` and `sales-b.token` (mode 0600, directory not group or other readable). It makes one real Token Factory call per routing decision, so the cost is a fraction of a cent. The task it creates expires after 15 minutes and is revoked at the end; the sealed packet stays on the volume (access is closed, not deleted).

@@ -148,3 +148,7 @@ node scripts/bench-adviser.mjs --cloud --yes-spend   # hosted model; spends mone
 
 Add `--out <file>` to write JSON (it refuses to overwrite). The script header lists its environment
 variables.
+
+## Addendum: the 24 reachable inputs, and the directive prompt on the hosted model
+
+Twelve of the 36 inputs above have everything already collected; fixed code never sends those to a model. On the 24 inputs the product can send, with the current prompt: fixture WAIT 4 / REMIND 8 / ESCALATE 12; local 4B 23 WAIT (23 accepted of 24); hosted 120B WAIT 19 / REMIND 4 / ESCALATE 1 (24 accepted, same action as the fixture on 6). With the opt-in `FOLLOWUP_PROMPT=directive` profile the hosted 120B gave WAIT 4 / REMIND 11 / ESCALATE 9, 24 accepted, same action as the fixture on 20 (one run, temperature 1), and the local 4B gave WAIT 8 / REMIND 6 / ESCALATE 10, 24 accepted, same on 20 (one run, temperature 0). Details and caveats: `followup-prompt-profile-2026-10-08.md`. The fixture is a blunt stand-in, not ground truth.
