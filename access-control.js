@@ -55,6 +55,27 @@ export function authenticate(config, header) {
   return principal;
 }
 
+const SESSION_BEARER = /^Bearer [A-Za-z0-9_-]{43}$/;
+
+/**
+ * authenticate() plus an optional single-sign-on session lookup. `resolveSession` maps a token to
+ * the id of a registry principal, or to null. With no resolver, or a token it does not know, this
+ * is exactly authenticate(). A session never yields a principal of its own: the result is the same
+ * object authenticate() returns for that person, and it is re-checked against the registry on every
+ * call, so a person disabled after signing in is refused with the same 401.
+ */
+export function authenticateWithSession(config, header, resolveSession) {
+  if (typeof resolveSession === 'function' && typeof header === 'string' && SESSION_BEARER.test(header)) {
+    const principalId = resolveSession(header.slice(7));
+    if (typeof principalId === 'string') {
+      const principal = config.principals.find(p => p.id === principalId);
+      if (!principalEnabled(config, principal)) fail('Authentication failed', 401);
+      return principal;
+    }
+  }
+  return authenticate(config, header);
+}
+
 export function activeGrant(config, id, version) {
   const grant = config.grants.find(g => g.id === id);
   if (!grant || grant.revoked || Date.now() >= Date.parse(grant.expiresAt) ||
