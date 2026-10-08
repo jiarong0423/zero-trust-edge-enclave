@@ -1,6 +1,6 @@
 # server.js split plan
 
-Status 2026-10-08, branch `improve/2026-10-08`. Tranche 1 and steps 2 to 4 are executed (zero behaviour change, proven; see section 2b). Steps 5 to 7 are planned, not started. Line numbers in sections 1, 5 and 6 describe the tree after tranche 1 and are stale for the moved parts; section 2b has the current numbers.
+Status 2026-10-08, branch `improve/2026-10-08`. Tranche 1 and steps 2 to 7 are executed (zero behaviour change, proven; see sections 2b and 2c). Line numbers in sections 1, 5 and 6 describe the tree after tranche 1 and are stale for the moved parts; sections 2b, 2c and 8 have the current numbers.
 
 Headline: `server.js` went from 1,768 to 1,297 lines (-471) by moving nine LEAF units into modules. The remaining weight is one 545-line `routeApi` plus the legacy sealed-package handlers, both of which depend on the per-request `requestContext` and the serial `apiQueue`. They need an explicit context object before they can move, so they are sequenced after the audit module.
 
@@ -69,6 +69,37 @@ Claims in the plan re-verified against the code before moving: 19 raw `requestCo
 
 Proof (each step, then final): `npm run check` ok; `node --test "scripts/*.test.mjs"` 330 of 330 (it was 320 at the start; the rest are the 7 tests added here and 3 from other work); browser E2E 4 PASS. Before/after probe (`PORT=0`, temp `DATA_DIR`, pristine copy of the pre-change tree vs this tree, four server instances: default, demo gate, network allowlist, second-instance lock): 137 records, each with status, all headers except Date, and a body SHA-256 (ids, timestamps, hashes and ciphertext normalised) were byte-identical, covering `/api/health`, static pages, 404, path traversal, 302 (gate), 403 (allowlist), 401 (anonymous, wrong, short token), the file-task flow with ticket, packet, key release and receipts, the legacy package flow, the coordinator and the MCP routes. The audit trail after the scripted flow (80 events, hash chain intact) had the identical sequence of `type|result|reasons|previousState>nextState`. A single full-suite failure was seen once mid-run while other agents were editing `worker-pass.js` and tests in the same tree; it did not reproduce in 8 consecutive runs and is not attributed to these modules.
 
+## 2c. Steps 5 to 7 result (done)
+
+`server.js`: 1,146 lines at the start of this run to 231. Every moved body is the original text with two mechanical edits: two spaces of extra indent, and `return;` becoming `return true;` in a route handler (a handler returns `true` when it answered and `false` when the path is not its own, so `routeApi` carries on). A script compared each moved block against the pre-move `server.js`; the only lines in the new files that are not in the old one are imports, factory headers, comments and the `return false;` tail.
+
+| Module | Lines | Contents | How it receives state |
+|---|---|---|---|
+| `routes/file-tasks.js` | 188 | `POST /api/file-tasks`, `GET\|POST /api/tasks`, the task sub-routes, evidence, and the sender-facing reads `GET /api/authorizations`, `POST /api/directory`, `GET /api/audit`; owns the `evidenceViews` map | `createFileTaskRoutes({ dataDir, tasksPath, packagesPath, auditsPath, readJson, writeJson, appendAudit, recoverAudit })` returning `handleFileTasks(req, res, pathname, { config, principal })` |
+| `routes/admin.js` | 51 | `whoami`, `GET /api/admin/retention`, `GET /api/admin/audit-retention`, `GET\|POST /api/admin/directory` | `createAdminRoutes({ accessPath, tasksPath, auditsPath, readJson })` returning `handleAdmin` |
+| `routes/coordinator.js` | 174 | `POST /api/coordinator/call` with `coordinatorCall`, `POST /api/policy/recommend` with `callNebiusPolicy` | `createCoordinatorRoutes({ tasksPath, packagesPath, readJson, fileAdviser, nebiusBudget, nebiusBaseUrl, nebiusModel, localOnly, legacyHostedAdviceOff, demoFallbackEnabled, validatePolicy, approvedPackage, performLocalDelivery })` returning `handleCoordinator` |
+| `legacy-packages.js` | 219 | `createTimedCredential`, `evaluateDecodeAttempt`, `findPackage`, `approvedPackage`, `createSealedPackageRecord`, `performLocalDelivery` | `createLegacyPackages({ packagesPath, tasksPath, readJson, writeJson, appendAudit, recoverAudit, validatePolicy, createSignedCredential, buildDryRunEmailDraft })` |
+| `routes/mcp.js` | 218 | `executeMcpTool`, `GET /api/mcp/tools`, `POST /api/mcp/call`, `POST /api/delivery/email/dry-run` | `createMcpRoutes({ packagesPath, auditsPath, readJson, writeJson, appendAudit, auditRejection, buildDryRunEmailDraft, findPackage, approvedPackage, createSealedPackageRecord, performLocalDelivery, createTimedCredential })` returning `handleMcp` |
+| `routes/packages.js` | 190 | `POST /api/packages`, `GET /api/packages/{id}`, `POST /api/packages/{id}/{credential,verify,revoke}` | `createPackageRoutes({ packagesPath, readJson, writeJson, appendAudit, auditRejection, readSignedCredential, createSealedPackageRecord, approvedPackage, createTimedCredential, evaluateDecodeAttempt })` returning `handlePackages` |
+
+What stays in `server.js` (231 lines): imports, configuration constants, `ensureStore`/`readJson`/`writeJson`, the factory wiring, `routeApi` (health, authentication and throttle, the kind gates, the fixed dispatch order), the serial queue and worker wiring, TLS, the request handler, lock file, signals and `listen`. Health stays because it is answered before authentication and reads six configuration values; moving it would only add a factory.
+
+Deviations from the plan above, all deliberate:
+- Step 7 is three modules, not one `legacy-packages.js`: the record operations (`legacy-packages.js`), the MCP shell (`routes/mcp.js`) and the package endpoints (`routes/packages.js`). One file would have been about 630 lines against the 500-line target.
+- `routes/file-tasks.js` also took `GET /api/authorizations`, `POST /api/directory` and `GET /api/audit`, which the plan did not name. They are sender-facing reads that sit after the kind gate, so they could not go in `routes/admin.js` (which runs before the gate and before `recoverAudit`), and leaving them behind would have kept `routeApi` open for step 7.
+- `callNebiusPolicy` moved with `/api/policy/recommend` into `routes/coordinator.js` rather than into a module of its own: both advice paths are governed by `LEGACY_HOSTED_ADVICE` and the Token Factory budget, which the comment in `server.js` already names as a pair.
+- The dispatch order inside `routeApi` changed in one respect only: `/api/policy/recommend` is now answered by the coordinator handler, ahead of the MCP routes instead of after them. The routes match on disjoint (method, path) pairs, so no request can reach a different handler.
+- Two small modules each define `const sanitizeAuditEvent = event => auditProjection(event)` instead of sharing one: `.map(auditProjection)` would pass the array index as a second argument, and a shared export would make `routes/file-tasks.js` depend on `routes/mcp.js`.
+- `fileAdviser` and the coordinator factory are built next to the other route factories, above `routeApi`; the order of module evaluation is otherwise unchanged. The ordering that matters (`loadLocalEnv` before the constants, `resolveTokenSigningSecret` at startup, `ensureStore` before the lock file) is untouched.
+
+Proof (before the first move, then after each of steps 5, 6 and 7, all on Node v25.8.1):
+- `npm run check`: syntax ok, 121 files before; 122, 124 and 127 after steps 5, 6, 7.
+- `npm test`: 117 of 117 before and after every step.
+- `npm run test:all`: 336 of 336 before the new test file, 346 of 346 with it, before and after every step.
+- `scripts/server-routes.test.mjs` (10 tests, written and committed before any move): starts the real `server.js` in the test process on an ephemeral loopback port with the synthetic adviser and pins status codes and response shapes for health, whoami, the 401 and 404 paths, the kind gates, admin, file tasks (intake, lifecycle, worker, evidence, the one-per-minute `EVIDENCE_VIEWED` record), file access, authorizations, directory, MCP (all tools, including `create_sealed_package`), policy recommendation, coordinator, the legacy package flow (create, read, credential, verify, replay, revoke), the audit view and the hash chain. Passed on the tree before step 5 and after each step. One MCP block was added to it before step 7 and passed on the step 6 tree first.
+- Browser E2E (`scripts/browser-file-workflow.mjs`, 4 PASS lines) before and after every step, run with `PLAYWRIGHT_MODULE` pointing at the Python package's bundled `index.mjs` and the synthetic fixtures copied into the ignored `output/` directory of the worktree.
+- Not exercised by any local test: the hosted-model branches of `callNebiusPolicy` and `coordinatorCall` (they need the network and a key). Their text is unchanged.
+
 ## 3. Proposed module layout and dependency direction
 
 ```
@@ -115,9 +146,9 @@ Request state stays in `requestContext.getStore()`: `config` (access registry), 
 | 2 | DONE. `request-context.js` plus `audit.js` as `createAudit({ auditsPath, readJson, writeJson })` returning `appendAudit`, `recoverAudit`, `auditRejection`; the `readJson`/`writeJson` wrappers stay in `server.js` and are passed in | SHARED-STATE | `audit-outbox`, `audit-retention`, `verify-audit-chain`, `local-workflow` (chain verification after real requests) |
 | 3 | DONE. `api-queue.js`, `worker-schedule.js` (`workerIo`, `scheduleFileWork`) and `file-adviser-outlet.js` (`fileAdviser`, `ADVISER_PRE_REQUEST_FAILURES`) | SHARED-STATE | `worker-pass`, `file-worker`, `delivery-followup-worker`, `local-adviser-outlet`, `file-adviser`, `bench-adviser` |
 | 4 | DONE. `routes/file-access.js` (ciphertext packet, one-use key ticket, key release, receipts) | ENTANGLED, but one cohesive block | `file-receipts`, `download-policy`, `local-key-vault`, `local-workflow`, browser E2E (download and key release) |
-| 5 | `routes/file-tasks.js` (`/api/file-tasks`, `/api/tasks`, task sub-routes, evidence; 749-879) | ENTANGLED | `task-operations`, `snapshot-lifecycle`, `task-evidence`, `retention-policy`, `local-workflow`, browser E2E |
-| 6 | `routes/admin.js` (whoami, retention, audit-retention, directory) and `routes/coordinator.js` (+ `coordinatorCall`, `callNebiusPolicy`) | SHARED-STATE | `directory-admin`, `registry-schema`, `recipient-directory`, `retention-policy`, `model-negative` |
-| 7 | `legacy-packages.js` (`findPackage`, `approvedPackage`, `createSealedPackageRecord`, `executeMcpTool`, `performLocalDelivery`, credential/verify/revoke routes; about 450 lines) | ENTANGLED | `local-workflow` (largest coverage), `private-mapping`, `smoke-test.mjs` |
+| 5 | DONE. `routes/file-tasks.js` (`/api/file-tasks`, `/api/tasks`, task sub-routes, evidence, plus `/api/authorizations`, `/api/directory` and `/api/audit`, the sender-facing reads; `evidenceViews` now lives inside the factory) | ENTANGLED | `task-operations`, `snapshot-lifecycle`, `task-evidence`, `retention-policy`, `local-workflow`, browser E2E |
+| 6 | DONE. `routes/admin.js` (whoami, retention, audit-retention, admin directory) and `routes/coordinator.js` (`/api/coordinator/call`, `/api/policy/recommend`, `coordinatorCall`, `callNebiusPolicy`; both advice paths share the LEGACY_HOSTED_ADVICE and budget settings) | SHARED-STATE | `directory-admin`, `registry-schema`, `recipient-directory`, `retention-policy`, `model-negative` |
+| 7 | DONE. `legacy-packages.js` (`findPackage`, `approvedPackage`, `createSealedPackageRecord`, `performLocalDelivery`, `createTimedCredential`, `evaluateDecodeAttempt`), `routes/mcp.js` (`executeMcpTool`, tool list, tool call, email dry-run) and `routes/packages.js` (create, read, credential, verify, revoke); split in three so that no module passes 220 lines | ENTANGLED | `local-workflow` (largest coverage), `private-mapping`, `smoke-test.mjs`, `server-routes` |
 
 Each step: copy verbatim, replace free variables with `ctx` members of the same name, run `node --check`, the targeted tests, then the full suite and the probe diff. Do not combine steps.
 
@@ -134,7 +165,7 @@ Each step: copy verbatim, replace free variables with `ctx` members of the same 
 5. Top-level await order: `loadLocalEnv` must run before the constants that read `process.env`; `resolveTokenSigningSecret` throws in production when the secret is missing, at startup, not per request. Tranche 1 preserved both positions.
 6. `public-export-manifest.md` lists the shipped files and does not yet list the new modules (nor `worker-pass.js`, `auth-throttle.js`, `network-policy.js`, `notice-outbox.js`, `followup-floor.js`). Without them the exported candidate fails to start. Update the manifest and re-run the release-candidate build and scanners before any export. This file is outside this module's scope.
 7. `scripts/check-syntax.mjs` now syntax-checks every tracked or new `.js`/`.mjs` file, so new modules (including `routes/`) are covered. A typo in an import name still surfaces only when the module loads; the suite and the probe cover that.
-8. New root files and `routes/file-access.js` must be listed in `public-export-manifest.md` (the lead owns it): `request-context.js`, `audit.js`, `api-queue.js`, `file-adviser-outlet.js`, `worker-schedule.js`, `routes/file-access.js`. The release-candidate build copies by that list; a missing entry means the export does not start.
+8. New root files and every `routes/` file must be listed in `public-export-manifest.md` (the lead owns it): `request-context.js`, `audit.js`, `api-queue.js`, `file-adviser-outlet.js`, `worker-schedule.js`, `legacy-packages.js`, `routes/file-access.js`, `routes/file-tasks.js`, `routes/admin.js`, `routes/coordinator.js`, `routes/mcp.js`, `routes/packages.js`, and the test `scripts/server-routes.test.mjs`. At the end of step 7 the manifest lists only `routes/file-access.js` of these. The release-candidate build copies by that list; a missing entry means the export does not start.
 
 ## 8. Estimated line counts
 
@@ -144,13 +175,13 @@ Each step: copy verbatim, replace free variables with `ctx` members of the same 
 | Step 2 (audit, context), actual | 1,272 | +61 |
 | Step 3 (queue, worker, adviser outlet), actual | 1,210 | +95 |
 | Step 4 (file-access routes), actual | 1,142 | +94 |
-| Step 5 (file-task routes) | about 960 | +135 |
-| Step 6 (admin, coordinator, policy) | about 760 | +260 |
-| Step 7 (legacy packages) | about 330 | +480 |
+| Step 5 (file-task routes), actual | 987 | +188 |
+| Step 6 (admin, coordinator, policy), actual | 802 | +225 |
+| Step 7 (legacy packages, MCP, packages routes), actual | 231 | +627 |
 
-Target: `server.js` of 300 to 350 lines (config, ctx, wiring, server, lock, signals), with no module above about 500 lines.
+Target was `server.js` of 300 to 350 lines with no module above about 500 lines. Result, measured with `wc -l`: `server.js` 231 lines (1,768 before tranche 1, 1,146 at the start of steps 5 to 7); the largest new module is `legacy-packages.js` at 219 lines. The estimate for step 7 assumed one 450-line file; three modules of 219, 218 and 190 lines came out smaller than `server.js` was expected to be, because the wiring needed fewer lines than estimated.
 
-## 9. Not moved in tranche 1, and why (items 'readJson', 'appendAudit', 'fileAdviser' and the worker were moved in steps 2 to 4; see 2b)
+## 9. Not moved in tranche 1, and why (everything below except the composition root was moved in steps 2 to 7; see 2b and 2c)
 
 - `readJson` / `writeJson` / `ensureStore`: close over path constants and are imported by audit and routes; they move with `audit.js` (step 2), not alone.
 - `callNebiusPolicy`: depends on seven config values and the budget object. Config-only, so it is safe in step 6 with `ctx`, but moving it now would add a factory for no line saving over the risk.
