@@ -10,9 +10,14 @@ contract. Which mode is active is configuration.
 - **Hosted mode.** The adviser is NVIDIA Nemotron 3 Super 120B (`nvidia/nemotron-3-super-120b-a12b`)
   on Nebius Token Factory. This is what the hosted judge demo uses.
 
-Not run on edge hardware: the edge runtime has only been run on a Mac with LM Studio. It has not been
-run on a Jetson or on any other NVIDIA edge device. What this document says about edge behaviour is
-what the code guarantees, not what was observed on such hardware.
+Where edge mode has been run: a Mac mini (model identifier Mac14,12; Apple M2 Pro, 10 cores; 16 GB of
+memory; macOS 26.6.2) with LM Studio, which serves Nemotron 3 Nano 4B (2.84 GB on disk) on loopback. That is
+a small always-on host of the kind edge mode targets: the application, the models and the data live on the
+host, and users reach it from their own devices through one private address or one domain (a headless
+server plus a browser; see `private-network-deployment.md` for `HOST`, TLS, `TRUST_PROXY` and
+`ALLOWED_CLIENT_CIDRS`). Measured there: median 2.85 s per follow-up decision. Not measured: memory in use,
+power draw, throughput under load. Not run on NVIDIA edge hardware (Jetson, DGX Spark). Beyond the
+measurements above, what this document says about edge behaviour is what the code guarantees.
 
 ## Comparison
 

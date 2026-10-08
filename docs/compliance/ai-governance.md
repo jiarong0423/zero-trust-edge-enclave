@@ -199,7 +199,7 @@ record does not show that either model beats a rule, or the reverse.
 
 1. **Provider-side visibility (hosted mode).** The five fields, call timing and the host address reach
    Nebius; its retention and training terms are not documented in this repository. Edge mode removes this
-   path but has only been run on a Mac with LM Studio, not on edge hardware.
+   path but has only been run on a Mac mini (Apple M2 Pro, 16 GB) with LM Studio, not on NVIDIA edge hardware.
 2. **Unpinned models.** Models are named, not pinned by hash or version; the hosted model can change
    without notice and the code would not detect it (`sbom.md`).
 3. **Hosted answers are non-deterministic** (temperature 1) and not schema-constrained; correctness rests on
