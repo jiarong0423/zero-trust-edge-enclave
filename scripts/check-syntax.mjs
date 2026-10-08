@@ -3,7 +3,7 @@
 // checks tracked and new files; outside one (an exported candidate) it walks the directory, skipping
 // dependencies, data and build output.
 import { execFileSync, spawnSync } from 'node:child_process';
-import { readdirSync } from 'node:fs';
+import { existsSync, readdirSync } from 'node:fs';
 import path from 'node:path';
 
 const root = path.resolve(import.meta.dirname, '..');
@@ -21,9 +21,10 @@ function walk(dir, found = []) {
 
 function listFiles() {
   try {
-    const out = execFileSync('git', ['ls-files', '-co', '--exclude-standard', '--', '*.js', '*.mjs'],
+    const out = execFileSync('git', ['ls-files', '-z', '-co', '--exclude-standard', '--', '*.js', '*.mjs'],
       { cwd: root, encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'] });
-    const files = out.split('\n').filter(Boolean);
+    // -z keeps non-ASCII names unquoted; a tracked file deleted in the working tree is not a syntax error.
+    const files = out.split('\0').filter(file => file && existsSync(path.join(root, file)));
     if (files.length) return files;
   } catch { /* not a git checkout */ }
   return walk(root).sort();

@@ -25,6 +25,9 @@ export async function fileWorkPass(io, state = { dirty: true }, now = Date.now) 
     const routed = await io.advanceFileJobs(tasks[index], config, now(), io.routeAdvise, io.loadConfig);
     if (routed !== tasks[index]) {
       tasks[index] = routed;
+      // Behind from here on: if the write succeeds and recover() or the export then throws, the next
+      // tick must still export, not find "nothing changed" and leave the notice only in tasks.json.
+      state.dirty = true;
       await io.writeTasks(tasks);
       await io.recover();
       await exportAll();

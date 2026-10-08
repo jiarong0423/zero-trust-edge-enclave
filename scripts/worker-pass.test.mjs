@@ -81,3 +81,18 @@ test('a tick with no file tasks reads once and touches nothing', async t => {
   assert.deepEqual(await fileWorkPass(io, { dirty: true }), { ran: false });
   assert.equal(store.writes + store.recovers + store.exports, 0);
 });
+
+test('a failure between the routing write and the export does not leave the outbox permanently behind', async t => {
+  const { io, store, outbox } = await harness(t, {});
+  let broken = true;
+  const recover = io.recover;
+  io.recover = async () => { if (broken) throw new Error('audit append failed'); return recover(); };
+  const state = { dirty: false };
+  await assert.rejects(fileWorkPass(io, state), /audit append failed/);
+  assert.equal(state.dirty, true, 'the outbox is marked behind before the write');
+  broken = false;
+  await fileWorkPass(io, state);
+  assert.ok(store.exports >= 1, 'the next tick exports');
+  assert.ok((await outbox()).some(record => record.subjectCode === 'SEALED_DOCUMENT_AVAILABLE'));
+  assert.equal(state.dirty, false);
+});

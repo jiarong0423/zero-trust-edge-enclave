@@ -17,7 +17,8 @@ export function createStaticServer(publicDir) {
     if (pathname.startsWith('/zh-TW/') && !localizedPages[pathname]) { res.writeHead(404); res.end('Not found'); return; }
     const safePathname = localizedPages[pathname] || (pathname === '/' ? '/index.html' : pathname);
     const filePath = path.normalize(path.join(publicDir, safePathname));
-    if (!filePath.startsWith(publicDir)) {
+    // Path-boundary check: a bare prefix would also admit a sibling such as <publicDir>-export-manifest.md.
+    if (filePath !== publicDir && !filePath.startsWith(publicDir.endsWith(path.sep) ? publicDir : publicDir + path.sep)) {
       res.writeHead(403);
       res.end('forbidden');
       return;

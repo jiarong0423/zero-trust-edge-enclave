@@ -1,6 +1,6 @@
 # server.js split plan
 
-Status 2026-10-08, branch `improve/2026-10-08`. Tranche 1 is executed (zero behaviour change). Tranches 2 to 7 are planned, not started.
+Status 2026-10-08, branch `improve/2026-10-08`. Tranche 1 and steps 2 to 4 are executed (zero behaviour change, proven; see section 2b). Steps 5 to 7 are planned, not started. Line numbers in sections 1, 5 and 6 describe the tree after tranche 1 and are stale for the moved parts; section 2b has the current numbers.
 
 Headline: `server.js` went from 1,768 to 1,297 lines (-471) by moving nine LEAF units into modules. The remaining weight is one 545-line `routeApi` plus the legacy sealed-package handlers, both of which depend on the per-request `requestContext` and the serial `apiQueue`. They need an explicit context object before they can move, so they are sequenced after the audit module.
 
@@ -43,6 +43,31 @@ Env loader 75-107; security headers and `sendJson` 122-154; `senderTask` 156-167
 | `task-view.js` | 15 | `senderTask` |
 
 The only non-verbatim edits are the minimum needed to remove a closure: `export` prefixes; a factory wrapper (and two-space re-indent) for `serveStatic`, the signer and the email builder; and `validatePolicy` taking its default model as a parameter, with `server.js` binding it back to the old one-argument shape. Route handlers, ordering, error messages and response bodies are untouched: the diff of `server.js` adds only 11 import lines and 4 binding lines.
+
+## 2b. Steps 2 to 4 result (done)
+
+`server.js`: 1,297 (after tranche 1; 1,301 at the start of this run, the 4-line difference being a later lead edit) to 1,142 lines.
+
+| Module | Lines | Contents | How it receives state |
+|---|---|---|---|
+| `request-context.js` | 15 | the single `AsyncLocalStorage` instance `requestContext`; `currentRequest()` returns the live store; `setAuditTarget(target)` writes `auditTarget` on it | exports the instance; no state of its own |
+| `audit.js` | 46 | `appendAudit`, `recoverAudit`, `auditRejection` (bodies verbatim; only `requestContext.getStore()` became `currentRequest()`) | `createAudit({ auditsPath, readJson, writeJson })` |
+| `api-queue.js` | 17 | the serial queue: `chain(task, absorb)` and `drain()` | `createApiQueue()`; server.js builds exactly one |
+| `file-adviser-outlet.js` | 41 | `fileAdviser` and `ADVISER_PRE_REQUEST_FAILURES` (verbatim) | `createFileAdviser({ nebiusBudget, localOnly, localModelBaseUrl, localModelName, nebiusBaseUrl, nebiusModel })` |
+| `worker-schedule.js` | 37 | `workerBusy`, `workerFailureReported`, `workerState`, `workerIo`, `scheduleFileWork` | `createFileWorker({ queue, readJson, writeJson, tasksPath, accessPath, dataDir, recoverAudit, fileAdviser })` |
+| `routes/file-access.js` | 94 | the whole `/api/file-access/{id}/{credential,packet,key,receipt,receipt-status}` body (byte-identical to the old block apart from `setAuditTarget(...)`, checked by script) | `createFileAccessRoutes({ dataDir, tasksPath, readJson, writeJson, appendAudit, recoverAudit })` returning `handleFileAccess(req, res, route, { config, principal })` |
+
+Tests added for moved units that had none: `scripts/audit.test.mjs` (4 tests: live-store accessors, hash chain and id dedupe, one REQUEST_REJECTED per request and the status-to-code mapping, outbox recovery) and `scripts/api-queue.test.mjs` (3 tests: strict order, rejection isolation, absorb/drain). The worker schedule, the adviser outlet and the file-access routes are covered by `local-workflow`, `worker-pass`, `local-adviser-outlet` and the browser E2E.
+
+Deviations from the plan above, all deliberate:
+- `readJson` / `writeJson` / `ensureStore` did NOT move with `audit.js`. They stay in `server.js` as the `ctx.store` the plan describes in section 4 and are passed to every factory as arguments. Moving three one-line wrappers would only add a file.
+- The queue is not `{ run(fn), drain() }`. The request path and the worker path absorb a task's outcome differently (the worker also logs and clears `workerBusy` in `finally`), so a single `run(fn)` would change the promise structure. `chain(task, absorb)` keeps both tails exactly as they were: `tail = absorb(tail.then(task))`.
+- No frozen `ctx` object yet. Factories take the named arguments they use; the frozen `ctx` becomes worthwhile when step 5 and 6 need more than six members each. Nothing is global: `requestContext` is the only shared instance and it is imported from one module.
+- `workerTimer` stays in `server.js` (the `listen` callback and the signal handlers own it); `scheduleFileWork` is passed to `setInterval` unchanged.
+
+Claims in the plan re-verified against the code before moving: 19 raw `requestContext.getStore()` sites (confirmed; 5 were `auditTarget` assignments, whose right-hand sides are side-effect-free object literals, so `setAuditTarget(x)` has the same effect and the same TypeError outside a request); `auditRejection` is called from three route catches plus the outer wrapper (confirmed, all still call the same function); `await apiQueue` at shutdown reads the tail at that moment (`drain()` does the same). Not found wrong.
+
+Proof (each step, then final): `npm run check` ok; `node --test "scripts/*.test.mjs"` 330 of 330 (it was 320 at the start; the rest are the 7 tests added here and 3 from other work); browser E2E 4 PASS. Before/after probe (`PORT=0`, temp `DATA_DIR`, pristine copy of the pre-change tree vs this tree, four server instances: default, demo gate, network allowlist, second-instance lock): 137 records, each with status, all headers except Date, and a body SHA-256 (ids, timestamps, hashes and ciphertext normalised) were byte-identical, covering `/api/health`, static pages, 404, path traversal, 302 (gate), 403 (allowlist), 401 (anonymous, wrong, short token), the file-task flow with ticket, packet, key release and receipts, the legacy package flow, the coordinator and the MCP routes. The audit trail after the scripted flow (80 events, hash chain intact) had the identical sequence of `type|result|reasons|previousState>nextState`. A single full-suite failure was seen once mid-run while other agents were editing `worker-pass.js` and tests in the same tree; it did not reproduce in 8 consecutive runs and is not attributed to these modules.
 
 ## 3. Proposed module layout and dependency direction
 
@@ -87,9 +112,9 @@ Request state stays in `requestContext.getStore()`: `config` (access registry), 
 | # | Step | Class | Proof of no behaviour change |
 |---|---|---|---|
 | 1 | Done: nine LEAF modules | LEAF | `local-workflow.test.mjs`, full suite, browser E2E, byte-identical response headers and bodies for 20 probes |
-| 2 | `request-context.js` plus `audit.js` as `createAudit(ctx)` returning `appendAudit`, `recoverAudit`, `auditRejection`; wrapper `readJson`/`writeJson` move with them | SHARED-STATE | `audit-outbox`, `audit-retention`, `verify-audit-chain`, `local-workflow` (chain verification after real requests) |
-| 3 | `worker-schedule.js` (`workerIo`, `scheduleFileWork`) and `file-adviser-outlet.js` (`fileAdviser`, `ADVISER_PRE_REQUEST_FAILURES`) | SHARED-STATE | `worker-pass`, `file-worker`, `delivery-followup-worker`, `local-adviser-outlet`, `file-adviser`, `bench-adviser` |
-| 4 | `routes/file-access.js` (ciphertext packet, one-use key ticket, key release, receipts; lines 676-748) | ENTANGLED, but one cohesive block | `file-receipts`, `download-policy`, `local-key-vault`, `local-workflow`, browser E2E (download and key release) |
+| 2 | DONE. `request-context.js` plus `audit.js` as `createAudit({ auditsPath, readJson, writeJson })` returning `appendAudit`, `recoverAudit`, `auditRejection`; the `readJson`/`writeJson` wrappers stay in `server.js` and are passed in | SHARED-STATE | `audit-outbox`, `audit-retention`, `verify-audit-chain`, `local-workflow` (chain verification after real requests) |
+| 3 | DONE. `api-queue.js`, `worker-schedule.js` (`workerIo`, `scheduleFileWork`) and `file-adviser-outlet.js` (`fileAdviser`, `ADVISER_PRE_REQUEST_FAILURES`) | SHARED-STATE | `worker-pass`, `file-worker`, `delivery-followup-worker`, `local-adviser-outlet`, `file-adviser`, `bench-adviser` |
+| 4 | DONE. `routes/file-access.js` (ciphertext packet, one-use key ticket, key release, receipts) | ENTANGLED, but one cohesive block | `file-receipts`, `download-policy`, `local-key-vault`, `local-workflow`, browser E2E (download and key release) |
 | 5 | `routes/file-tasks.js` (`/api/file-tasks`, `/api/tasks`, task sub-routes, evidence; 749-879) | ENTANGLED | `task-operations`, `snapshot-lifecycle`, `task-evidence`, `retention-policy`, `local-workflow`, browser E2E |
 | 6 | `routes/admin.js` (whoami, retention, audit-retention, directory) and `routes/coordinator.js` (+ `coordinatorCall`, `callNebiusPolicy`) | SHARED-STATE | `directory-admin`, `registry-schema`, `recipient-directory`, `retention-policy`, `model-negative` |
 | 7 | `legacy-packages.js` (`findPackage`, `approvedPackage`, `createSealedPackageRecord`, `executeMcpTool`, `performLocalDelivery`, credential/verify/revoke routes; about 450 lines) | ENTANGLED | `local-workflow` (largest coverage), `private-mapping`, `smoke-test.mjs` |
@@ -108,23 +133,24 @@ Each step: copy verbatim, replace free variables with `ctx` members of the same 
 4. `requestContext` is mutated by reference (`Object.assign(getStore(), ...)`, `auditTarget =`). Accessors must return the live store, never a copy.
 5. Top-level await order: `loadLocalEnv` must run before the constants that read `process.env`; `resolveTokenSigningSecret` throws in production when the secret is missing, at startup, not per request. Tranche 1 preserved both positions.
 6. `public-export-manifest.md` lists the shipped files and does not yet list the new modules (nor `worker-pass.js`, `auth-throttle.js`, `network-policy.js`, `notice-outbox.js`, `followup-floor.js`). Without them the exported candidate fails to start. Update the manifest and re-run the release-candidate build and scanners before any export. This file is outside this module's scope.
-7. `npm run check` only syntax-checks `server.js` and `access-control.js`; a typo in a new module surfaces only at import. The full suite covers it, but `check` could list the new files.
+7. `scripts/check-syntax.mjs` now syntax-checks every tracked or new `.js`/`.mjs` file, so new modules (including `routes/`) are covered. A typo in an import name still surfaces only when the module loads; the suite and the probe cover that.
+8. New root files and `routes/file-access.js` must be listed in `public-export-manifest.md` (the lead owns it): `request-context.js`, `audit.js`, `api-queue.js`, `file-adviser-outlet.js`, `worker-schedule.js`, `routes/file-access.js`. The release-candidate build copies by that list; a missing entry means the export does not start.
 
 ## 8. Estimated line counts
 
 | After | server.js | New code (modules) |
 |---|---|---|
 | Today (tranche 1) | 1,297 | 504 |
-| Step 2 (audit, context) | about 1,250 | +70 |
-| Step 3 (worker, adviser outlet) | about 1,170 | +85 |
-| Step 4 (file-access routes) | about 1,090 | +85 |
+| Step 2 (audit, context), actual | 1,272 | +61 |
+| Step 3 (queue, worker, adviser outlet), actual | 1,210 | +95 |
+| Step 4 (file-access routes), actual | 1,142 | +94 |
 | Step 5 (file-task routes) | about 960 | +135 |
 | Step 6 (admin, coordinator, policy) | about 760 | +260 |
 | Step 7 (legacy packages) | about 330 | +480 |
 
 Target: `server.js` of 300 to 350 lines (config, ctx, wiring, server, lock, signals), with no module above about 500 lines.
 
-## 9. Not moved in tranche 1, and why
+## 9. Not moved in tranche 1, and why (items 'readJson', 'appendAudit', 'fileAdviser' and the worker were moved in steps 2 to 4; see 2b)
 
 - `readJson` / `writeJson` / `ensureStore`: close over path constants and are imported by audit and routes; they move with `audit.js` (step 2), not alone.
 - `callNebiusPolicy`: depends on seven config values and the budget object. Config-only, so it is safe in step 6 with `ctx`, but moving it now would add a factory for no line saving over the risk.

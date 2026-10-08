@@ -19,6 +19,19 @@ import path from 'node:path';
 import { pathToFileURL } from 'node:url';
 
 const root = path.resolve(import.meta.dirname, '..');
+// Every package.json field that can pull in third-party code, not just the four usual ones: a check that
+// only reads dependencies/devDependencies would pass a manifest that bundles or overrides packages.
+function declaredMap(pkg) {
+  const map = { ...(pkg.dependencies || {}), ...(pkg.devDependencies || {}), ...(pkg.optionalDependencies || {}), ...(pkg.peerDependencies || {}),
+    ...(pkg.overrides && typeof pkg.overrides === 'object' ? Object.fromEntries(Object.keys(pkg.overrides).map(name => [name, 'override'])) : {}) };
+  for (const field of ['bundledDependencies', 'bundleDependencies']) {
+    if (Array.isArray(pkg[field])) for (const name of pkg[field]) map[String(name)] = map[String(name)] ?? 'bundled';
+  }
+  const workspaces = Array.isArray(pkg.workspaces) ? pkg.workspaces : pkg.workspaces?.packages;
+  if (Array.isArray(workspaces)) for (const entry of workspaces) map[`workspace:${String(entry)}`] = 'workspace';
+  return map;
+}
+
 const TEMPLATE = {
   "components": [
     {
@@ -246,16 +259,27 @@ const TEMPLATE = {
   ]
 };
 
+// Services the application talks to or is hosted on, with only facts present in this repository
+// (the outlet host is pinned in file-adviser.js; the hosted address is in README.md).
+const SERVICES = [
+  { 'bom-ref': 'service-nebius-token-factory', name: 'Nebius Token Factory', provider: { name: 'Nebius' },
+    endpoints: ['https://api.tokenfactory.nebius.com/v1'], authenticated: true, 'x-trust-boundary': true,
+    description: 'Hosted OpenAI-compatible inference API used only in hosted mode (COORDINATOR_PROVIDER=nebius, LOCAL_ONLY=false, a key present). The adviser outlet accepts no other host.' },
+  { 'bom-ref': 'service-zeabur-hosting', name: 'Zeabur', provider: { name: 'Zeabur' },
+    endpoints: ['https://zero-trust-edge-enclave.zeabur.app'], authenticated: true,
+    description: 'Hosts the judge demo instance only; it is not Nebius compute and is not part of the application.' },
+];
+
 export function buildSbom({ packageJsonPath = process.env.SBOM_PACKAGE_JSON || path.join(root, 'package.json'), now = new Date(), commit } = {}) {
   const pkg = JSON.parse(readFileSync(packageJsonPath, 'utf8'));
-  const declared = { ...(pkg.dependencies || {}), ...(pkg.devDependencies || {}), ...(pkg.optionalDependencies || {}), ...(pkg.peerDependencies || {}) };
+  const declared = declaredMap(pkg);
   const names = Object.keys(declared);
   let head = commit;
   if (head === undefined) {
     try { head = execFileSync('git', ['rev-parse', 'HEAD'], { cwd: root, encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'] }).trim(); }
     catch { head = null; }
   }
-  const properties = [...TEMPLATE.metadataComponentStatic.properties,
+  const properties = [...TEMPLATE.metadataComponentStatic.properties.filter(property => property.name !== 'zte:thirdPartyRuntimePackages'),
     { name: 'zte:thirdPartyRuntimePackages', value: String(names.length) },
     { name: 'zte:packageJsonDependencies', value: names.length ? `declared: ${names.join(', ')}` : 'none declared (no dependencies or devDependencies key)' },
     ...(head ? [{ name: 'zte:baseCommit', value: head }] : []),
@@ -274,14 +298,14 @@ export function buildSbom({ packageJsonPath = process.env.SBOM_PACKAGE_JSON || p
       },
       properties: TEMPLATE.topProperties,
     },
+    services: SERVICES,
     components: [...TEMPLATE.components.map(component => component['bom-ref'] === 'nodejs-runtime'
       ? { ...component, version: pkg.engines?.node ?? component.version } : component), ...libraries],
   };
 }
 
 export function declaredDependencies(packageJsonPath = process.env.SBOM_PACKAGE_JSON || path.join(root, 'package.json')) {
-  const pkg = JSON.parse(readFileSync(packageJsonPath, 'utf8'));
-  return Object.keys({ ...(pkg.dependencies || {}), ...(pkg.devDependencies || {}), ...(pkg.optionalDependencies || {}), ...(pkg.peerDependencies || {}) });
+  return Object.keys(declaredMap(JSON.parse(readFileSync(packageJsonPath, 'utf8'))));
 }
 
 if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {

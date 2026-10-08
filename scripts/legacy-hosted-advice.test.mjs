@@ -69,3 +69,31 @@ test('only the exact value off changes behaviour', async t => {
   await run(t, { LEGACY_HOSTED_ADVICE: 'OFF ' }, url);
   assert.ok(seen.requests >= 1);
 });
+
+test('the setting is visible in /api/health, and a value that is not exactly "off" is warned about at startup', async t => {
+  const root = path.resolve(import.meta.dirname, '..');
+  for (const [value, expectOff, expectWarn] of [['off', true, false], ['OFF', false, true], ['false', false, true], [undefined, false, false]]) {
+    const dir = await fs.mkdtemp(path.join(os.tmpdir(), 'enclave-legacy-health-'));
+    const env = { PATH: process.env.PATH, HOME: dir, SKIP_LOCAL_ENV: 'true', LOCAL_ONLY: 'true', DATA_DIR: dir, PORT: '0',
+      COORDINATOR_PROVIDER: 'synthetic_fixture', ...(value === undefined ? {} : { LEGACY_HOSTED_ADVICE: value }) };
+    const setup = spawn(process.execPath, ['scripts/setup-local.mjs', dir], { cwd: root, env, stdio: 'ignore' });
+    assert.equal((await once(setup, 'exit'))[0], 0);
+    const server = spawn(process.execPath, ['server.js'], { cwd: root, env, stdio: ['ignore', 'pipe', 'pipe'] });
+    let stderr = '';
+    server.stderr.on('data', chunk => { stderr += chunk; });
+    try {
+      const base = await new Promise((resolve, reject) => {
+        let output = '';
+        const timer = setTimeout(() => reject(new Error('Server startup timeout')), 8000);
+        server.stdout.on('data', chunk => { output += chunk; const match = output.match(/http:\/\/127\.0\.0\.1:\d+/); if (match) { clearTimeout(timer); resolve(match[0]); } });
+        server.once('exit', () => { clearTimeout(timer); reject(new Error('Server exited')); });
+      });
+      const health = await (await fetch(base + '/api/health')).json();
+      assert.equal(health.legacyHostedAdviceOff, expectOff, String(value));
+      assert.equal(/WARN LEGACY_HOSTED_ADVICE/.test(stderr), expectWarn, `${value}: ${stderr}`);
+    } finally {
+      if (server.exitCode === null) { server.kill(); await once(server, 'exit'); }
+      await fs.rm(dir, { recursive: true, force: true });
+    }
+  }
+});

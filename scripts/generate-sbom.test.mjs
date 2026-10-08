@@ -41,3 +41,31 @@ test('the document is valid JSON on the command line', () => {
   assert.equal(result.status, 0);
   assert.equal(JSON.parse(result.stdout).bomFormat, 'CycloneDX');
 });
+
+test('every package.json field that can pull in third-party code is checked, and the count is stated once', async t => {
+  const dir = await fs.mkdtemp(path.join(os.tmpdir(), 'sbom-fields-'));
+  t.after(() => fs.rm(dir, { recursive: true, force: true }));
+  for (const [field, value] of [['bundledDependencies', ['left']], ['bundleDependencies', ['left']], ['workspaces', ['packages/*']], ['overrides', { left: '1.0.0' }]]) {
+    const file = path.join(dir, `${field}.json`);
+    await fs.writeFile(file, JSON.stringify({ name: 'x', version: '1.0.0', [field]: value }));
+    const result = spawnSync(process.execPath, [script, '--check'], { encoding: 'utf8', env: { ...process.env, SBOM_PACKAGE_JSON: file } });
+    assert.equal(result.status, 1, field);
+  }
+  const file = path.join(dir, 'with-deps.json');
+  await fs.writeFile(file, JSON.stringify({ name: 'x', version: '1.0.0', dependencies: { left: '^1.0.0' } }));
+  const sbom = buildSbom({ packageJsonPath: file, commit: null });
+  assert.equal(sbom.metadata.component.properties.filter(property => property.name === 'zte:thirdPartyRuntimePackages').length, 1);
+  assert.equal(sbom.metadata.component.properties.find(property => property.name === 'zte:thirdPartyRuntimePackages').value, '1');
+});
+
+test('the services the model components point at exist in the document', () => {
+  const sbom = buildSbom({ commit: null });
+  const refs = new Set((sbom.services || []).map(service => service['bom-ref']));
+  assert.ok(refs.has('service-nebius-token-factory') && refs.has('service-zeabur-hosting'));
+  for (const component of sbom.components.filter(item => item.type === 'machine-learning-model')) {
+    for (const property of component.properties || []) {
+      const match = String(property.value).match(/service-[a-z-]+/);
+      if (match) assert.ok(refs.has(match[0]), `${component.name} refers to ${match[0]}`);
+    }
+  }
+});
