@@ -20,6 +20,38 @@ test('a session token is 43 base64url characters and the table keeps only its di
   assert.match(randomToken(), /^[A-Za-z0-9_-]{43}$/);
 });
 
+test('a token that has just expired or been revoked is still recognised, for ten minutes, and not after', () => {
+  const { state, now } = clock();
+  const store = createSessionStore({ ttlMs: 60_000, now });
+  const expiring = store.issue('alice').token;
+  const revoked = store.issue('alice').token;
+  assert.equal(store.revoke(revoked), true);
+  assert.equal(store.resolve(revoked), null);
+  assert.equal(store.knows(revoked), true);
+  state.t += 60_000;
+  assert.equal(store.resolve(expiring), null);
+  assert.equal(store.knows(expiring), true);
+  state.t += 10 * 60_000 - 1;
+  assert.equal(store.knows(expiring), true);
+  state.t += 1;
+  assert.equal(store.knows(expiring), false);
+  assert.equal(store.knows(revoked), false);
+  assert.equal(store.knows(randomToken()), false);
+});
+
+test('the table of ended sessions is bounded by the session limit', () => {
+  const { state, now } = clock();
+  const store = createSessionStore({ maxSessions: 3, maxPerPrincipal: 10, ttlMs: 1000, now });
+  const tokens = [];
+  for (let round = 0; round < 4; round += 1) {
+    tokens.push(store.issue('alice').token);
+    state.t += 1000;
+    store.size();
+  }
+  assert.equal(store.knows(tokens[0]), false);
+  assert.equal(store.knows(tokens[3]), true);
+});
+
 test('malformed, unknown and non-string tokens never resolve', () => {
   const { now } = clock();
   const store = createSessionStore({ ttlMs: 60_000, now });

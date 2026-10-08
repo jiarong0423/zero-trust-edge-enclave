@@ -6,9 +6,11 @@ import { fileURLToPath } from 'node:url';
 import { initializeArrays, readArray, writeArray } from './local-array-store.js';
 import { clientKey, countsAsGuess, throttleFromEnv } from './auth-throttle.js';
 import { createNetworkPolicy } from './network-policy.js';
+import { createSsoRoutes } from './sso-routes.js';
+import { createWebhookFromEnv } from './webhook-adapter.js';
 import { gateConfig, gateAllows, gateSignIn } from './demo-gate.js';
 import { createBudget } from './nebius-budget.js';
-import { loadAccess, authenticate, fail } from './access-control.js';
+import { loadAccess, authenticateWithSession, fail } from './access-control.js';
 import { sendJson, readBody } from './http-helpers.js';
 import { createStaticServer } from './static-files.js';
 import { validatePolicy as validatePolicyWithModel } from './policy-envelope.js';
@@ -48,6 +50,14 @@ const host = process.env.HOST || '127.0.0.1';
 const trustProxy = process.env.TRUST_PROXY === 'true';
 const authThrottle = throttleFromEnv(process.env, (key, seconds) => console.error(`WARN auth throttle locked client ${key} for ${seconds}s`));
 const networkPolicy = createNetworkPolicy(process.env.ALLOWED_CLIENT_CIDRS);
+// Off unless SSO_ISSUER is set (docs/agent/sso.md). `apiQueue` is defined further down; loadConfig is
+// only called per request, so the forward reference is safe.
+const sso = createSsoRoutes({
+  env: process.env,
+  loadConfig: () => apiQueue.chain(() => loadAccess(accessPath), run => run.catch(() => {})),
+  throttle: authThrottle,
+  clientKey: req => clientKey(req, trustProxy)
+});
 // LEGACY_HOSTED_ADVICE=off: the two legacy compatibility paths (/api/policy/recommend and the coordinator
 // `recommend` tool) answer from the local fixture and never call the hosted model. They send more than
 // the file workflow's five fields, so a deployment that wants that promise to be absolute turns them off.
@@ -67,6 +77,7 @@ const demoFallbackEnabled = process.env.DEMO_FALLBACK_ENABLED !== 'false';
 const tokenSigningSecret = resolveTokenSigningSecret();
 const { createSignedCredential, readSignedCredential } = createCredentialSigner(tokenSigningSecret);
 const demoGate = gateConfig(process.env);
+const webhook = createWebhookFromEnv(process.env, { outboxDir: path.join(dataDir, 'outbox') });
 const nebiusBudget = createBudget(process.env, path.join(dataDir, 'nebius-spend.json'));
 
 async function ensureStore() {
@@ -119,11 +130,13 @@ async function routeApi(req, res, pathname) {
   const throttleKey = clientKey(req, trustProxy);
   authThrottle.check(throttleKey);
   let principal;
-  try { principal = authenticate(config, req.headers.authorization); }
+  try { principal = authenticateWithSession(config, req.headers.authorization, sso.resolveSession); }
   catch (error) {
     // Only a real guess counts: a 43-character token that belongs to no registered identity. Every
-    // prefix of a token being typed reaches this point too; see auth-throttle.js.
-    if (error.status === 401 && countsAsGuess(config, req.headers.authorization)) authThrottle.fail(throttleKey);
+    // prefix of a token being typed reaches this point too; see auth-throttle.js. A live SSO session
+    // token is not a guess, even when its person has since been disabled.
+    if (error.status === 401 && countsAsGuess(config, req.headers.authorization) &&
+        !sso.knowsSession(req.headers.authorization)) authThrottle.fail(throttleKey);
     throw error;
   }
   Object.assign(currentRequest(), { config, principal });
@@ -149,7 +162,7 @@ async function routeApi(req, res, pathname) {
 
 const apiQueue = createApiQueue();
 let workerTimer;
-const { scheduleFileWork } = createFileWorker({ queue: apiQueue, readJson, writeJson, tasksPath, accessPath, dataDir, recoverAudit, fileAdviser });
+const { scheduleFileWork } = createFileWorker({ queue: apiQueue, readJson, writeJson, tasksPath, accessPath, dataDir, recoverAudit, fileAdviser, webhook });
 // Web Crypto only exists in a secure context, so a second device on the LAN needs https: a phone
 // reaching http://<lan-ip> connects and renders, then finds crypto.subtle undefined. Supplying a
 // certificate switches this listener to TLS; without one it stays plain http on loopback, which
@@ -185,6 +198,9 @@ const server = createServer(async (req, res) => {
       res.end();
       return;
     }
+    // Outside apiQueue on purpose: the handler makes network calls to the identity provider and must
+    // not stall every other API request.
+    if (url.pathname.startsWith('/api/sso/') && await sso(req, res, url)) return;
     if (url.pathname.startsWith('/api/')) {
       await apiQueue.chain(() => requestContext.run({}, async () => {
         try { return await routeApi(req, res, url.pathname); }

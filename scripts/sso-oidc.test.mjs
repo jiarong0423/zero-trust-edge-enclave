@@ -227,6 +227,14 @@ test('subject map: sub and e-mail entries map to existing principal ids; anythin
   assert.deepEqual(resolveSubject(map, { sub: 'x', email: 'bob@example.org', email_verified: false }), { reason: 'SSO_EMAIL_UNVERIFIED' });
   assert.deepEqual(resolveSubject(map, { sub: 'x', email: 'nobody@example.org', email_verified: true }), { reason: 'SSO_SUBJECT_UNMAPPED' });
   assert.deepEqual(resolveSubject(map, { sub: 'x' }), { reason: 'SSO_SUBJECT_UNMAPPED' });
+  // U+212A KELVIN SIGN lowercases to ASCII "k" under toLowerCase(); it must not match a mapped address.
+  const kelvin = parseSubjectMap(JSON.stringify({ version: 1, entries: [{ email: 'admin.k@example.org', principalId: 'root' }] }));
+  assert.deepEqual(resolveSubject(kelvin, { sub: 'x', email: 'admin.\u212A@example.org', email_verified: true }), { reason: 'SSO_SUBJECT_UNMAPPED' });
+  assert.deepEqual(resolveSubject(kelvin, { sub: 'x', email: 'Admin.K@Example.org', email_verified: true }), { principalId: 'root' });
+  assert.throws(() => parseSubjectMap(JSON.stringify({ version: 1, entries: [{ email: 'admin.\u212A@example.org', principalId: 'root' }] })));
+  for (const reserved of ['__proto__', 'constructor', 'prototype']) {
+    assert.throws(() => parseSubjectMap(JSON.stringify({ version: 1, entries: [{ sub: 's', principalId: reserved }] })), reserved);
+  }
   assert.deepEqual(resolveSubject(map, { sub: 'u-1', email: 'bob@example.org', email_verified: false }), { principalId: 'alice' },
     'the stable subject wins and needs no verified e-mail');
   const bad = [

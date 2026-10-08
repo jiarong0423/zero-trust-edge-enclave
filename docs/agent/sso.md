@@ -1,6 +1,6 @@
 # Optional OIDC single sign-on
 
-Status 2026-10-08. New modules, **off by default**, not yet wired into `server.js` (see "Wiring for the lead"). Until the wiring is applied nothing in the running server changes. Tested only against a mock provider on loopback; no real identity provider was contacted.
+Status 2026-10-08. New modules, **off by default**, wired into `server.js` on the integration branch (`createSsoRoutes` is built at start-up and answers `/api/sso/*` only when `SSO_ISSUER` is set). With `SSO_ISSUER` unset the request path is the one it was before. Tested only against a mock provider on loopback; no real identity provider was contacted.
 
 SSO adds a second way to obtain a bearer token. It does not add a second way to be authorised: a signed-in person is mapped to an **existing** registry principal, and from there every check in `access-control-matrix.md` applies unchanged. SSO never creates a principal, never sets a role, and never touches the registry file.
 
@@ -67,7 +67,7 @@ A local JSON file, readable by the server user only, kept outside the repository
 }
 ```
 
-- Each entry has exactly one of `sub` or `email`, and a `principalId` that must already exist in the registry. Unknown fields, duplicate keys and a bad id make the whole file invalid (503), not "last one wins".
+- Each entry has exactly one of `sub` or `email`, and a `principalId` that must already exist in the registry. Unknown fields, a second entry for the same `sub` or e-mail, a bad id and the reserved names `__proto__`, `constructor` and `prototype` make the whole file invalid (503), not "last one wins". A repeated JSON key *inside one entry* (two `principalId` keys, say) is not detected: `JSON.parse` keeps the last. E-mail addresses are compared after folding only A to Z, and a map e-mail must be printable ASCII, so a look-alike such as the Kelvin sign (U+212A) never matches.
 - `sub` is the stable key and wins when both match. An `email` entry matches only when the provider sent `email_verified` as the boolean `true`; the string `"true"` does not count.
 - The file is validated at startup and re-read on every sign-in, so an edit applies to the next sign-in and a file that disappears refuses sign-ins (503) instead of allowing or denying everyone.
 - Mapping an administrator is the operator's decision. The map is the trust anchor: anyone who can edit it can choose who signs in as whom. Protect it like the registry.
@@ -98,7 +98,7 @@ Reuses `auth-throttle.js` (`check` before work, `fail` after a real guess), with
 
 | Counts as a failure | Does not count |
 | --- | --- |
-| Unknown, expired or replayed `state`; `state` not from this browser; `iss` parameter mismatch; code refused by the provider (4xx); ID token refused (any `SSO_ID_TOKEN_*`); unknown hand-off cookie | Bare or malformed callback visit; the person cancelling at the provider; provider outage, timeout or 5xx; identity valid but not mapped, unverified e-mail, or principal disabled; missing hand-off cookie |
+| Unknown, expired or replayed `state`, or a `state` not from this browser, **when the request carries the flow cookie** (a callback with no flow cookie is refused but not counted: any page can make a visitor's browser send one); `iss` parameter mismatch; code refused by the provider (4xx); ID token refused (any `SSO_ID_TOKEN_*`); unknown hand-off cookie | Bare or malformed callback visit; the person cancelling at the provider; provider outage, timeout or 5xx; identity valid but not mapped, unverified e-mail, or principal disabled; missing hand-off cookie |
 
 A locked client gets 429 with `Retry-After` from `login`, `callback` and `session`.
 
@@ -182,7 +182,7 @@ With SSO off, `sso.resolveSession` returns `null` and `sso.knowsSession` returns
 
 - A "Sign in with SSO" control that appears when `GET /api/sso/status` returns `enabled: true` and links to `/api/sso/login`.
 - On load of `/`, one `POST /api/sso/session` with header `x-sso-exchange: 1` and `credentials: 'same-origin'`; on 200 use `token` as the Bearer token, on 401 do nothing. Call `POST /api/sso/logout` with the Bearer token to sign out.
-- Interplay: the network allowlist and the demo gate run first. With `REQUIRE_DEMO_GATE=true` the `/api/sso/*` routes are not open paths, so a visitor needs the gate cookie before SSO starts. Behind a proxy set `TRUST_PROXY=true` so the client key is the real address, and make the proxy preserve `Host` or set `SSO_REDIRECT_URI` explicitly (it is always explicit here).
+- Interplay: the network allowlist and the demo gate run first. **Do not combine SSO with the demo gate.** The gate cookie is `SameSite=Strict` and `/api/sso/*` is not an open path, so the identity provider's redirect back to `/api/sso/callback` (a cross-site navigation) arrives without the gate cookie and is answered 401 before SSO runs. The gate is a device for the hosted judge demo; SSO is for a deployment that does not use it. Behind a proxy set `TRUST_PROXY=true` so the client key is the real address, and make the proxy preserve `Host` or set `SSO_REDIRECT_URI` explicitly (it is always explicit here).
 - `docs/compliance/access-control-matrix.md` (a new row 7a in section 1 and five routes in section 3) and `THREAT_MODEL.md` ("Stolen token" row: a session token has an absolute life of at most 8 hours) should mention SSO when it is wired.
 
 ## Tests
@@ -208,3 +208,4 @@ I ran nine one-line mutations of the validation code (nonce check removed, signa
 - TLS validation of the provider relies on Node's default trust store. There is no pinning, and no check that discovery endpoints resolve to public addresses (SSRF through a hostile discovery document is limited to https URLs of the provider's choosing).
 - Single process only; sessions and pending sign-ins are memory-resident.
 - The 60 second clock skew and the 5 second fetch timeout are constants, not settings.
+- Found in the red-team pass and left as documented limits, not fixed: (a) a person removed from the subject map, or whose registry token hash is rotated, keeps any live SSO session until it expires (30 minutes by default, 8 hours at most); only disabling the principal ends it at once (`revokePrincipal()` exists and nothing calls it); (b) `/api/sso/login` is not counted by the throttle, so one client key can evict another visitor's pending sign-in behind a shared address or a spoofable `X-Forwarded-For` (only with `TRUST_PROXY=true`); (c) the flow cookie has no `__Host-` prefix because it is scoped to `/api/sso`, so a sibling subdomain could toss a cookie; (d) at session capacity, issuing a session can first remove that principal's oldest session and then answer 503; (e) a forced callback GET from another site is still counted while the visitor has a flow cookie, that is, during the minutes of a sign-in they started; (f) the red-team run was stopped part way, so route-level cases (cookie attributes, hand-off race, cross-origin exchange POST, redirect and size limits on discovery) were covered only by the project's own tests.

@@ -309,7 +309,7 @@ test('session expiry: valid until the absolute expiry, then refused; the minutes
   assert.equal(ctx.handler.sessions.size(), 0);
 });
 
-test('state: a forged or unknown state is refused and counted', async t => {
+test('state: a forged or unknown state is refused and, from a browser with a flow cookie, counted', async t => {
   const fails = [];
   const ctx = await setup(t, { throttle: { check() {}, fail: key => fails.push(key) } });
   ctx.idp.behavior.authorizeState = crypto.randomBytes(32).toString('base64url');
@@ -359,10 +359,30 @@ test('state is bound to the browser: no cookie, another flow\'s cookie, or a tam
 
   const third = createBrowser();
   const thirdStep = await ctx.authorize(third);
-  third.setCookie(ctx.base, 'enclave_sso_flow', `${third.cookie(ctx.base, 'enclave_sso_flow').slice(0, 42)}A`, '/api/sso');
+  const flowCookie = third.cookie(ctx.base, 'enclave_sso_flow');
+  // A different last character, whatever the random cookie ended with; replacing it with a fixed "A"
+  // left the cookie intact one time in 64 and made the test fail at random.
+  third.setCookie(ctx.base, 'enclave_sso_flow', `${flowCookie.slice(0, -1)}${flowCookie.endsWith('A') ? 'B' : 'A'}`, '/api/sso');
   assert.equal((await third.get(thirdStep.callbackUrl)).status, 400);
-  assert.equal(fails.length, 3);
+  // The first case carried no flow cookie, so it is refused but not counted; the other two did.
+  assert.equal(fails.length, 2);
   assert.equal(ctx.handler.sessions.size(), 0);
+});
+
+test('a callback without a flow cookie is refused but never counted toward the lock', async t => {
+  const fails = [];
+  const ctx = await setup(t, { throttle: { check() {}, fail: key => fails.push(key) } });
+  const forced = createBrowser();
+  for (let attempt = 0; attempt < 15; attempt += 1) {
+    const url = `${ctx.base}/api/sso/callback?state=${crypto.randomBytes(32).toString('base64url')}&code=x`;
+    assert.equal((await forced.get(url)).status, 400);
+  }
+  assert.deepEqual(fails, []);
+  const cookieHolder = createBrowser();
+  await ctx.authorize(cookieHolder);
+  const withCookie = await cookieHolder.get(`${ctx.base}/api/sso/callback?state=${crypto.randomBytes(32).toString('base64url')}&code=x`);
+  assert.equal(withCookie.status, 400);
+  assert.deepEqual(fails, ['client-1']);
 });
 
 test('state expires: a sign-in left open longer than ten minutes is refused', async t => {

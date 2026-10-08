@@ -139,11 +139,14 @@ export function createSsoRoutes({ env = process.env, loadConfig, throttle = null
     if (!state || state.length > 512 || (!code && !providerError) || (code && code.length > 2048)) {
       refuse(req, 'SSO_CALLBACK_MALFORMED', 400, 'SSO sign-in could not be completed');
     }
-    const flow = flows.take(digest(state));
-    if (!flow) refuse(req, 'SSO_STATE_INVALID', 400, 'SSO sign-in could not be completed', { count: true });
+    // A callback that carries no flow cookie is not counted as a guess: any page can make a victim's
+    // browser send such a GET, and counting it would let that page lock the victim's address out.
+    // The cookie is only sent along with a sign-in this browser started.
     const presented = cookieValue(req, FLOW_COOKIE);
+    const flow = flows.take(digest(state));
+    if (!flow) refuse(req, 'SSO_STATE_INVALID', 400, 'SSO sign-in could not be completed', { count: Boolean(presented) });
     if (!presented || !safeEqualDigest(digest(presented), flow.flowHash)) {
-      refuse(req, 'SSO_STATE_COOKIE_MISMATCH', 400, 'SSO sign-in could not be completed', { count: true });
+      refuse(req, 'SSO_STATE_COOKIE_MISMATCH', 400, 'SSO sign-in could not be completed', { count: Boolean(presented) });
     }
     if (iss !== null && iss !== config.issuer) refuse(req, 'SSO_ISS_PARAMETER_MISMATCH', 401, 'SSO sign-in rejected', { count: true });
     if (providerError) refuse(req, 'SSO_PROVIDER_DECLINED', 401, 'SSO sign-in was not completed');

@@ -7,7 +7,7 @@ import { exportNoticesSafe } from './notice-outbox.js';
 
 // Background file work. Every pass runs on the shared serial queue (risk 1 in the split plan), so a
 // pass never interleaves with an /api/ request. `workerBusy` allows one pending pass at a time.
-export function createFileWorker({ queue, readJson, writeJson, tasksPath, accessPath, dataDir, recoverAudit, fileAdviser }) {
+export function createFileWorker({ queue, readJson, writeJson, tasksPath, accessPath, dataDir, recoverAudit, fileAdviser, webhook }) {
   let workerBusy = false;
   let workerFailureReported = false;
   const workerState = { dirty: true };
@@ -20,7 +20,12 @@ export function createFileWorker({ queue, readJson, writeJson, tasksPath, access
     followupAdvise: async metadata => (await fileAdviser(metadata, 'followup')).advice,
     recordOverdue: recordOverdueDeliveries,
     recover: () => recoverAudit(tasksPath),
-    exportNotices: tasks => exportNoticesSafe(tasks, path.join(dataDir, 'outbox')),
+    exportNotices: async tasks => {
+      const result = await exportNoticesSafe(tasks, path.join(dataDir, 'outbox'));
+      // kick() never throws and is not awaited, so retries and backoff never hold the serial queue.
+      if (webhook && !result?.failed) void webhook.kick();
+      return result;
+    },
   };
   function scheduleFileWork() {
     if (workerBusy) return;

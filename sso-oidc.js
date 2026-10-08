@@ -106,6 +106,11 @@ export function ssoConfigFromEnv(env = process.env) {
  * It cannot create a principal or choose a role; a principal id it names that the registry does not
  * hold (or holds disabled) simply cannot sign in. Duplicate keys are an error, not "last one wins".
  */
+// Only A-Z are folded. String.prototype.toLowerCase() also folds characters such as the Kelvin sign
+// (U+212A) to ASCII letters, which would let a look-alike address match a mapped one.
+const asciiLower = value => value.replace(/[A-Z]/g, letter => letter.toLowerCase());
+const RESERVED_IDS = new Set(['__proto__', 'constructor', 'prototype']);
+
 export function parseSubjectMap(text) {
   let data;
   try { data = JSON.parse(text); } catch { throw configError('SSO_SUBJECT_MAP'); }
@@ -117,15 +122,15 @@ export function parseSubjectMap(text) {
   const byEmail = new Map();
   for (const entry of data.entries) {
     if (!isObject(entry) || Object.keys(entry).some(key => !['sub', 'email', 'principalId'].includes(key)) ||
-        typeof entry.principalId !== 'string' || !PRINCIPAL_ID.test(entry.principalId) ||
+        typeof entry.principalId !== 'string' || !PRINCIPAL_ID.test(entry.principalId) || RESERVED_IDS.has(entry.principalId) ||
         (entry.sub === undefined) === (entry.email === undefined)) throw configError('SSO_SUBJECT_MAP');
     if (entry.sub !== undefined) {
       if (typeof entry.sub !== 'string' || !entry.sub || entry.sub.length > 255 || /[\u0000-\u001f\u007f]/.test(entry.sub) ||
           bySub.has(entry.sub)) throw configError('SSO_SUBJECT_MAP');
       bySub.set(entry.sub, entry.principalId);
     } else {
-      const email = typeof entry.email === 'string' ? entry.email.toLowerCase() : '';
-      if (!email || email.length > 254 || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email) || /[\u0000-\u001f\u007f]/.test(email) ||
+      const email = typeof entry.email === 'string' ? asciiLower(entry.email) : '';
+      if (!email || email.length > 254 || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email) || /[^\u0021-\u007e]/.test(email) ||
           byEmail.has(email)) throw configError('SSO_SUBJECT_MAP');
       byEmail.set(email, entry.principalId);
     }
@@ -145,9 +150,9 @@ export async function readSubjectMap(file) {
  */
 export function resolveSubject(map, claims) {
   if (map.bySub.has(claims.sub)) return { principalId: map.bySub.get(claims.sub) };
-  if (typeof claims.email === 'string' && map.byEmail.has(claims.email.toLowerCase())) {
+  if (typeof claims.email === 'string' && map.byEmail.has(asciiLower(claims.email))) {
     if (claims.email_verified !== true) return { reason: 'SSO_EMAIL_UNVERIFIED' };
-    return { principalId: map.byEmail.get(claims.email.toLowerCase()) };
+    return { principalId: map.byEmail.get(asciiLower(claims.email)) };
   }
   return { reason: 'SSO_SUBJECT_UNMAPPED' };
 }

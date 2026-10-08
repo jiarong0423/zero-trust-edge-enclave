@@ -78,6 +78,9 @@ export function createOneTimeTable({ maxEntries = 1000, maxPerOwner = 10, ttlMs,
   };
 }
 
+// How long a token that has just ended is still recognised as a former session, not a guess.
+const ENDED_GRACE_MS = 10 * 60 * 1000;
+
 /**
  * Session tokens: 43-character base64url (32 random bytes), stored as a SHA-256 digest with the
  * principal id and an absolute expiry. There is no sliding renewal: a session ends `ttlMs` after it
@@ -90,11 +93,22 @@ export function createSessionStore({ maxSessions = 1000, maxPerPrincipal = 5, tt
   positive(maxPerPrincipal, 'maxPerPrincipal');
   positive(ttlMs, 'ttlMs');
   const sessions = new Map();
+  // Digests of sessions that expired or were revoked in the last ENDED_GRACE_MS. A page that keeps
+  // sending a token that has just ended must not be counted as guessing, or it would lock its own
+  // address out of signing in again. Digests only, bounded like the live table.
+  const ended = new Map();
+
+  function remember(key, current) {
+    ended.delete(key);
+    ended.set(key, current + ENDED_GRACE_MS);
+    while (ended.size > maxSessions) ended.delete(ended.keys().next().value);
+  }
 
   function sweep(current) {
     for (const [key, entry] of sessions) {
       if (entry.expiresAt > current) break;
       sessions.delete(key);
+      remember(key, current);
     }
   }
 
@@ -105,6 +119,7 @@ export function createSessionStore({ maxSessions = 1000, maxPerPrincipal = 5, tt
     if (!entry) return null;
     if (entry.expiresAt <= now()) {
       sessions.delete(key);
+      remember(key, now());
       return null;
     }
     return { key, entry };
@@ -133,14 +148,21 @@ export function createSessionStore({ maxSessions = 1000, maxPerPrincipal = 5, tt
     resolve(token) {
       return lookup(token)?.entry.principalId ?? null;
     },
-    /** True when the token is a live session, whatever its principal's state. */
+    /** True when the token is a live session, or one that ended within the last few minutes. */
     knows(token) {
-      return lookup(token) !== null;
+      if (lookup(token) !== null) return true;
+      if (typeof token !== 'string' || !TOKEN_FORMAT.test(token)) return false;
+      const key = digest(token);
+      const until = ended.get(key);
+      if (until === undefined) return false;
+      if (until <= now()) { ended.delete(key); return false; }
+      return true;
     },
     revoke(token) {
       const found = lookup(token);
       if (!found) return false;
       sessions.delete(found.key);
+      remember(found.key, now());
       return true;
     },
     revokePrincipal(principalId) {
