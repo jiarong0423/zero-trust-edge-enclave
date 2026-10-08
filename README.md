@@ -5,10 +5,10 @@ MIT-licensed local hackathon prototype for encrypted document handoff with a res
 **At a glance**
 
 - What it is: encrypted document handoff in which a restricted AI adviser only proposes routing and follow-up; fixed code verifies and executes. A prototype, not a certified deployment.
-- Two modes, one contract: **edge** (Nemotron 3 Nano 4B on the same machine behind a loopback-only runtime: `LOCAL_ONLY=true`, `COORDINATOR_PROVIDER=local_openai_compatible`) and **hosted** (Nemotron 3 Super 120B on Nebius Token Factory). Switching is configuration. The edge mode targets organisations that keep files inside a private network; that is a design goal, not a deployment.
+- Two modes, one contract: **edge** (Nemotron 3 Nano 4B on the same machine behind a loopback-only runtime: `LOCAL_ONLY=true`, `COORDINATOR_PROVIDER=local_openai_compatible`) and **hosted** (Nemotron 3 Super 120B on Nebius Token Factory). Switching is configuration, and there is no automatic fallback between them; an explicit, opt-in third value (`COORDINATOR_PROVIDER=local_then_nebius`, default off) asks the local model first and the hosted model only after a local failure, see [cascade outlet](docs/agent/cascade-outlet.md). The edge mode targets organisations that keep files inside a private network; that is a design goal, not a deployment.
 - In the file workflow the adviser sees five pseudonymous fields per decision and never the document, the recipient, the address or the key. Two legacy compatibility paths send more to the hosted model (see "Scope of the five-field promise" below); `LEGACY_HOSTED_ADVICE=off` keeps them local.
 - Edge mode has been run on a Mac mini (Apple M2 Pro, 16 GB) with LM Studio, the kind of small always-on host it targets: models and data stay on that host and users reach it through one private address or domain. It has not been run on NVIDIA edge hardware (Jetson, DGX Spark).
-- Proof: 336 tests in the full suite (`npm run test:all`), and a measured comparison of both models on the same inputs: [follow-up comparison](docs/agent/followup-adviser-comparison-2026-10-08.md). 12 of its 36 inputs (everything already collected) are never sent to a model in the product, so read it on the other 24. With the opt-in `FOLLOWUP_PROMPT=directive` profile both models act instead of waiting on those 24 inputs (single runs; see [prompt profile](docs/agent/followup-prompt-profile-2026-10-08.md)).
+- Proof: 355 tests in the full suite (`npm run test:all`), and a measured comparison of both models on the same inputs: [follow-up comparison](docs/agent/followup-adviser-comparison-2026-10-08.md). 12 of its 36 inputs (everything already collected) are never sent to a model in the product, so read it on the other 24. With the opt-in `FOLLOWUP_PROMPT=directive` profile both models act instead of waiting on those 24 inputs (single runs; see [prompt profile](docs/agent/followup-prompt-profile-2026-10-08.md)).
 - Details: [dual-mode edge](docs/agent/dual-mode-edge.md), [private-network deployment](docs/agent/private-network-deployment.md), [enterprise control mapping and evidence index](docs/compliance/README.md) (a mapping, not a certification), [model provenance](docs/agent/nvidia-model-provenance.md), [server split plan](docs/agent/server-split-plan.md).
 
 ## Try It
@@ -40,7 +40,9 @@ the budget is not spent; it does not look at `COORDINATOR_PROVIDER`. The legacy 
 recipient and therefore the number of recipients, when `COORDINATOR_PROVIDER=nebius`,
 `LOCAL_ONLY=false` and a key is present. Neither carries document content, names, addresses or keys,
 but neither is limited to five fields. `LEGACY_HOSTED_ADVICE=off` makes both answer from the local
-fixture and never call the hosted model (`/api/health` reports `legacyHostedAdviceOff`). Details: [data protection and retention](docs/compliance/data-protection-and-retention.md).
+fixture and never call the hosted model (`/api/health` reports `legacyHostedAdviceOff`).
+
+The opt-in cascade (`COORDINATOR_PROVIDER=local_then_nebius`, default off) stays inside the five-field promise: every decision goes to the loopback model first, and only when that call is unreachable or its output is unusable are the same five fields sent to Token Factory, once. A valid local answer is never second-guessed. It requires `LOCAL_ONLY=false`; with `LOCAL_ONLY=true` the server refuses to start in this mode. Because `LOCAL_ONLY=false` is also what opens the two legacy paths, pair it with `LEGACY_HOSTED_ADVICE=off`. Details: [data protection and retention](docs/compliance/data-protection-and-retention.md).
 
 The adviser's small surface is the design, not an unfinished part. A model is the
 component an injected instruction attacks, so it cannot also be the component that
@@ -142,7 +144,7 @@ No other Nebius service is used. There is no AI Cloud deployment, no Serverless 
 Serverless Job. The application runs as a single Node process with no third-party runtime packages
 and reaches Token Factory over the chat completions API.
 
-Default mode is `synthetic_fixture` and issues no model request. Token Factory advice requires
+Default mode is `synthetic_fixture` and issues no model request. An opt-in cascade, `COORDINATOR_PROVIDER=local_then_nebius`, asks the local model first and the hosted one only after a failed local call ([cascade outlet](docs/agent/cascade-outlet.md)). Token Factory advice requires
 `LOCAL_ONLY=false`, `COORDINATOR_PROVIDER=nebius` and a backend `NEBIUS_API_KEY`; a key alone does
 not enable it. Local Nano advice uses `COORDINATOR_PROVIDER=local_openai_compatible` with a
 loopback `LOCAL_MODEL_BASE_URL` and no key. Configure an untracked environment file using `env.sample`, and start without
@@ -175,7 +177,7 @@ into `reasoning_content` while `content` is left empty. A client reading only `c
 empty success. None of these results prove superiority to deterministic routing, general injection
 resistance, or compatibility with an untested local runtime.
 
-Version 2026-10-08. `npm test` runs one file, `scripts/local-workflow.test.mjs` (117 tests). The full suite is `node --test scripts/*.test.mjs` (336 tests at this revision).
+Version 2026-10-08. `npm test` runs one file, `scripts/local-workflow.test.mjs` (117 tests). The full suite is `node --test scripts/*.test.mjs` (355 tests at this revision).
 
 ## Architecture
 

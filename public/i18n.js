@@ -167,6 +167,7 @@ export const labels = {
   'Token Factory': 'Token Factory',
   'Demo (Token Factory budget spent)': '合成示範（Token Factory 預算已用完）',
   'Synthetic fixture (no model call)': '合成測試（未呼叫模型）', 'Local model outlet': '本機模型出口', 'Outlet not recorded': '未記錄回答來源',
+  'After the local model gave no answer': '本機模型沒有回應，改由此出口回答', 'After the local answer was unusable': '本機回答無法使用，改由此出口回答',
   'Not routed: no validated route, so nothing was sent.': '未派送：沒有通過驗證的路由，所以沒有送出任何東西。',
   'Sign in as the sender to see an evidence chain.': '請以發文者身分登入以查看證據鏈。',
   'Local model outlet configured; successful model call not verified': '已設定本機模型出口；尚未驗證成功呼叫',

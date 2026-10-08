@@ -1,4 +1,5 @@
 import { resolvePrivateRoute } from './private-mapping.js';
+import { normalizeCascade } from './file-worker.js';
 
 /**
  * The sender's evidence chain for one delivery: what they approved, the private mapping that stands
@@ -39,6 +40,7 @@ export function taskEvidence(task, version = task.jobs.at(-1)?.version) {
   const real = [task.id, task.ownerId, task.grantId, content.documentHash, ...content.recipients,
     ...mapping.recipients.map(entry => entry.groupCode)].filter(Boolean);
   const trail = (job.adviceTrail || []).map(entry => ({ kind: entry.kind, at: entry.at, source: entry.source || null,
+    cascade: normalizeCascade(entry.cascade),
     input: entry.input, answer: entry.answer || null, refusal: entry.refusal || null,
     realValuesInInput: countRealValues(entry.input, real, content.channels) }));
   // Mapped back from the delivery fixed code actually prepared, not from the adviser's answer: a

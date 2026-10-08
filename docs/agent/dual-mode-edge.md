@@ -54,6 +54,10 @@ Both modes go through `requestFileAdvice` in `file-adviser.js`:
 
 The adviser never receives the document, the recipient, the address or a key, in either mode.
 
+A third, opt-in value, `COORDINATOR_PROVIDER=local_then_nebius`, combines the two without changing the
+contract: the local model is asked first, and the hosted model is asked only when the local call failed
+(see [Cascade](#cascade-opt-in)). Nothing is cascaded by default.
+
 ## What The Models Did (Measured)
 
 36 synthetic follow-up inputs through the production path, one run each (full table in the
@@ -94,7 +98,36 @@ Hosted mode:
 | `NEBIUS_BUDGET_USD`, `NEBIUS_PRICE_INPUT_PER_M`, `NEBIUS_PRICE_OUTPUT_PER_M` | optional | Spending cap; see [Zeabur deployment](zeabur-deployment.md) |
 
 `COORDINATOR_PROVIDER=synthetic_fixture` (the default) issues no model request in either mode.
+There is no automatic fallback between edge and hosted: each value above uses one outlet, and an edge
+deployment whose local model is down pauses and retries rather than calling the hosted model. The only way
+to get a second outlet is the explicit cascade below.
 `GET /api/health` reports `localOnly`, `adviserProvider`, `localOutletBaseUrl` and `localOutletModel`.
+
+## Cascade (Opt-In)
+
+`COORDINATOR_PROVIDER=local_then_nebius` asks the local Nemotron 3 Nano 4B first and asks Nemotron 3 Super
+120B on Token Factory only when the local call failed. It is off unless that exact value is set.
+
+| Local call | What happens |
+| --- | --- |
+| Valid answer, any action (including WAIT, ESCALATE, PAUSE) | Final. The hosted model is not called |
+| Unreachable: refused connection, timeout, transport error | Hosted model asked once; marker `LOCAL_UNREACHABLE` |
+| Unusable output: HTTP error, empty, oversized or unparseable body, or an answer the validator refuses | Hosted model asked once; marker `LOCAL_REJECTED` |
+| Refused before any request (misconfigured local URL, rejected metadata) | Error; the hosted model is not called |
+
+The trigger is failure only. The models return no confidence value, so there is nothing to threshold on.
+What the hosted model receives is the same five-field projection and the same system text the local model
+received (`scripts/cascade-outlet.test.mjs` test "the hosted model receives the identical five-field projection and boundary the local model received"),
+over https to `api.tokenfactory.nebius.com` with the backend key; the loopback call never carries the key.
+The validator, the nudge budget and the floor apply to whichever answer is used. A spent Token Factory
+budget falls to the synthetic fixture, as in hosted mode.
+
+It needs `LOCAL_ONLY=false`; with `LOCAL_ONLY=true` the server refuses to start in this mode and the request
+path would not ask the hosted outlet anyway, so an edge-only deployment can never reach the hosted model
+through it. `LOCAL_ONLY=false` also lets the two legacy paths reach the hosted model unless
+`LEGACY_HOSTED_ADVICE=off` (see the README section "Scope of the five-field promise"); set it. The evidence trail
+records the outlet that answered in `source` and, after a cascade, `cascade: { from, reason }`; the sender page
+shows both. Full description, log lines, limits and the wiring note: [cascade outlet](cascade-outlet.md).
 
 ## Air-Gapped Profile
 
@@ -171,6 +204,7 @@ No network or model is needed for the tests:
 ```bash
 node --test scripts/local-adviser-outlet.test.mjs   # loopback rule, key never lent to loopback
 node --test scripts/file-adviser.test.mjs           # both outlets, validator, request shape
+node --test scripts/cascade-outlet.test.mjs         # opt-in cascade: triggers, one hosted call, LOCAL_ONLY, key, projection
 node --test scripts/network-policy.test.mjs         # ALLOWED_CLIENT_CIDRS
 node --test scripts/followup-floor.test.mjs         # FOLLOWUP_FLOOR
 node --test scripts/*.test.mjs                      # full suite
