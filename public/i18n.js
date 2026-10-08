@@ -4,6 +4,12 @@ export const labels = {
   'Model status unavailable': '模型狀態尚未確認，不能視為真實呼叫。',
   'Cascade outlet configured (local model first, Token Factory only if it fails); successful model call not verified': '目前：串接出口，先問本機模型，失敗才問 Token Factory；尚未驗證成功呼叫。',
   'Local model first, then Token Factory': '先問本機模型，失敗才問 Token Factory',
+  'Cascade outlet: local model first; Token Factory budget spent, a local failure is answered by the synthetic adviser':
+    '目前：串接出口，先問本機模型；Token Factory 預算已用完，本機失敗時改由合成顧問回答。',
+  'Cascade outlet without a Token Factory key: only the local model is called; if it fails the task is retried, then paused':
+    '目前：串接出口但沒有 Token Factory 金鑰，只呼叫本機模型；本機失敗時不會改問雲端，任務會重試後暫停。',
+  'Local model first; Token Factory budget spent (synthetic fallback)': '先問本機模型；Token Factory 預算已用完（改由合成顧問）',
+  'Local model only (no Token Factory key)': '僅本機模型（沒有 Token Factory 金鑰）',
   'Local simulation; no real model call': '目前：本機模擬，沒有呼叫真實模型。',
   'Provider configured; successful model call not verified': '已載入模型服務設定；不代表已成功呼叫，須以任務執行證據確認。',
   'Configured model (not execution evidence)': '設定的模型（不代表已執行）',
@@ -194,6 +200,15 @@ export const labels = {
   'Non-content metadata requests a high-control route for a confidential internal package.': '依非內容標籤建議較嚴格的傳輸條件。'
 };
 export function t(value) { return isChinese ? labels[value] || value : value; }
+// What the health report says about the opt-in cascade (COORDINATOR_PROVIDER=local_then_nebius), or
+// null for any other provider. The local model is called in every cascade state; only what happens
+// when it fails differs: the hosted model (ready), the synthetic adviser (budget spent) or nothing
+// (no usable Token Factory key, so the decision is retried and then pauses).
+export function cascadeState(health) {
+  if (health?.adviserProvider !== 'local_then_nebius') return null;
+  if (health.nebiusConfigured !== true || health.localOnly !== false) return 'no_key';
+  return health.nebiusBudget?.exhausted === true ? 'budget_spent' : 'ready';
+}
 export function pagePath(path) { return isChinese && path.startsWith('/') ? `/zh-TW${path}` : path; }
 export function displayJson(value) {
   if (!isChinese) return JSON.stringify(value, null, 2);

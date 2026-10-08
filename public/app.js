@@ -3,7 +3,7 @@ import { sealFileBytes, MAX_FILE_BYTES } from './file-envelope.js';
 import { createRecipientPicker } from './recipient-picker.js';
 import { initializeAuthorizationPicker } from './authorization-picker.js';
 import { initializeTaskHistory } from './task-history.js';
-import { setText, setJson, initializeLanguage, t } from './i18n.js';
+import { setText, setJson, initializeLanguage, t, cascadeState } from './i18n.js';
 
 async function showModelRuntime() {
   const view = document.querySelector('#modelRuntimeStatus');
@@ -15,11 +15,13 @@ async function showModelRuntime() {
     if (health.ok !== true || typeof health.localOnly !== 'boolean' || typeof health.nebiusConfigured !== 'boolean') throw Error('Invalid health');
     // Describe the outlet that will answer, not merely whether a Token Factory key is present.
     const local = health.adviserProvider === 'local_openai_compatible';
-    const cascade = health.adviserProvider === 'local_then_nebius' && health.nebiusConfigured && !health.localOnly;
+    const cascade = cascadeState(health);
     const tokenFactory = health.adviserProvider === 'nebius' && health.nebiusConfigured && !health.localOnly
       && !health.nebiusBudget?.exhausted;
     setText(view, local ? 'Local model outlet configured; successful model call not verified'
-      : cascade ? 'Cascade outlet configured (local model first, Token Factory only if it fails); successful model call not verified'
+      : cascade === 'ready' ? 'Cascade outlet configured (local model first, Token Factory only if it fails); successful model call not verified'
+      : cascade === 'budget_spent' ? 'Cascade outlet: local model first; Token Factory budget spent, a local failure is answered by the synthetic adviser'
+      : cascade === 'no_key' ? 'Cascade outlet without a Token Factory key: only the local model is called; if it fails the task is retried, then paused'
       : tokenFactory ? 'Provider configured; successful model call not verified'
       : health.nebiusBudget?.exhausted ? 'Token Factory budget spent; synthetic adviser, no real model call'
       : 'Local simulation; no real model call');

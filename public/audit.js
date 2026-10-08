@@ -1,5 +1,5 @@
 import { authenticatedFetch } from './auth.js';
-import { t, setText, clearLocalizedText, initializeLanguage, isChinese } from './i18n.js';
+import { t, setText, clearLocalizedText, initializeLanguage, isChinese, cascadeState } from './i18n.js';
 import { loadEvidenceTasks, clearEvidence } from './evidence-chain.js';
 const runtimeMode = document.querySelector('#runtimeMode');
 const allowCount = document.querySelector('#allowCount');
@@ -38,7 +38,9 @@ async function refresh() {
   const tokenFactory = health.adviserProvider === 'nebius' && health.nebiusConfigured;
   setText(runtimeMode, tokenFactory && health.nebiusBudget?.exhausted ? 'Demo (Token Factory budget spent)'
     : tokenFactory ? 'Token Factory'
-    : health.adviserProvider === 'local_then_nebius' ? 'Local model first, then Token Factory'
+    : cascadeState(health) === 'budget_spent' ? 'Local model first; Token Factory budget spent (synthetic fallback)'
+    : cascadeState(health) === 'no_key' ? 'Local model only (no Token Factory key)'
+    : cascadeState(health) === 'ready' ? 'Local model first, then Token Factory'
     : health.adviserProvider === 'local_openai_compatible'
       ? () => `${t('Local model outlet')}: ${health.localOutletModel || '-'}` : 'Demo');
   const events = audit.events || [];

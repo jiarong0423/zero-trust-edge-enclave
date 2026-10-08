@@ -17,10 +17,10 @@ the deterministic `synthetic_fixture`, needs no model and is the default. Two ou
 | --- | --- | --- | --- |
 | Hosted | `nvidia/nemotron-3-super-120b-a12b` | Nebius Token Factory (`https://api.tokenfactory.nebius.com/v1`) | `COORDINATOR_PROVIDER=nebius`, `LOCAL_ONLY=false`, `NEBIUS_API_KEY` |
 | Local | `nvidia-nemotron-3-nano-4b` | A loopback OpenAI-compatible runtime on the same host | `COORDINATOR_PROVIDER=local_openai_compatible` |
-| Cascade (opt-in) | Local first, then hosted | Local call on loopback; a hosted call only after the local call failed | `COORDINATOR_PROVIDER=local_then_nebius`, `LOCAL_ONLY=false`, `NEBIUS_API_KEY` |
+| Cascade (opt-in) | Local first, then hosted | Local call on loopback; a hosted call only after the local call failed | `COORDINATOR_PROVIDER=local_then_nebius`, `LOCAL_ONLY=false`, `LEGACY_HOSTED_ADVICE=off`, `NEBIUS_BUDGET_USD` with both prices, `NEBIUS_API_KEY` |
 | None | `synthetic_fixture` | In process | Default |
 
-The cascade is not a third model. It asks the local outlet first, and asks the hosted outlet only when the local call was unreachable (refused connection, timeout, transport error) or its output was unusable (HTTP error, malformed body, or an answer the validator refuses). A valid local answer, including WAIT, ESCALATE or PAUSE, is final and the hosted model is not called. The hosted outlet is asked at most once per adviser call, with the identical five-field projection, and `LOCAL_ONLY=true` makes the server refuse to start in this mode. Default off. Details and tests: [cascade outlet](../agent/cascade-outlet.md).
+The cascade is not a third model. It asks the local outlet first, and asks the hosted outlet only when the local call was unreachable (refused connection, timeout, transport error) or its output was unusable (HTTP error, malformed body, or an answer the validator refuses). A valid local answer, including WAIT, ESCALATE or PAUSE, is final and the hosted model is not called. The hosted outlet is asked at most once per adviser call, with the identical five-field projection, and the server refuses to start in this mode unless `LOCAL_ONLY=false`, `LEGACY_HOSTED_ADVICE=off` and a Token Factory budget (`NEBIUS_BUDGET_USD` with both prices) are set (`file-adviser-outlet.js` `cascadeStartupProblem()`). The coordinator tool `file_recommend` is answered by the local outlet only under the cascade, because it leaves no evidence-trail entry. Default off. Details and tests: [cascade outlet](../agent/cascade-outlet.md).
 
 The outlet is chosen per call in `file-adviser-outlet.js` `createFileAdviser()`. The two decisions are asked at different times: **routing** (once a job is approved: send on an approved
 channel, or hold) and **follow-up** (only for a delivery that must be acknowledged and has not been
@@ -146,7 +146,7 @@ escalation or an overdue delivery; the sender sees them only in the page and in 
 | Control | Default | Effect |
 | --- | --- | --- |
 | `COORDINATOR_PROVIDER` | `synthetic_fixture` (no model request) | `nebius`, `local_openai_compatible` or `local_then_nebius` (the cascade) selects an outlet (`file-adviser-outlet.js` `createFileAdviser()`). It also gates the legacy coordinator `recommend` (`nebius` only; the cascade value does not enable it); it does not gate `POST /api/policy/recommend` |
-| `LOCAL_ONLY` | on (anything but the string `false`) (`server.js` `localOnly`) | Blocks the hosted outlet with `FILE_EXTERNAL_INFERENCE_DISABLED`; does not block loopback; keeps both legacy paths local. With `COORDINATOR_PROVIDER=local_then_nebius` it stops start-up (`CASCADE_REQUIRES_LOCAL_ONLY_FALSE`), and the request path never asks the hosted outlet either (`scripts/cascade-outlet.test.mjs` test "under LOCAL_ONLY the cascade never reaches the hosted outlet") |
+| `LOCAL_ONLY` | on (anything but the string `false`) (`server.js` `localOnly`) | Blocks the hosted outlet with `FILE_EXTERNAL_INFERENCE_DISABLED`; does not block loopback; keeps both legacy paths local. With `COORDINATOR_PROVIDER=local_then_nebius` it stops start-up (`CASCADE_REQUIRES_LOCAL_ONLY_FALSE`; `CASCADE_REQUIRES_LEGACY_HOSTED_ADVICE_OFF` and `CASCADE_REQUIRES_TOKEN_FACTORY_BUDGET` stop it likewise), and the request path never asks the hosted outlet either (`scripts/cascade-outlet.test.mjs` test "under LOCAL_ONLY the cascade never reaches the hosted outlet") |
 | `NEBIUS_API_KEY` | unset | A key alone does not enable the hosted file-workflow outlet (that also needs `COORDINATOR_PROVIDER=nebius` and `LOCAL_ONLY=false`). With `LOCAL_ONLY=false` it does enable the hosted call in `POST /api/policy/recommend` whatever `COORDINATOR_PROVIDER` is, unless `LEGACY_HOSTED_ADVICE=off` (`server.js` `callNebiusPolicy()`) |
 | `LEGACY_HOSTED_ADVICE` | unset (legacy paths may call the hosted model when it is configured); only the exact string `off` changes behaviour | `POST /api/policy/recommend` and the legacy coordinator `recommend` answer from local code and never call the hosted model (`server.js` `legacyHostedAdviceOff`, `callNebiusPolicy()`, `coordinatorCall()`; `scripts/legacy-hosted-advice.test.mjs` tests "LEGACY_HOSTED_ADVICE=off keeps the legacy policy path entirely local" and "only the exact value off changes behaviour", which cover the policy path; the coordinator path is established by reading the code) |
 | `NEBIUS_BUDGET_USD` with prices | unset (no cap) | Spending ceiling; a budget without prices counts as spent (`nebius-budget.js` `createBudget()`, `usable`) |
@@ -222,8 +222,11 @@ record does not show that either model beats a rule, or the reverse.
    per-decision human check.
 10. **Extension.** Any new adviser kind must add its own projection, validator and tests; the shared request
     path does not do that automatically.
-11. **Cascade (opt-in).** Needs `LOCAL_ONLY=false`, which also lets the legacy paths reach the hosted model
-    unless `LEGACY_HOSTED_ADVICE=off`. A local outage costs one hosted call per adviser call, and the worker's
-    existing retries each ask again, so a local runtime that stays down sends the five fields to the hosted
-    model on every retry until the spending cap is spent; a spent cap then answers from the fixture, so a local
-    outage plus a spent cap lets the fixture decide (recorded as `synthetic_fixture` with the cascade marker).
+11. **Cascade (opt-in).** Needs `LOCAL_ONLY=false`, which would also let the legacy paths reach the hosted
+    model, so the server refuses to start unless `LEGACY_HOSTED_ADVICE=off` and a Token Factory budget are
+    set too. A local outage costs one hosted call per adviser call, and the worker's existing retries (four
+    attempts in all for routing) each ask again, so a local runtime that stays down sends the five fields to the
+    hosted model on every attempt until the spending cap is spent; a spent cap (or a reservation the cap
+    refuses) then answers from the fixture, so a local outage plus a spent cap lets the fixture decide
+    (recorded as `synthetic_fixture` with the cascade marker). The coordinator tool `file_recommend` never
+    reaches the hosted model under the cascade.

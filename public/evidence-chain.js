@@ -34,6 +34,11 @@ const SOURCE_LABELS = { nebius_token_factory: 'Token Factory', local_openai_comp
 // vocabulary of two reasons; anything else is shown as no cascade rather than as stored text.
 const CASCADE_LABELS = { LOCAL_UNREACHABLE: 'After the local model gave no answer',
   LOCAL_REJECTED: 'After the local answer was unusable' };
+// Own properties only: a stored value such as "constructor" or "__proto__" would otherwise resolve
+// to something inherited and be shown as "function Object() { ... }".
+function own(labels, key) {
+  return typeof key === 'string' && Object.hasOwn(labels, key) ? labels[key] : undefined;
+}
 let shown = null;
 // Bumped whenever the identity changes or a new request starts; a response for an older number is
 // dropped, so a slow reply cannot redraw a previous sender's chain.
@@ -112,8 +117,8 @@ function render(evidence) {
   for (const entry of evidence.trail) {
     const clean = entry.realValuesInInput === 0;
     const row = element('div', 'evidence-call');
-    const source = [t(SOURCE_LABELS[entry.source] || 'Outlet not recorded'),
-      ...(entry.cascade && CASCADE_LABELS[entry.cascade.reason] ? [t(CASCADE_LABELS[entry.cascade.reason])] : [])].join(' · ');
+    const source = [t(own(SOURCE_LABELS, entry.source) || 'Outlet not recorded'),
+      ...(entry.cascade && own(CASCADE_LABELS, entry.cascade.reason) ? [t(own(CASCADE_LABELS, entry.cascade.reason))] : [])].join(' · ');
     row.append(element('p', 'evidence-meta', `${t(entry.kind === 'route' ? 'Routing' : 'Follow-up')} · ${source} · ${when(entry.at)}`));
     row.append(json(entry.input));
     row.append(element('p', `pill ${clean ? 'allow' : 'deny'}`,

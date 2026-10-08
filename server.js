@@ -103,7 +103,8 @@ const mcp = createMcpRoutes({ packagesPath, auditsPath, readJson, writeJson, app
   findPackage, approvedPackage, createSealedPackageRecord, performLocalDelivery, createTimedCredential });
 const packages = createPackageRoutes({ packagesPath, readJson, writeJson, appendAudit, auditRejection, readSignedCredential,
   createSealedPackageRecord, approvedPackage, createTimedCredential, evaluateDecodeAttempt });
-const fileAdviser = createFileAdviser({ nebiusBudget, localOnly, localModelBaseUrl, localModelName, nebiusBaseUrl, nebiusModel });
+const fileAdviser = createFileAdviser({ nebiusBudget, localOnly, localModelBaseUrl, localModelName, nebiusBaseUrl, nebiusModel,
+  legacyHostedAdviceOff });
 const coordinator = createCoordinatorRoutes({ tasksPath, packagesPath, readJson, fileAdviser, nebiusBudget, nebiusBaseUrl, nebiusModel,
   localOnly, legacyHostedAdviceOff, demoFallbackEnabled, validatePolicy, approvedPackage, performLocalDelivery });
 

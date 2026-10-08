@@ -102,7 +102,10 @@ export function createCoordinatorRoutes({ tasksPath, packagesPath, readJson, fil
       if (!job) fail('File task unavailable', 404);
       const metadata = fileRoutingMetadata(snapshot, job);
       if (input.tool === 'file_status') return { ok: true, metadata };
-      const recommendation = await fileAdviser(metadata);
+      // Under the opt-in cascade this tool is answered by the local outlet alone: it leaves no entry in
+      // the sender's evidence trail and can be called repeatedly, so it must not be able to reach the
+      // hosted model. The delivery worker's own calls (recorded in the trail) are the only cascade.
+      const recommendation = await fileAdviser(metadata, 'route', { hosted: false });
       return { ok: true, provider: recommendation.provider, metadata, recommendation: recommendation.advice };
     }
     exact(args, input.tool === 'deliver' ? ['taskAlias', 'snapshotVersion', 'requestId', 'channel'] : ['taskAlias', 'snapshotVersion']);

@@ -122,10 +122,16 @@ over https to `api.tokenfactory.nebius.com` with the backend key; the loopback c
 The validator, the nudge budget and the floor apply to whichever answer is used. A spent Token Factory
 budget falls to the synthetic fixture, as in hosted mode.
 
-It needs `LOCAL_ONLY=false`; with `LOCAL_ONLY=true` the server refuses to start in this mode and the request
-path would not ask the hosted outlet anyway, so an edge-only deployment can never reach the hosted model
-through it. `LOCAL_ONLY=false` also lets the two legacy paths reach the hosted model unless
-`LEGACY_HOSTED_ADVICE=off` (see the README section "Scope of the five-field promise"); set it. The evidence trail
+The server refuses to start in this mode unless `LOCAL_ONLY=false` (`CASCADE_REQUIRES_LOCAL_ONLY_FALSE`; the
+request path would not ask the hosted outlet anyway, so an edge-only deployment can never reach the hosted model
+through it), `LEGACY_HOSTED_ADVICE=off` (`CASCADE_REQUIRES_LEGACY_HOSTED_ADVICE_OFF`: `LOCAL_ONLY=false` would
+otherwise leave `/api/policy/recommend` open to the hosted model, see the README section "Scope of the
+five-field promise") and a Token Factory budget, `NEBIUS_BUDGET_USD` with both prices
+(`CASCADE_REQUIRES_TOKEN_FACTORY_BUDGET`: an unbounded cascade is a spend risk). The coordinator tool
+`file_recommend` is answered by the local outlet only under the cascade (it leaves no evidence-trail entry, so it
+may not reach the hosted model); a cascaded call is bounded by one 10 s deadline across both outlets, so the local
+call has 7.5 s there rather than 10 s. A reservation the spending cap refuses while budget is left is handled like a
+spent budget (the fixture decides). The evidence trail
 records the outlet that answered in `source` and, after a cascade, `cascade: { from, reason }`; the sender page
 shows both. Full description, log lines, limits and the wiring note: [cascade outlet](cascade-outlet.md).
 

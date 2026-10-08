@@ -165,14 +165,16 @@ export const ADVICE_KINDS = {
 };
 
 export async function requestFileAdvice(metadata, options = {}, request = fetch) {
-  const kind = ADVICE_KINDS[options.kind ?? 'route'];
+  // Own properties only: a name such as "constructor" or "__proto__" must not resolve to something
+  // inherited from Object.prototype and fail later with a TypeError that looks like a transport fault.
+  const kind = Object.hasOwn(ADVICE_KINDS, options.kind ?? 'route') ? ADVICE_KINDS[options.kind ?? 'route'] : null;
   if (!kind) fail('FILE_ADVICE_KIND_UNKNOWN', 503);
   exact(metadata, kind.keys);
   if (!/^[a-f0-9-]{36}$/.test(metadata.taskAlias) || !Number.isSafeInteger(metadata.snapshotVersion) ||
       metadata.snapshotVersion < 1 || !kind.accepts(metadata)) {
     fail(kind.rejection, 422);
   }
-  if (!ADVISER_PROVIDERS[options.provider]) {
+  if (typeof options.provider !== 'string' || !Object.hasOwn(ADVISER_PROVIDERS, options.provider)) {
     if (options.provider && options.provider !== 'synthetic_fixture') fail('FILE_PROVIDER_UNAVAILABLE', 503);
     return { provider: 'synthetic_fixture', advice: kind.validate(kind.synthetic(metadata), metadata) };
   }
@@ -185,6 +187,10 @@ export async function requestFileAdvice(metadata, options = {}, request = fetch)
       typeof options.model !== 'string' || !provider.accepts(endpoint, options)) {
     fail('FILE_PROVIDER_UNAVAILABLE', 503);
   }
+  // A key that cannot be written into an HTTP header (a line break, a NUL, a character above Latin-1)
+  // is a configuration fault no retry can cure. It is refused here, before a request is built, and
+  // the key is never part of the message.
+  if (options.apiKey && /[\0\r\n]|[^\x00-\xFF]/.test(String(options.apiKey))) fail('FILE_PROVIDER_UNAVAILABLE', 503);
   let advice;
   const started = performance.now();
   const diagnostics = { stage: 'HEADERS', code: 'OK', timings: {} };
@@ -199,7 +205,10 @@ export async function requestFileAdvice(metadata, options = {}, request = fetch)
     diagnostics.totalMs = Math.round(performance.now() - started);
     try { options.onDiagnostics?.(structuredClone(diagnostics)); } catch { /* Observers cannot affect authorization. */ }
   };
-  const signal = AbortSignal.timeout(provider.timeoutMs ?? 5000);
+  // `timeoutMs` lets a caller that shares one deadline across several outlets shorten, never lengthen,
+  // this outlet's own limit.
+  const limit = Math.min(provider.timeoutMs ?? 5000, Number.isFinite(options.timeoutMs) ? options.timeoutMs : Infinity);
+  const signal = AbortSignal.timeout(Math.max(1, limit));
   try {
     const response = await request(new URL('/v1/chat/completions', endpoint), {
       method: 'POST', redirect: 'error', signal,

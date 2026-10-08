@@ -50,6 +50,16 @@ export function normalizeCascade(cascade) {
   return cascade && typeof cascade === 'object' && cascade.from === CASCADE_FROM && CASCADE_REASONS.includes(cascade.reason)
     ? { from: CASCADE_FROM, reason: cascade.reason } : null;
 }
+// The two checks every reader of a stored trail entry applies, so a stored value that was never
+// written by recordAdvice (a hand-edited file, a record from another version) is shown as no outlet
+// and no marker rather than as whatever it contains. A marker only stands next to an outlet that can
+// follow a cascade.
+export function normalizeAdviceSource(source) {
+  return typeof source === 'string' && ADVICE_SOURCES.has(source) ? source : null;
+}
+export function storedCascade(source, cascade) {
+  return CASCADE_SOURCES.has(normalizeAdviceSource(source)) ? normalizeCascade(cascade) : null;
+}
 // What ADVICE_SOURCE may carry: a bare label (every outlet before the cascade existed), or this pair
 // when the answer or the failure came after a cascade.
 export function adviceOrigin(source, cascade) {
@@ -58,8 +68,8 @@ export function adviceOrigin(source, cascade) {
 function recordAdvice(job, kind, input, outcome, now, origin) {
   const { source, cascade } = origin && typeof origin === 'object' ? origin : { source: origin, cascade: null };
   const entry = { kind, input: structuredClone(input), at: new Date(now).toISOString(),
-    source: ADVICE_SOURCES.has(source) ? source : null };
-  const marker = CASCADE_SOURCES.has(source) ? normalizeCascade(cascade) : null;
+    source: normalizeAdviceSource(source) };
+  const marker = storedCascade(source, cascade);
   if (marker) entry.cascade = marker;
   if (outcome.answer) entry.answer = structuredClone(outcome.answer);
   else entry.refusal = { reasonCode: outcome.reasonCode,
