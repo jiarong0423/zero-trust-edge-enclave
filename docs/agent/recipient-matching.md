@@ -61,4 +61,21 @@ action. `node scripts/measure-tables.mjs` prints both tables beside the saved mo
 - The note reader (`public/note-classify.js`) is a fixed keyword list and runs in the browser only. It fills
   fields and narrows the list; it selects nobody.
 - Chinese names are set by an administrator one person at a time; there is no bulk import.
-- Vector ranking is not built.
+- Vector ranking (below) is display order only and off by default.
+
+## Similarity ranking
+
+`recipient-rank.js`, behind `RECIPIENT_RANKING=vector` (exact value, off by default). `POST /api/directory/rank`
+takes a short text the sender types for this purpose (up to 100 characters; it is not the note, and it is not
+stored) and returns an order of the people on the authorization. People are described by Chinese name, display
+name, department and tags, embedded once by a model on this machine (`LOCAL_MODEL_BASE_URL`, loopback only,
+default model `text-embedding-nomic-embed-text-v1.5`) and compared by cosine similarity in memory. Nobody
+outside the authorization is ranked or sent to the model. It never selects anyone and is not part of the
+matching rule, so it does not touch the failure count. If the model cannot answer, the order is the fixed one
+(department, name, id) and the answer says why; matching never depends on it.
+
+Measured with the real model on an invented directory of 60 people and 12 queries (`node scripts/rank-eval.mjs`):
+first result correct 10 times in 12, against 3 in 12 for the page's existing search box and 1 in 12 for the
+fixed order. The search box found nobody in 9 of the 12 queries. It does not read every phrasing: for
+"業務的劉先生" the first result was wrong, which is the case the note reader handles by rule. The numbers
+describe that model on that directory only.

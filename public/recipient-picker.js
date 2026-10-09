@@ -16,14 +16,20 @@ export function createRecipientPicker(postJson, onEdit) {
   const findCandidates = document.querySelector('#findCandidates');
   const noteInput = document.querySelector('#senderNote');
   const readNote = document.querySelector('#readNote');
+  const rankInput = document.querySelector('#rankText');
+  const rankButton = document.querySelector('#rankRecipients');
   let directory = null;
+  let rankOrder = null;
   let selected = new Set();
   let generation = 0;
   let locked = false;
   function render() {
     list.replaceChildren();
     const needle = query.value.trim().toLowerCase();
-    for (const person of directory?.recipients || []) {
+    const position = new Map((rankOrder || []).map((id, index) => [id, index]));
+    const people = [...(directory?.recipients || [])];
+    if (rankOrder) people.sort((a, b) => (position.get(a.id) ?? 1e9) - (position.get(b.id) ?? 1e9));
+    for (const person of people) {
       const row = document.createElement('label');
       row.className = 'recipient-row';
       row.hidden = Boolean((department.value && person.department !== department.value) ||
@@ -53,6 +59,7 @@ export function createRecipientPicker(postJson, onEdit) {
   function reset() {
     generation++;
     directory = null;
+    rankOrder = null;
     selected.clear();
     department.replaceChildren();
     const option = new Option(t('All departments'), '');
@@ -106,6 +113,28 @@ export function createRecipientPicker(postJson, onEdit) {
     setText(findStatus, () => filled.length
       ? `${t('Filled from the note')}: ${filled.map(item => t(item)).join(', ')}. ${t('Check, then press Find and select.')}`
       : t('Nothing in the note matched this authorization.'));
+  });
+  // Display order only. The text typed here is sent to this server for ranking and is not the note;
+  // nobody is selected and the matching rule is not involved.
+  rankButton.addEventListener('click', async () => {
+    const requestGeneration = generation;
+    const authorizationId = grantInput.value.trim();
+    if (!directory) { setText(findStatus, 'Load authorized recipients'); return; }
+    const text = rankInput.value.trim();
+    if (!text) { rankOrder = null; render(); setText(findStatus, 'Fixed order restored.'); return; }
+    const question = { authorizationId, text };
+    if (department.value) question.department = department.value;
+    rankButton.disabled = true;
+    try {
+      const result = await postJson('/api/directory/rank', question);
+      if (generation !== requestGeneration || authorizationId !== grantInput.value.trim()) return;
+      rankOrder = result.order;
+      render();
+      setText(findStatus, result.method === 'vector' ? 'Sorted by similarity (model on this machine).'
+        : 'Similarity sorting is off or unavailable; showing the fixed order.');
+    } catch (error) {
+      if (generation === requestGeneration) setText(findStatus, error.message);
+    } finally { rankButton.disabled = locked; }
   });
   findButton.addEventListener('click', async () => {
     const requestGeneration = generation;
@@ -165,7 +194,7 @@ export function createRecipientPicker(postJson, onEdit) {
   return {
     setBusy(value) {
       locked = value;
-      for (const control of [load, department, query, findName, findId, findButton, noteInput, readNote, ...list.querySelectorAll('input')]) control.disabled = value;
+      for (const control of [load, department, query, findName, findId, findButton, noteInput, readNote, rankInput, rankButton, ...list.querySelectorAll('input')]) control.disabled = value;
     },
     selection(grant) {
       if (!directory || directory.authorizationId !== grant.id || directory.authorizationVersion !== grant.version) {

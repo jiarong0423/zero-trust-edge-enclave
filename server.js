@@ -27,6 +27,7 @@ import { createFileTaskRoutes } from './routes/file-tasks.js';
 import { createAdminRoutes } from './routes/admin.js';
 import { createMatchGuard } from './match-guard.js';
 import { createMatchReviewer } from './match-confirm.js';
+import { createRecipientRanker } from './recipient-rank.js';
 import { createCoordinatorRoutes } from './routes/coordinator.js';
 import { createLegacyPackages } from './legacy-packages.js';
 import { createMcpRoutes } from './routes/mcp.js';
@@ -98,7 +99,8 @@ async function writeJson(filePath, value) {
 const { appendAudit, recoverAudit, auditRejection } = createAudit({ auditsPath, readJson, writeJson });
 const fileAccess = createFileAccessRoutes({ dataDir, tasksPath, readJson, writeJson, appendAudit, recoverAudit });
 const matchGuard = createMatchGuard(path.join(dataDir, 'match-guard.json'));
-const fileTasks = createFileTaskRoutes({ dataDir, tasksPath, packagesPath, auditsPath, readJson, writeJson, appendAudit, recoverAudit, matchGuard, matchReviewer: createMatchReviewer({ fileAdviser: (...args) => fileAdviser(...args) }) });
+const fileTasks = createFileTaskRoutes({ dataDir, tasksPath, packagesPath, auditsPath, readJson, writeJson, appendAudit, recoverAudit, matchGuard, matchReviewer: createMatchReviewer({ fileAdviser: (...args) => fileAdviser(...args) }),
+  recipientRanker: createRecipientRanker({ env: process.env, baseUrl: localModelBaseUrl }) });
 const adminRoutes = createAdminRoutes({ accessPath, tasksPath, auditsPath, readJson, matchGuard, appendAudit });
 const { createTimedCredential, evaluateDecodeAttempt, findPackage, approvedPackage, createSealedPackageRecord, performLocalDelivery } =
   createLegacyPackages({ packagesPath, tasksPath, readJson, writeJson, appendAudit, recoverAudit, validatePolicy, createSignedCredential, buildDryRunEmailDraft });

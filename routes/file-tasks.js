@@ -4,7 +4,8 @@ import { auditProjection } from '../audit-boundary.js';
 import { queueAudit } from '../audit-outbox.js';
 import { newTask, reviseTask, confirmFirst, confirmSecond, revokeSnapshot, invalidatePending } from '../snapshot-lifecycle.js';
 import { listRecipients } from '../recipient-directory.js';
-import { resolveRecipient, MATCH_MESSAGES } from '../recipient-match.js';
+import { resolveRecipient, validTags, MATCH_MESSAGES } from '../recipient-match.js';
+import { fixedOrder, RANK_TEXT_MAX } from '../recipient-rank.js';
 import { matchProjection, matchTable, reviewMatch } from '../match-confirm.js';
 import crypto from 'node:crypto';
 import { departmentMap } from '../registry-schema.js';
@@ -25,7 +26,8 @@ const sanitizeAuditEvent = event => auditProjection(event);
 // principal; `handleFileTasks` returns true when it answered the request and false when the path is
 // not one of its own, so routeApi can carry on. Every state write is followed by recoverAudit inside
 // the same queued request (risk 2 in the split plan).
-export function createFileTaskRoutes({ dataDir, tasksPath, packagesPath, auditsPath, readJson, writeJson, appendAudit, recoverAudit, matchGuard, matchReviewer = null }) {
+export function createFileTaskRoutes({ dataDir, tasksPath, packagesPath, auditsPath, readJson, writeJson, appendAudit, recoverAudit, matchGuard, matchReviewer = null,
+  recipientRanker = { rank: async people => ({ order: fixedOrder(people), method: 'fixed', fallback: 'RANKING_OFF' }) } }) {
   // One EVIDENCE_VIEWED record per task per minute: repeated views add nothing and would push older
   // delivery events out of the retained audit window.
   const evidenceViews = new Map();
@@ -217,6 +219,24 @@ export function createFileTaskRoutes({ dataDir, tasksPath, packagesPath, auditsP
         attemptsLeft: state.quarantined ? 0 : matchGuard.limit - state.fails, quarantined: state.quarantined,
         review: { final: review.final, reason: table.reasonCode, disagreement: review.disagreement, sources: review.sources }
       });
+      return true;
+    }
+
+    // Display order for the sender's own list, by similarity to a short text the sender types for this
+    // purpose. The text goes to this server and, when ranking is on, to the embedding model on this
+    // machine; it is not the note (which stays in the browser) and it is never stored. Only people on the
+    // authorization are ranked and returned, the answer is an order and nothing else, and nobody is selected.
+    if (pathname === '/api/directory/rank' && req.method === 'POST') {
+      const input = await readBody(req, 4096);
+      exact(input, ['authorizationId', 'text', 'department', 'tags']);
+      if (typeof input.text !== 'string' || !input.text.trim() || input.text.length > RANK_TEXT_MAX) fail('Invalid ranking text', 422);
+      if (input.department !== undefined && typeof input.department !== 'string') fail('Invalid ranking department', 422);
+      if (!validTags(input.tags)) fail('Invalid ranking tags', 422);
+      const visible = listRecipients(config, principal, input.authorizationId, input.department || '');
+      const pool = visible.recipients.filter(person => Object.entries(input.tags || {}).every(([key, tag]) => person.tags?.[key] === tag));
+      const ranked = await recipientRanker.rank(input.text, pool, visible.departmentLabels);
+      await appendAudit({ type: 'MATCH_ATTEMPT', result: 'INFO', reasons: [ranked.method === 'vector' ? 'MATCH_RANK_VECTOR' : 'MATCH_RANK_FIXED'] });
+      sendJson(res, 200, { ok: true, method: ranked.method, fallback: ranked.fallback, order: ranked.order });
       return true;
     }
 
