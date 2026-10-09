@@ -145,6 +145,25 @@ Two tests start the real `server.js` as a child process (loopback hosted mock, t
 it by a preload, any other non-loopback address refused): one for the start-up refusals, one for `file_recommend`
 sending nothing to the hosted mock while the local outlet is down.
 
+## A real run, 2026-10-10
+
+Before this the cascade had been exercised only against mocks. It was then run for real on one Mac: the backend
+with `COORDINATOR_PROVIDER=local_then_nebius`, `LOCAL_ONLY=false`, `LEGACY_HOSTED_ADVICE=off`, a 0.5 USD budget, the
+local outlet `nvidia-nemotron-3-nano-4b` in LM Studio and the hosted outlet `nvidia/nemotron-3-super-120b-a12b` on
+Token Factory. Each run was one full delivery of a synthetic file (`scripts/hosted-smoke.mjs`, 11 of 11 steps passed
+each time).
+
+| Run | Local model | What happened to the routing decision |
+|---|---|---|
+| 1 | loaded, first call after idle | the local call did not answer within its share of the deadline (7.5 s), the log says `cascade=LOCAL_UNREACHABLE`, and Token Factory answered in 1.7 s; the follow-up decision that came after was answered locally in 5.6 s |
+| 2 | loaded and warm | answered locally in 3.7 s; Token Factory was not called |
+| 3 | server stopped (connection refused in 5 ms) | Token Factory answered the routing decision in 1.3 s and the follow-up in 1.0 s |
+
+Total spend across the three runs: 0.000856 USD. Findings: the fallback works in all three shapes; the first local
+call after the model has been idle can take longer than the local share, so a cold edge model costs one cloud
+call; warming the model before use avoids it. The evidence trail names the outlet that answered in every run.
+Single machine, three runs, a synthetic file: this shows the mechanism works, not how often each path is taken.
+
 ## Wiring
 
 `server.js` passes `legacyHostedAdviceOff` to `createFileAdviser({ nebiusBudget, localOnly, localModelBaseUrl,
