@@ -37,7 +37,13 @@ export function sendJson(res, status, payload) {
 // the request is also settled when the connection is closed or aborted before the body is complete
 // (a malformed chunked body makes Node answer 400 and drop the socket without an 'end'), and a body
 // that stalls is cut off after `timeoutMs`.
-export function readBody(req, limit = 1_000_000, timeoutMs = 120_000) {
+// Two deadlines. `idleMs` cuts a body that stops arriving: a connection that stays open and sends nothing
+// for that long is refused, however much time is left overall, so a stalled client holds the queue for
+// seconds, not minutes. `timeoutMs` bounds the whole read; it defaults to 120 s for the large file route
+// (limit above 1 MB) and 30 s for everything else, so a client that keeps sending a byte at a time cannot
+// hold the queue longer than that. A slow but steady upload never trips the idle deadline.
+export const BODY_IDLE_MS = 15_000;
+export function readBody(req, limit = 1_000_000, timeoutMs = limit > 1_000_000 ? 120_000 : 30_000, idleMs = BODY_IDLE_MS) {
   return new Promise((resolve, reject) => {
     // A request waits its turn on the serial queue before its handler reads the body, and the client can
     // go away in the meantime: its 'close' and 'error' events have then already been emitted and will not
@@ -50,17 +56,23 @@ export function readBody(req, limit = 1_000_000, timeoutMs = 120_000) {
     const chunks = [];
     let size = 0;
     let settled = false;
+    let idle;
     const finish = (settle, value) => {
       if (settled) return;
       settled = true;
       clearTimeout(timer);
+      clearTimeout(idle);
       chunks.length = 0;
       settle(value);
     };
     const timer = setTimeout(() => finish(reject, Object.assign(new Error('Request body timed out'), { status: 408 })), timeoutMs);
     timer.unref();
+    const stalled = () => finish(reject, Object.assign(new Error('Request body stalled'), { status: 408 }));
+    const waitForData = () => { clearTimeout(idle); idle = setTimeout(stalled, idleMs); idle.unref(); };
+    waitForData();
     req.on('data', chunk => {
       if (settled) return;
+      waitForData();
       size += chunk.length;
       if (size > limit) {
         finish(reject, Object.assign(new Error('Request body too large'), { status: 413 }));

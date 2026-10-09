@@ -5,14 +5,14 @@ import net from 'node:net';
 import { readBody } from '../http-helpers.js';
 
 // A tiny serial queue like the real one: the next request is not handled until the previous settles.
-async function startServer(timeoutMs) {
+async function startServer(timeoutMs, idleMs) {
   let tail = Promise.resolve();
   const outcomes = [];
   const server = http.createServer((req, res) => {
     const run = tail.then(async () => {
       if (req.url === '/health') { res.end('ok'); return; }
       try {
-        const body = await readBody(req, 1000, timeoutMs);
+        const body = await readBody(req, 1000, timeoutMs, idleMs);
         outcomes.push({ ok: true, body });
         res.end('read');
       } catch (error) {
@@ -126,4 +126,41 @@ test('a malformed chunked body that the server already rejected settles at once,
   await raw(port, 'POST /x HTTP/1.1\r\nHost: x\r\nTransfer-Encoding: chunked\r\nContent-Type: application/json\r\n\r\nZZZ\r\nnot a chunk\r\n');
   assert.equal(await healthy(port), true);
   assert.equal(outcomes.at(-1)?.ok, false);
+});
+
+test('a body that stops arriving is cut off by the idle deadline long before the overall one', async t => {
+  const { server, port, outcomes } = await startServer(30_000, 300);
+  t.after(() => server.close());
+  const started = Date.now();
+  const stalled = raw(port, 'POST /x HTTP/1.1\r\nHost: x\r\nContent-Length: 500\r\n\r\n{"a":', { keepOpen: true });
+  assert.equal(await healthy(port), true);
+  assert.equal(outcomes.at(-1)?.status, 408);
+  assert.ok(Date.now() - started < 5000);
+  await stalled;
+});
+
+test('a slow but steady body is not cut off by the idle deadline', async t => {
+  const { server, port, outcomes } = await startServer(30_000, 400);
+  t.after(() => server.close());
+  const socket = net.connect(port, '127.0.0.1');
+  socket.on('error', () => {});
+  await new Promise(resolve => socket.once('connect', resolve));
+  socket.write('POST /x HTTP/1.1\r\nHost: x\r\nConnection: close\r\nContent-Length: 13\r\n\r\n');
+  for (const part of ['{"a"', ':', '1', ',"b"', ':2}']) { socket.write(part); await new Promise(resolve => setTimeout(resolve, 250)); }
+  await new Promise(resolve => setTimeout(resolve, 300));
+  socket.destroy();
+  assert.deepEqual(outcomes.at(-1), { ok: true, body: { a: 1, b: 2 } });
+});
+
+test('a client that dribbles a byte at a time still hits the overall deadline', async t => {
+  const { server, port, outcomes } = await startServer(900, 400);
+  t.after(() => server.close());
+  const socket = net.connect(port, '127.0.0.1');
+  socket.on('error', () => {});
+  await new Promise(resolve => socket.once('connect', resolve));
+  socket.write('POST /x HTTP/1.1\r\nHost: x\r\nContent-Length: 500\r\n\r\n');
+  const drip = setInterval(() => socket.write('x'), 200);
+  assert.equal(await healthy(port), true);
+  clearInterval(drip); socket.destroy();
+  assert.equal(outcomes.at(-1)?.status, 408);
 });

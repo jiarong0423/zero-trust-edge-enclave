@@ -10,7 +10,8 @@
 //
 // Background: every /api/ request runs on one serial queue. Before the fix, a request that declared a body
 // and never finished sending it held that queue forever. The fix settles a body when its connection
-// closes or breaks and cuts one off after a deadline (120 s). So the three things worth checking are:
+// closes or breaks and cuts one off when it stops arriving (15 s idle) or runs too long (30 s, or 120 s for the large file route).
+// So the three things worth checking are:
 //   1. a connection dropped half way through a body does not leave the service stuck;
 //   2. a malformed chunked body does not leave the service stuck;
 //   3. while a stalled connection is held open the service waits (that is the bounded cost of the fix, and
@@ -110,7 +111,7 @@ export async function runProbe(config, { holdMs = 8000, write = out } = {}) {
   const afterStall = await timed(origin, headers, 'after stall');
   record('recovers-after-stall', afterStall.status === 200 && afterStall.ms <= ceiling, `whoami answered in ${afterStall.ms} ms once the stalled connection was closed (limit ${ceiling} ms)`);
   if (blocked.ms >= Math.min(holdMs, 2000)) {
-    info(`while the stalled connection was open, one other request waited ${blocked.ms} ms. This is the bounded cost: it ends when the connection closes or at the 120 s read deadline, whichever comes first.`);
+    info(`while the stalled connection was open, one other request waited ${blocked.ms} ms. This is the bounded cost: it ends when the connection closes, after 15 s without data, or at the overall deadline (30 s), whichever comes first.`);
   } else {
     record('stall-reached-the-queue', false, `the other request was not delayed (${blocked.ms} ms), so the stalled request probably never held the queue; this run proves nothing about the fix`);
   }
