@@ -93,6 +93,7 @@ export const labels = {
   'Everything has been collected.': '全部已領取。', 'Not enough information to say it is fine.': '資訊不足，無法確定沒問題。',
   'Fill with the local model (sends the note to the model on this machine)': '用本機模型帶入（會把說明送到這台機器上的模型）',
   'The local model could not read the note; use the keyword button.': '本機模型讀不了這段說明，請改用關鍵字按鈕。',
+  'This delivery was revoked, has expired, or was never approved.': '這份投遞已被撤銷、已過期，或從未核准。',
   'Chinese name': '中文名', 'Employee number': '員工編號', 'Find and select': '查找並選取',
   'Selected': '已選取', 'Attempts left': '剩餘次數',
   'Selected by employee number; the name on record is': '依員工編號選取，系統記錄的姓名為',

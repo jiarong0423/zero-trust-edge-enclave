@@ -1,3 +1,6 @@
+/* An element marked hidden stays hidden whatever display value a class gives it. Without this the SSO row (display: flex) showed "Sign in with SSO" on every page even when SSO is off. */
+[hidden] { display: none !important; }
+
 :root {
   color-scheme: light;
   --bg: #f6f7f4;
@@ -439,3 +442,11 @@ select { width: auto; min-width: 16rem; max-width: 100%; font-size: 14px; }
 #recipientFind { display: grid; gap: 8px; margin-block: 12px; }
 #findCandidates { list-style: none; margin: 0; padding: 0; display: grid; gap: 6px; }
 .same-name { color: var(--amber); margin-left: 8px; }
+
+/* A phone is short: a sticky header that stacks the title and three links took 39% of the screen on a 360 x 662 phone and let the page show through it. Below 640px the header scrolls away, the title leaves room for the language switch only, and the links sit in a row. */
+@media (max-width: 640px) {
+  .topbar { position: relative; padding: 14px 18px; gap: 10px; }
+  .topbar > div:first-child { padding-right: 96px; }
+  .topbar nav { width: 100%; }
+  .topbar nav .nav-link { padding: 8px 10px; font-size: 14px; }
+}

@@ -15,6 +15,9 @@ function showAccess(state) {
   accessBadge.className = `access-badge ${state === 'APPROVED' ? 'approved' : 'denied'}`;
   setText(accessBadge, state === 'APPROVED' ? 'ACCESS APPROVED' : 'ACCESS DENIED');
 }
+// The server answers a revoked, expired or never-approved delivery with a bare code; say it in words. The
+// Chinese text is keyed by this sentence in i18n.js.
+const READABLE = { SNAPSHOT_REJECTED: 'This delivery was revoked, has expired, or was never approved.' };
 const params = new URLSearchParams(location.search);
 taskId.value = params.get('id') || '';
 version.value = params.get('version') || '1';
@@ -173,7 +176,7 @@ button.addEventListener('click', async () => {
   } catch (error) {
     if (error?.status === 403) showAccess('DENIED');
     status.className = 'status-card danger';
-    setText(status, error instanceof Error ? error.message : 'File access failed');
+    setText(status, error instanceof Error ? (READABLE[error.message] || error.message) : 'File access failed');
   } finally {
     key?.fill(0);
     recovered?.bytes.fill(0);
