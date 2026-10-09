@@ -85,3 +85,45 @@ test('a normal body, an empty body, an oversize body and bad JSON behave as befo
   await post('{bad');
   assert.equal(outcomes.at(-1)?.status, 422);
 });
+
+// The real server reads a body only after the request has waited its turn on the queue, so the client may
+// already be gone, and its close event already emitted, by the time readBody is called.
+async function startLateServer(waitMs) {
+  let tail = Promise.resolve();
+  const outcomes = [];
+  const server = http.createServer((req, res) => {
+    const run = tail.then(async () => {
+      if (req.url === '/health') { res.end('ok'); return; }
+      await new Promise(resolve => setTimeout(resolve, waitMs));
+      try {
+        const body = await readBody(req, 1000, 30_000);
+        outcomes.push({ ok: true, body });
+        res.end('read');
+      } catch (error) {
+        outcomes.push({ ok: false, status: error.status });
+        if (!res.writableEnded && !res.destroyed) { res.statusCode = error.status || 500; res.end('error'); }
+      }
+    });
+    tail = run.catch(() => {});
+  });
+  await new Promise(resolve => server.listen(0, '127.0.0.1', resolve));
+  return { server, port: server.address().port, outcomes };
+}
+
+test('a connection that is already gone when the body is finally read settles at once', async t => {
+  const { server, port, outcomes } = await startLateServer(400);
+  t.after(() => server.close());
+  const socket = net.connect(port, '127.0.0.1', () => socket.write('POST /x HTTP/1.1\r\nHost: x\r\nContent-Length: 500\r\n\r\n{"a":'));
+  await new Promise(resolve => setTimeout(resolve, 100));
+  socket.destroy();
+  assert.equal(await healthy(port), true);
+  assert.equal(outcomes.at(-1)?.status, 400);
+});
+
+test('a malformed chunked body that the server already rejected settles at once, even when read late', async t => {
+  const { server, port, outcomes } = await startLateServer(400);
+  t.after(() => server.close());
+  await raw(port, 'POST /x HTTP/1.1\r\nHost: x\r\nTransfer-Encoding: chunked\r\nContent-Type: application/json\r\n\r\nZZZ\r\nnot a chunk\r\n');
+  assert.equal(await healthy(port), true);
+  assert.equal(outcomes.at(-1)?.ok, false);
+});

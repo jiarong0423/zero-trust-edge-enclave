@@ -39,6 +39,14 @@ export function sendJson(res, status, payload) {
 // that stalls is cut off after `timeoutMs`.
 export function readBody(req, limit = 1_000_000, timeoutMs = 120_000) {
   return new Promise((resolve, reject) => {
+    // A request waits its turn on the serial queue before its handler reads the body, and the client can
+    // go away in the meantime: its 'close' and 'error' events have then already been emitted and will not
+    // come again. Listening for them now would wait for nothing until the deadline, so a request that is
+    // already destroyed before it was fully received is refused here.
+    if ((req.destroyed || req.errored) && !req.complete) {
+      reject(Object.assign(new Error('Request aborted'), { status: 400 }));
+      return;
+    }
     const chunks = [];
     let size = 0;
     let settled = false;
