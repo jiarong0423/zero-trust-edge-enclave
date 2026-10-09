@@ -1,5 +1,6 @@
 import { setText, t } from './i18n.js';
 import { recipientLabel, sharesChineseName } from './recipient-label.js';
+import { classifyNote } from './note-classify.js';
 
 export function createRecipientPicker(postJson, onEdit) {
   const grantInput = document.querySelector('#authorizationId');
@@ -13,6 +14,8 @@ export function createRecipientPicker(postJson, onEdit) {
   const findButton = document.querySelector('#findRecipient');
   const findStatus = document.querySelector('#findStatus');
   const findCandidates = document.querySelector('#findCandidates');
+  const noteInput = document.querySelector('#senderNote');
+  const readNote = document.querySelector('#readNote');
   let directory = null;
   let selected = new Set();
   let generation = 0;
@@ -24,7 +27,7 @@ export function createRecipientPicker(postJson, onEdit) {
       const row = document.createElement('label');
       row.className = 'recipient-row';
       row.hidden = Boolean((department.value && person.department !== department.value) ||
-        (needle && ![person.id, person.displayName, person.email || ''].some(value => value.toLowerCase().includes(needle))));
+        (needle && ![person.id, person.displayName, person.nameZh || '', person.email || ''].some(value => value.toLowerCase().includes(needle))));
       const check = document.createElement('input');
       check.type = 'checkbox';
       check.checked = selected.has(person.id);
@@ -85,6 +88,25 @@ export function createRecipientPicker(postJson, onEdit) {
       if (generation === requestGeneration) setText(status, error.message);
     } finally { load.disabled = locked; }
   });
+  // The note is read here and goes nowhere: only the fields it fills in are ever sent. Nobody is selected.
+  readNote.addEventListener('click', () => {
+    findCandidates.replaceChildren();
+    if (!directory) { setText(findStatus, 'Load authorized recipients'); return; }
+    const departments = (directory.departments || []).map(id => ({ id, displayName: directory.departmentLabels?.[id] || id }));
+    const found = classifyNote(noteInput.value, directory.recipients, departments);
+    const filled = [];
+    if (found.department && [...department.options].some(option => option.value === found.department)) {
+      department.value = found.department; filled.push('department');
+    }
+    if (found.nameZh) { findName.value = found.nameZh; filled.push('name'); }
+    if (found.employeeId) { findId.value = found.employeeId; filled.push('employee number'); }
+    if (found.surname && !found.nameZh) { query.value = found.surname; filled.push('list narrowed by surname'); }
+    render();
+    if (found.departmentAmbiguous) { setText(findStatus, 'The note names more than one department; choose one.'); return; }
+    setText(findStatus, () => filled.length
+      ? `${t('Filled from the note')}: ${filled.map(item => t(item)).join(', ')}. ${t('Check, then press Find and select.')}`
+      : t('Nothing in the note matched this authorization.'));
+  });
   findButton.addEventListener('click', async () => {
     const requestGeneration = generation;
     const authorizationId = grantInput.value.trim();
@@ -125,7 +147,7 @@ export function createRecipientPicker(postJson, onEdit) {
   return {
     setBusy(value) {
       locked = value;
-      for (const control of [load, department, query, findName, findId, findButton, ...list.querySelectorAll('input')]) control.disabled = value;
+      for (const control of [load, department, query, findName, findId, findButton, noteInput, readNote, ...list.querySelectorAll('input')]) control.disabled = value;
     },
     selection(grant) {
       if (!directory || directory.authorizationId !== grant.id || directory.authorizationVersion !== grant.version) {
