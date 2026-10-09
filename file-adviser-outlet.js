@@ -2,7 +2,7 @@ import { ADVICE_SOURCE, ADVICE_NO_RETRY, adviceOrigin } from './file-worker.js';
 import { requestFileAdvice } from './file-adviser.js';
 
 const ADVISER_PRE_REQUEST_FAILURES = new Set(['FILE_ADVICE_KIND_UNKNOWN', 'FILE_METADATA_REJECTED',
-  'FOLLOWUP_METADATA_REJECTED', 'FILE_PROVIDER_UNAVAILABLE', 'FILE_EXTERNAL_INFERENCE_DISABLED']);
+  'FOLLOWUP_METADATA_REJECTED', 'MATCH_METADATA_REJECTED', 'FILE_PROVIDER_UNAVAILABLE', 'FILE_EXTERNAL_INFERENCE_DISABLED']);
 
 const LOCAL_OUTLET = 'local_openai_compatible';
 
@@ -187,6 +187,11 @@ export function createFileAdviser({ nebiusBudget, localOnly, localModelBaseUrl, 
 
   // options.hosted === false: under the cascade, answer from the local outlet only.
   return async function fileAdviser(metadata, kind = 'route', options = {}) {
+    // options.outlet names one outlet to ask on its own, with no cascade and no synthetic fallback: a
+    // second opinion that silently turns into the fixture would not be a second opinion. The hosted
+    // outlet still refuses under LOCAL_ONLY and still passes through the spending cap.
+    if (options?.outlet === 'local') return ask(LOCAL_OUTLET, metadata, kind, { timeoutMs: cascadeDeadlineMs });
+    if (options?.outlet === 'hosted') return ask('nebius', metadata, kind, { timeoutMs: cascadeDeadlineMs });
     let provider = process.env.COORDINATOR_PROVIDER || 'synthetic_fixture';
     if (provider === CASCADE_PROVIDER) return cascaded(metadata, kind, options?.hosted !== false);
     if (provider === 'nebius' && await nebiusBudget.exhausted()) provider = 'synthetic_fixture';

@@ -1,6 +1,7 @@
 import { exact, fail } from './access-control.js';
 import { syntheticFileAdvice, validateFileAdvice } from './file-routing.js';
 import { syntheticFollowupAdvice, validateFollowupAdvice, MAX_NUDGES } from './delivery-followup.js';
+import { MATCH_ADVISER_BOUNDARY, MATCH_SCHEMA, acceptsMatchMetadata, syntheticMatchAdvice, validateMatchAdvice } from './match-confirm.js';
 
 export const FILE_ADVISER_BOUNDARY = `You are a restricted routing adviser, not an authorizer or delivery executor.
 HUMAN AUTHORITY: The sender reviews the recipient list and approves an immutable snapshot twice. You cannot approve, replace or expand that approval.
@@ -161,6 +162,17 @@ export const ADVICE_KINDS = {
         action: { type: 'string', enum: ['WAIT', 'REMIND', 'ESCALATE'] },
         reasonCode: { type: 'string', enum: ['WINDOW_EARLY', 'NO_PICKUP_YET', 'PARTIAL_PICKUP', 'DEADLINE_NEAR', 'NUDGES_EXHAUSTED', 'INSUFFICIENT_INFORMATION'] } },
     },
+  },
+  // Recipient-match confirmation (match-confirm.js): four codes in, one of three actions out. It is
+  // only asked when MATCH_AI_REVIEW is set, and fixed code holds the full table and a veto.
+  match: {
+    keys: ['taskAlias', 'snapshotVersion', 'candidateCode', 'keyCode', 'reverseCode', 'attemptCode'],
+    rejection: 'MATCH_METADATA_REJECTED',
+    accepts: acceptsMatchMetadata,
+    boundary: MATCH_ADVISER_BOUNDARY,
+    validate: validateMatchAdvice,
+    synthetic: syntheticMatchAdvice,
+    schema: MATCH_SCHEMA,
   },
 };
 

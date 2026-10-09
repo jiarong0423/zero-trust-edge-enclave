@@ -34,7 +34,8 @@ for (const code of ['AUTHORIZATION_INVALID', 'ACTOR_DISABLED', 'SNAPSHOT_INVALID
   // Recipient matching: outcome codes only, never a name or an employee number.
   'MATCH_BY_NAME', 'MATCH_BY_ID', 'MATCH_BY_ID_NAME_UNLISTED', 'MATCH_AMBIGUOUS_NEED_ID', 'MATCH_NONE_NOT_FOUND',
   'MATCH_NONE_ID_NOT_IN_NAME_SET', 'MATCH_NONE_NOT_AUTHORIZED', 'MATCH_CONFLICT_ID_NAME', 'MATCH_INVALID_INPUT',
-  'MATCH_QUARANTINED', 'MATCH_REFUSED_WHILE_QUARANTINED', 'MATCH_UNLOCKED']) codes.add(code);
+  'MATCH_QUARANTINED', 'MATCH_REFUSED_WHILE_QUARANTINED', 'MATCH_UNLOCKED',
+  'MATCH_REVIEW_CONFIRM', 'MATCH_REVIEW_ASK_HUMAN', 'MATCH_REVIEW_REFUSE', 'MATCH_REVIEW_DISAGREE', 'MATCH_REVIEW_UNAVAILABLE']) codes.add(code);
 
 // Construct a new record; never spread caller data into stored or exposed audit events.
 export function auditProjection(event) {

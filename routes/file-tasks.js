@@ -5,6 +5,8 @@ import { queueAudit } from '../audit-outbox.js';
 import { newTask, reviseTask, confirmFirst, confirmSecond, revokeSnapshot, invalidatePending } from '../snapshot-lifecycle.js';
 import { listRecipients } from '../recipient-directory.js';
 import { resolveRecipient, MATCH_MESSAGES } from '../recipient-match.js';
+import { matchProjection, matchTable, reviewMatch } from '../match-confirm.js';
+import crypto from 'node:crypto';
 import { departmentMap } from '../registry-schema.js';
 import { resumeFileTask } from '../task-operations.js';
 import { packetCommitment } from '../public/file-envelope.js';
@@ -23,7 +25,7 @@ const sanitizeAuditEvent = event => auditProjection(event);
 // principal; `handleFileTasks` returns true when it answered the request and false when the path is
 // not one of its own, so routeApi can carry on. Every state write is followed by recoverAudit inside
 // the same queued request (risk 2 in the split plan).
-export function createFileTaskRoutes({ dataDir, tasksPath, packagesPath, auditsPath, readJson, writeJson, appendAudit, recoverAudit, matchGuard }) {
+export function createFileTaskRoutes({ dataDir, tasksPath, packagesPath, auditsPath, readJson, writeJson, appendAudit, recoverAudit, matchGuard, matchReviewer = null }) {
   // One EVIDENCE_VIEWED record per task per minute: repeated views add nothing and would push older
   // delivery events out of the retained audit window.
   const evidenceViews = new Map();
@@ -191,15 +193,29 @@ export function createFileTaskRoutes({ dataDir, tasksPath, packagesPath, auditsP
           : { status: 'NONE', code: 'NONE_NOT_AUTHORIZED', via: null, id: null, candidates: [], nameVerified: false };
       }
       const success = result.status === 'MATCHED';
+      const failsBefore = (await matchGuard.status(principal.id, authorizationId)).fails;
       const state = await matchGuard.record(principal.id, authorizationId, success);
+      // The checklist: fixed code holds the full table and a veto; an adviser, when one is configured,
+      // is asked only about outcomes the table did not already refuse, and can only add care.
+      const projection = matchProjection({ status: result.status, code: result.code },
+        { reversePass: success, failsBefore, alias: crypto.randomUUID() });
+      const table = matchTable(projection);
+      let review = reviewMatch(table, []);
+      if (matchReviewer && table.action !== 'REFUSE') review = await matchReviewer(projection, table);
       await audit(success ? 'ALLOW' : 'DENY', [result.code.startsWith('MATCH_') ? result.code : `MATCH_${result.code}`]);
       if (state.justQuarantined) await audit('DENY', ['MATCH_QUARANTINED']);
+      if (matchReviewer) {
+        await audit('INFO', [`MATCH_REVIEW_${review.final}`]);
+        if (review.disagreement) await audit('INFO', ['MATCH_REVIEW_DISAGREE']);
+        if (review.sources.some(entry => entry.status === 'UNAVAILABLE')) await audit('INFO', ['MATCH_REVIEW_UNAVAILABLE']);
+      }
       sendJson(res, 200, {
         ok: true, status: result.status, code: result.code, via: result.via, nameVerified: result.nameVerified,
         message: result.status === 'MATCHED' ? null : MATCH_MESSAGES[result.code] || MATCH_MESSAGES.NONE_NOT_FOUND,
         person: success ? onGrant.get(result.id) : null,
         candidates: result.candidates.map(id => onGrant.get(id)),
-        attemptsLeft: state.quarantined ? 0 : matchGuard.limit - state.fails, quarantined: state.quarantined
+        attemptsLeft: state.quarantined ? 0 : matchGuard.limit - state.fails, quarantined: state.quarantined,
+        review: { final: review.final, reason: table.reasonCode, disagreement: review.disagreement, sources: review.sources }
       });
       return true;
     }

@@ -26,6 +26,7 @@ import { createFileAccessRoutes } from './routes/file-access.js';
 import { createFileTaskRoutes } from './routes/file-tasks.js';
 import { createAdminRoutes } from './routes/admin.js';
 import { createMatchGuard } from './match-guard.js';
+import { createMatchReviewer } from './match-confirm.js';
 import { createCoordinatorRoutes } from './routes/coordinator.js';
 import { createLegacyPackages } from './legacy-packages.js';
 import { createMcpRoutes } from './routes/mcp.js';
@@ -97,7 +98,7 @@ async function writeJson(filePath, value) {
 const { appendAudit, recoverAudit, auditRejection } = createAudit({ auditsPath, readJson, writeJson });
 const fileAccess = createFileAccessRoutes({ dataDir, tasksPath, readJson, writeJson, appendAudit, recoverAudit });
 const matchGuard = createMatchGuard(path.join(dataDir, 'match-guard.json'));
-const fileTasks = createFileTaskRoutes({ dataDir, tasksPath, packagesPath, auditsPath, readJson, writeJson, appendAudit, recoverAudit, matchGuard });
+const fileTasks = createFileTaskRoutes({ dataDir, tasksPath, packagesPath, auditsPath, readJson, writeJson, appendAudit, recoverAudit, matchGuard, matchReviewer: createMatchReviewer({ fileAdviser: (...args) => fileAdviser(...args) }) });
 const adminRoutes = createAdminRoutes({ accessPath, tasksPath, auditsPath, readJson, matchGuard, appendAudit });
 const { createTimedCredential, evaluateDecodeAttempt, findPackage, approvedPackage, createSealedPackageRecord, performLocalDelivery } =
   createLegacyPackages({ packagesPath, tasksPath, readJson, writeJson, appendAudit, recoverAudit, validatePolicy, createSignedCredential, buildDryRunEmailDraft });

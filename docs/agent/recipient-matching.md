@@ -1,0 +1,64 @@
+# Recipient matching
+
+Written 2026-10-10. Describes what is in the code on this branch; nothing here is deployed.
+
+## The rule
+
+The sender names a person by Chinese name, by employee number, or both. `recipient-match.js`
+`resolveRecipient()` applies it, in this order:
+
+1. A Chinese name carried by exactly one enabled person in the pool matches that person directly.
+2. A name carried by several people needs the employee number (the directory `id`, unique, checked at load).
+   The number must match exactly and must be one of the people sharing the name.
+3. A number that points to someone other than the unique name match is a conflict and is refused.
+4. A name nobody carries (for example a surname with an honorific) resolves only with an employee number, and
+   the answer says the name was not verified.
+5. Anything else is refused. Nobody is ever picked first.
+
+The pool is the whole directory, narrowed by the department and tags the sender gives, so uniqueness does
+not depend on who is on one authorization. The route then limits what is shown to people on the sender's
+authorization; a person outside it looks the same as a person who does not exist.
+
+Traditional and Simplified spellings are not unified. A variant spelling does not match by name and falls to
+the employee number. Full-width forms and white space are normalised.
+
+## Data
+
+`nameZh` (string, up to 64) and `tags` (`region`, `team`, `role`; each a short word) are optional per person,
+validated when the registry loads and by the administrator's `person.create` / `person.update`. A registry
+without them behaves as before.
+
+## Routes
+
+| Route | Who | What |
+| --- | --- | --- |
+| `POST /api/directory/resolve` | the operator of the authorization | `{authorizationId, nameZh?, employeeId?, department?, tags?}`; answers status, code, the person or the candidates on the authorization, attempts left, and `review` |
+| `GET /api/admin/match-guard` | administrator | lists senders and authorizations with a failure count or a lock |
+| `POST /api/admin/match-guard` | administrator | `{operatorId, authorizationId}` clears a lock |
+
+Three failed or ambiguous matches in a row on one (sender, authorization) lock it: `423 MATCH_QUARANTINED`
+until an administrator clears it. A success resets the count. The state is `match-guard.json` in the data
+directory, private to the owner; a file that exists but cannot be read stops matching.
+
+## The checklist and the second opinion
+
+After the match, `match-confirm.js` holds a table of 108 cells over four codes (how many people fit, what
+decided it, whether the reverse check passed, how many failures came before). It answers CONFIRM, ASK_HUMAN or
+REFUSE. CONFIRM exists only for one person, checked both ways, with a verified name or number. The page selects
+the person on CONFIRM and otherwise shows a button, so the sender chooses.
+
+`MATCH_AI_REVIEW` is off unless it is exactly `local` (the loopback model) or `dual` (the loopback model and the
+hosted one, each asked once). The model sees only the four codes. It can turn a CONFIRM into ASK_HUMAN; it
+cannot turn a refusal or a question into a confirmation, and an answer outside the table is discarded. The
+calls run on the shared API queue, so they add their length to every request waiting behind them.
+
+`followup-table.js` lists the 36 cells of the follow-up decision with the fixture's answer and every legal
+action. `node scripts/measure-tables.mjs` prints both tables beside the saved model answers, with no model call.
+
+## Limits
+
+- Agreement with the table is not accuracy. Nobody has labelled these cells.
+- The note reader (`public/note-classify.js`) is a fixed keyword list and runs in the browser only. It fills
+  fields and narrows the list; it selects nobody.
+- Chinese names are set by an administrator one person at a time; there is no bulk import.
+- Vector ranking is not built.

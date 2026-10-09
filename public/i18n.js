@@ -81,6 +81,7 @@ export const labels = {
   'Nothing in the note matched this authorization.': '說明裡沒有符合這份授權的內容。',
   'The note names more than one department; choose one.': '說明提到不只一個部門，請自行選擇。',
   'department': '部門', 'name': '姓名', 'employee number': '員工編號', 'list narrowed by surname': '已依姓氏縮小名單',
+  'Please confirm this person': '請確認是這位', 'Select this person': '選取這位',
   'Chinese name': '中文名', 'Employee number': '員工編號', 'Find and select': '查找並選取',
   'Selected': '已選取', 'Attempts left': '剩餘次數',
   'Selected by employee number; the name on record is': '依員工編號選取，系統記錄的姓名為',

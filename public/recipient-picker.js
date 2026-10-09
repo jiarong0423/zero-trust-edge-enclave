@@ -121,11 +121,29 @@ export function createRecipientPicker(postJson, onEdit) {
       const result = await postJson('/api/directory/resolve', question);
       if (generation !== requestGeneration || authorizationId !== grantInput.value.trim()) return;
       if (result.status === 'MATCHED') {
-        selected.add(result.person.id);
-        render(); renderCount(); onEdit();
         const label = recipientLabel(result.person);
-        setText(findStatus, () => result.nameVerified ? `${t('Selected')}: ${label}`
-          : `${t('Selected by employee number; the name on record is')}: ${label}`);
+        // CONFIRM selects. Anything else (the name was not checked, or the second opinion disagreed)
+        // leaves the choice to the sender, with the person shown and a button to take them.
+        if (result.review?.final === 'CONFIRM') {
+          selected.add(result.person.id);
+          render(); renderCount(); onEdit();
+          setText(findStatus, () => `${t('Selected')}: ${label}`);
+          return;
+        }
+        setText(findStatus, () => `${t(result.nameVerified ? 'Please confirm this person' : 'Selected by employee number; the name on record is')}: ${label}`);
+        const item = document.createElement('li');
+        const take = document.createElement('button');
+        take.type = 'button';
+        take.className = 'button';
+        setText(take, 'Select this person');
+        take.addEventListener('click', () => {
+          selected.add(result.person.id);
+          render(); renderCount(); onEdit();
+          findCandidates.replaceChildren();
+          setText(findStatus, () => `${t('Selected')}: ${label}`);
+        });
+        item.append(take);
+        findCandidates.append(item);
         return;
       }
       setText(findStatus, () => `${t(result.message)} (${t('Attempts left')}: ${result.attemptsLeft})`);
