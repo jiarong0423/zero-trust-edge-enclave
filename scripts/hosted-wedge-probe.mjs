@@ -12,12 +12,13 @@
 //
 // Background: every /api/ request runs on one serial queue. Before the fix, a request that declared a body
 // and never finished sending it held that queue forever. The fix settles a body when its connection
-// closes or breaks and cuts one off when it stops arriving (15 s idle) or runs too long (30 s, or 120 s for the large file route).
+// closes or breaks and cuts one off when it stops arriving (15 s idle) or runs too long (30 s, or 120 s for the large file route);
+// the server now also reads every body before the request joins the queue, with a limit per client.
 // So the three things worth checking are:
 //   1. a connection dropped half way through a body does not leave the service stuck;
 //   2. a malformed chunked body does not leave the service stuck;
-//   3. while a stalled connection is held open the service waits (that is the bounded cost of the fix, and
-//      it is reported, not failed), and it answers again quickly once the connection is closed.
+//   3. while a stalled connection is held open other requests are still answered at once (the body is read
+//      before the request joins the queue), and the service is just as quick after the connection is closed.
 //
 // What it sends: three requests to POST /api/directory (the sender's own recipient list, which reads its
 // body on the queue) that carry no real data. The longest is held open for PROBE_HOLD_MS (default 8 s,
@@ -112,7 +113,6 @@ export async function runProbe(config, { holdMs = 8000, write = out } = {}) {
   const { origin, gate, tokens } = config;
   const results = [];
   const record = (name, ok, detail) => { write(`${ok ? 'PASS' : 'FAIL'} ${name}${detail ? `: ${detail}` : ''}`); results.push(ok); };
-  const info = text => write(`INFO ${text}`);
 
   const health = await fetch(origin + '/api/health', { signal: AbortSignal.timeout(REQUEST_LIMIT_MS) }).catch(() => null);
   record('health', Boolean(health?.ok), health ? `HTTP ${health.status}` : 'no answer');
@@ -156,12 +156,14 @@ export async function runProbe(config, { holdMs = 8000, write = out } = {}) {
   stalled.close();
   const blocked = await during;
   const afterStall = await timed(origin, headers, 'after stall');
+  // The body is read before the request joins the queue, so a stalled connection must not delay anyone.
+  // An older version, which read it inside the queue, makes the other request wait until the stall ends.
+  // The limit is half the hold time: an older version makes the other request wait for the whole hold, so
+  // it fails by a wide margin however short the hold is, and a healthy one answers in milliseconds.
+  const blockedLimit = Math.max(500, Math.min(ceiling, Math.floor(holdMs / 2)));
+  record('stalled-connection-does-not-block', blocked.status === 200 && blocked.ms <= blockedLimit,
+    `another request was answered in ${blocked.ms} ms while a stalled connection was held open for ${holdMs} ms (limit ${blockedLimit} ms)${blocked.ms > blockedLimit ? '; the body is still being read inside the queue' : ''}`);
   record('recovers-after-stall', afterStall.status === 200 && afterStall.ms <= ceiling, `whoami answered in ${afterStall.ms} ms once the stalled connection was closed (limit ${ceiling} ms)`);
-  if (blocked.ms >= Math.min(holdMs, 2000)) {
-    info(`while the stalled connection was open, one other request waited ${blocked.ms} ms. This is the bounded cost: it ends when the connection closes, after 15 s without data, or at the overall deadline (30 s), whichever comes first.`);
-  } else {
-    record('stall-reached-the-queue', false, `the other request was not delayed (${blocked.ms} ms), so the stalled request probably never held the queue; this run proves nothing about the fix`);
-  }
 
   const failed = results.filter(ok => !ok).length;
   write(`SUMMARY ${failed ? 'FAIL' : 'PASS'} checks=${results.length} passed=${results.length - failed} failed=${failed} hold_ms=${holdMs}`);

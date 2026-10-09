@@ -11,7 +11,7 @@ import { createWebhookFromEnv } from './webhook-adapter.js';
 import { gateConfig, gateAllows, gateSignIn } from './demo-gate.js';
 import { createBudget } from './nebius-budget.js';
 import { loadAccess, authenticateWithSession, fail } from './access-control.js';
-import { sendJson, readBody } from './http-helpers.js';
+import { sendJson, readBody, createBodyGate } from './http-helpers.js';
 import { createStaticServer } from './static-files.js';
 import { validatePolicy as validatePolicyWithModel } from './policy-envelope.js';
 import { createEmailDraftBuilder } from './email-draft.js';
@@ -171,6 +171,7 @@ async function routeApi(req, res, pathname) {
 }
 
 const apiQueue = createApiQueue();
+const bodyGate = createBodyGate();
 let workerTimer;
 let webhookTimer;
 const { scheduleFileWork } = createFileWorker({ queue: apiQueue, readJson, writeJson, tasksPath, accessPath, dataDir, recoverAudit, fileAdviser, webhook });
@@ -213,6 +214,9 @@ const server = createServer(async (req, res) => {
     // not stall every other API request.
     if (url.pathname.startsWith('/api/sso/') && await sso(req, res, url)) return;
     if (url.pathname.startsWith('/api/')) {
+      // The body is read here, before the request joins the serial queue, so a body that never finishes
+      // cannot hold every other request; readBody returns what was read.
+      await bodyGate(req, res, clientKey(req, trustProxy));
       await apiQueue.chain(() => requestContext.run({}, async () => {
         try { return await routeApi(req, res, url.pathname); }
         catch (error) { await auditRejection(error); throw error; }

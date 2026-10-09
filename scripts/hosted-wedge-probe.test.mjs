@@ -40,17 +40,16 @@ after(async () => {
   await fs.rm(dir, { recursive: true, force: true });
 });
 
-test('the probe passes on the current code, reports the bounded cost, and prints no secret', async () => {
+test('the probe passes on the current code, including that a stalled connection blocks nobody, and prints no secret', async () => {
   const config = await loadConfig({ SMOKE_BASE_URL: base, SMOKE_TOKEN_DIR: tokenDir });
   const lines = [];
   const code = await runProbe(config, { holdMs: 1500, write: line => lines.push(line) });
   const text = lines.join('\n');
   assert.equal(code, 0, text);
-  for (const name of ['health', 'baseline', 'dropped-body', 'malformed-chunked-body', 'recovers-after-stall']) {
+  for (const name of ['health', 'baseline', 'dropped-body', 'malformed-chunked-body', 'stalled-connection-does-not-block', 'recovers-after-stall']) {
     assert.ok(lines.some(line => line.startsWith(`PASS ${name}`)), `${name}\n${text}`);
   }
-  assert.ok(lines.some(line => line.startsWith('INFO while the stalled connection was open')), text);
-  assert.match(lines.at(-1), /^SUMMARY PASS checks=5 passed=5 failed=0 hold_ms=1500$/);
+  assert.match(lines.at(-1), /^SUMMARY PASS checks=6 passed=6 failed=0 hold_ms=1500$/);
   for (const name of ['manager-sender', 'sales-a']) {
     const token = (await fs.readFile(path.join(tokenDir, `${name}.token`), 'utf8')).trim();
     assert.equal(text.includes(token), false);

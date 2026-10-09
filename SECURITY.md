@@ -25,3 +25,14 @@ Single-process serialization is not a distributed transaction. Retention invento
 Use minimal synthetic reproductions. Never include documents, real identities, credentials, raw provider responses or private logs in public reports. Current finding dispositions are in docs/agent/security-gate-summary.md. Historical passes are not current clearance; every publication is owner-reviewed and preceded by a fresh candidate scan.
 
 See also: [compliance control mapping and evidence index](docs/compliance/README.md) (a mapping of what the code does, not a certification).
+
+## Request bodies and the API queue
+
+Every `/api/` request runs on one serial queue. The server reads a request's body **before** the request joins
+that queue (`createBodyGate` in `http-helpers.js`), so a body that never finishes cannot hold the queue. A
+body that stops arriving is cut off after 15 s, and the whole read after 30 s (120 s for the large file route).
+Each client may have 8 bodies being read or waiting at once and the server 24; a request that finds the slots
+full waits up to 10 s for one and is then refused with 429. Measured on 2026-10-10 with a stand-in client: four
+authenticated stalled connections delayed a normal request by 59.9 s before this change and by 17 ms after;
+40 concurrent deliveries all completed. The limits count clients by address, so behind a proxy that does not
+forward the real address all clients share one share (`TRUST_PROXY`).
