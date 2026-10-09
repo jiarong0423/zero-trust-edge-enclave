@@ -16,10 +16,12 @@ export function createRecipientPicker(postJson, onEdit) {
   const findCandidates = document.querySelector('#findCandidates');
   const noteInput = document.querySelector('#senderNote');
   const readNote = document.querySelector('#readNote');
+  const understand = document.querySelector('#understandNote');
   const rankInput = document.querySelector('#rankText');
   const rankButton = document.querySelector('#rankRecipients');
   let directory = null;
   let rankOrder = null;
+  let findTags = {};
   let selected = new Set();
   let generation = 0;
   let locked = false;
@@ -60,6 +62,8 @@ export function createRecipientPicker(postJson, onEdit) {
     generation++;
     directory = null;
     rankOrder = null;
+    findTags = {};
+    understand.hidden = true;
     selected.clear();
     department.replaceChildren();
     const option = new Option(t('All departments'), '');
@@ -84,6 +88,7 @@ export function createRecipientPicker(postJson, onEdit) {
       const result = await postJson('/api/directory', { authorizationId });
       if (generation !== requestGeneration || authorizationId !== grantInput.value.trim()) return;
       directory = result;
+      understand.hidden = !result.noteModel;
       for (const name of result.departments) {
         const option = new Option('', name);
         setText(option, result.departmentLabels?.[name] || name);
@@ -96,11 +101,7 @@ export function createRecipientPicker(postJson, onEdit) {
     } finally { load.disabled = locked; }
   });
   // The note is read here and goes nowhere: only the fields it fills in are ever sent. Nobody is selected.
-  readNote.addEventListener('click', () => {
-    findCandidates.replaceChildren();
-    if (!directory) { setText(findStatus, 'Load authorized recipients'); return; }
-    const departments = (directory.departments || []).map(id => ({ id, displayName: directory.departmentLabels?.[id] || id }));
-    const found = classifyNote(noteInput.value, directory.recipients, departments);
+  function applyFound(found) {
     const filled = [];
     if (found.department && [...department.options].some(option => option.value === found.department)) {
       department.value = found.department; filled.push('department');
@@ -113,6 +114,32 @@ export function createRecipientPicker(postJson, onEdit) {
     setText(findStatus, () => filled.length
       ? `${t('Filled from the note')}: ${filled.map(item => t(item)).join(', ')}. ${t('Check, then press Find and select.')}`
       : t('Nothing in the note matched this authorization.'));
+  }
+  readNote.addEventListener('click', () => {
+    findCandidates.replaceChildren();
+    if (!directory) { setText(findStatus, 'Load authorized recipients'); return; }
+    const departments = (directory.departments || []).map(id => ({ id, displayName: directory.departmentLabels?.[id] || id }));
+    findTags = {};
+    applyFound(classifyNote(noteInput.value, directory.recipients, departments));
+  });
+  // The model reader. This button is shown only when the server says it is on, and only it sends the note
+  // anywhere (to the model on this machine). Tags are applied to the list through the tag filter fields of
+  // the find call, so they are kept here.
+  understand.addEventListener('click', async () => {
+    findCandidates.replaceChildren();
+    if (!directory) { setText(findStatus, 'Load authorized recipients'); return; }
+    const requestGeneration = generation;
+    const authorizationId = grantInput.value.trim();
+    understand.disabled = true;
+    try {
+      const result = await postJson('/api/directory/understand', { authorizationId, note: noteInput.value.trim() });
+      if (generation !== requestGeneration || authorizationId !== grantInput.value.trim()) return;
+      if (!result.fields) { setText(findStatus, 'The local model could not read the note; use the keyword button.'); return; }
+      findTags = result.fields.tags || {};
+      applyFound(result.fields);
+    } catch (error) {
+      if (generation === requestGeneration) setText(findStatus, error.message);
+    } finally { understand.disabled = locked; }
   });
   // Display order only. The text typed here is sent to this server for ranking and is not the note;
   // nobody is selected and the matching rule is not involved.
@@ -145,6 +172,7 @@ export function createRecipientPicker(postJson, onEdit) {
     if (findName.value.trim()) question.nameZh = findName.value.trim();
     if (findId.value.trim()) question.employeeId = findId.value.trim();
     if (department.value) question.department = department.value;
+    if (Object.keys(findTags).length) question.tags = findTags;
     findButton.disabled = true;
     try {
       const result = await postJson('/api/directory/resolve', question);
@@ -194,7 +222,7 @@ export function createRecipientPicker(postJson, onEdit) {
   return {
     setBusy(value) {
       locked = value;
-      for (const control of [load, department, query, findName, findId, findButton, noteInput, readNote, rankInput, rankButton, ...list.querySelectorAll('input')]) control.disabled = value;
+      for (const control of [load, department, query, findName, findId, findButton, noteInput, readNote, understand, rankInput, rankButton, ...list.querySelectorAll('input')]) control.disabled = value;
     },
     selection(grant) {
       if (!directory || directory.authorizationId !== grant.id || directory.authorizationVersion !== grant.version) {

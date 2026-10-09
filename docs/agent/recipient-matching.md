@@ -97,6 +97,26 @@ leaves that field alone. By default it only reads and reports: line numbers and 
 name, plus how many Chinese names would still be shared. With `--out` and no errors it writes a new candidate
 registry (never over an existing file, never over the registry), for the owner to review and put in place.
 
+## Reading the note with a model
+
+`note-understand.js`, `POST /api/directory/understand`, behind `NOTE_AI=local` (exact value, off by default).
+The keyword reader in the browser keeps the note in the browser. This is the one place the note leaves it,
+and only to a model on this machine (loopback only, nothing is stored): the sender presses a separate button
+that says so. The model is given the note and a closed vocabulary (the department names and tag values on the
+sender's authorization) and answers in a fixed shape. It is never shown the people. Fixed code then keeps
+only what the note itself supports and what belongs to someone on the authorization: a department or tag must
+be in the vocabulary and be something the note says, a name or employee number must appear in the note and
+belong to a person on the authorization, and a surname with an honorific stays a surname. It fills boxes and
+selects nobody.
+
+Measured with the real model (`node scripts/note-eval.mjs`, 24 invented notes, a 4B model): with fixed-code
+checks it got 21 notes exactly right against 13 for the keyword reader, mostly because the keyword reader
+does not read tags or phrases like "業務那個姓劉的". Without those checks, before they were added, it also got
+13: it filled a name or a tag nobody had said. The checks were written after seeing those failures on this
+same set, so the 21 is optimistic; it needs a fresh set of notes before it means more. In the live page one of
+two notes missed its department, and the first call after idle took about 8 seconds (2 to 3 seconds
+afterwards).
+
 ## Delivery status check
 
 `state-check.js` and `POST /api/tasks/status-check` (the sender, for their own task; the button "Check status"

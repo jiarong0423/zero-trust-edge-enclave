@@ -6,6 +6,7 @@ import { newTask, reviseTask, confirmFirst, confirmSecond, revokeSnapshot, inval
 import { listRecipients } from '../recipient-directory.js';
 import { resolveRecipient, validTags, MATCH_MESSAGES } from '../recipient-match.js';
 import { fixedOrder, RANK_TEXT_MAX } from '../recipient-rank.js';
+import { reconcileWithDirectory, NOTE_MAX } from '../note-understand.js';
 import { matchProjection, matchTable, reviewMatch } from '../match-confirm.js';
 import crypto from 'node:crypto';
 import { stateProjection, stateTable, reviewState, STATE_MESSAGES } from '../state-check.js';
@@ -27,7 +28,7 @@ const sanitizeAuditEvent = event => auditProjection(event);
 // principal; `handleFileTasks` returns true when it answered the request and false when the path is
 // not one of its own, so routeApi can carry on. Every state write is followed by recoverAudit inside
 // the same queued request (risk 2 in the split plan).
-export function createFileTaskRoutes({ dataDir, tasksPath, packagesPath, auditsPath, readJson, writeJson, appendAudit, recoverAudit, matchGuard, matchReviewer = null, stateReviewer = null,
+export function createFileTaskRoutes({ dataDir, tasksPath, packagesPath, auditsPath, readJson, writeJson, appendAudit, recoverAudit, matchGuard, matchReviewer = null, stateReviewer = null, noteReader = { enabled: false, read: async () => ({ method: 'off', fallback: 'NOTE_AI_OFF', fields: null }) },
   recipientRanker = { rank: async people => ({ order: fixedOrder(people), method: 'fixed', fallback: 'RANKING_OFF' }) } }) {
   // One EVIDENCE_VIEWED record per task per minute: repeated views add nothing and would push older
   // delivery events out of the retained audit window.
@@ -248,6 +249,24 @@ export function createFileTaskRoutes({ dataDir, tasksPath, packagesPath, auditsP
       return true;
     }
 
+    // The sender's note, read by a model on this machine into the same boxes the sender could fill by hand.
+    // Only here does the note leave the browser, and only when NOTE_AI=local; it goes to the loopback model
+    // and is not stored. The model sees the note and a closed vocabulary, never the people; fixed code then
+    // keeps only what the note supports and what belongs to someone on this authorization. Nobody is selected.
+    if (pathname === '/api/directory/understand' && req.method === 'POST') {
+      const input = await readBody(req, 4096);
+      exact(input, ['authorizationId', 'note']);
+      if (typeof input.note !== 'string' || !input.note.trim() || input.note.length > NOTE_MAX) fail('Invalid note', 422);
+      const visible = listRecipients(config, principal, input.authorizationId);
+      const vocabulary = { departments: visible.departments.map(id => ({ id, label: visible.departmentLabels[id] || id })),
+        tags: Object.fromEntries(['region', 'team', 'role'].map(key => [key, [...new Set(visible.recipients.map(person => person.tags?.[key]).filter(Boolean))].sort()])) };
+      const read = await noteReader.read(input.note, vocabulary);
+      await appendAudit({ type: 'MATCH_ATTEMPT', result: 'INFO', reasons: [read.method === 'model' ? 'MATCH_NOTE_MODEL' : 'MATCH_NOTE_OFF'] });
+      sendJson(res, 200, { ok: true, method: read.method, fallback: read.fallback,
+        fields: read.fields ? reconcileWithDirectory(read.fields, visible.recipients) : null });
+      return true;
+    }
+
     // Display order for the sender's own list, by similarity to a short text the sender types for this
     // purpose. The text goes to this server and, when ranking is on, to the embedding model on this
     // machine; it is not the note (which stays in the browser) and it is never stored. Only people on the
@@ -269,7 +288,7 @@ export function createFileTaskRoutes({ dataDir, tasksPath, packagesPath, auditsP
     if (pathname === '/api/directory' && req.method === 'POST') {
       const input = await readBody(req);
       exact(input, ['authorizationId', 'department', 'query']);
-      sendJson(res, 200, listRecipients(config, principal, input.authorizationId, input.department, input.query));
+      sendJson(res, 200, { ...listRecipients(config, principal, input.authorizationId, input.department, input.query), noteModel: Boolean(noteReader.enabled) });
       return true;
     }
 

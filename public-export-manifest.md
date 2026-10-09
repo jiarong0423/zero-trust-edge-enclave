@@ -1,6 +1,6 @@
 # Public Export Manifest
 
-Review date: 2026-10-08 (237 entries; was 211 on 2026-10-08 and 122 on 2026-09-27). Status: public on GitHub since 2026-09-18; this list is the allowlist every push is checked against.
+Review date: 2026-10-08 (241 entries; was 211 on 2026-10-08 and 122 on 2026-09-27). Status: public on GitHub since 2026-09-18; this list is the allowlist every push is checked against.
 
 The following exact paths are the release allowlist, not directory wildcards. Runtime data, credentials, environment secrets, logs, output, dependencies, Git metadata, screenshots and raw provider evidence are excluded even when untracked. New source files require explicit review and a manifest update.
 
@@ -129,6 +129,9 @@ scripts/match-review-route.test.mjs
 scripts/measure-tables.mjs
 scripts/measure-tables.test.mjs
 scripts/note-classify.test.mjs
+scripts/note-eval.mjs
+scripts/note-understand-route.test.mjs
+scripts/note-understand.test.mjs
 scripts/rank-eval.mjs
 scripts/recipient-match.test.mjs
 scripts/recipient-rank-route.test.mjs
@@ -175,6 +178,7 @@ http-helpers.js
 local-env.js
 mcp-tools.js
 network-policy.js
+note-understand.js
 notice-outbox.js
 policy-envelope.js
 scripts/auth-throttle-server.test.mjs
