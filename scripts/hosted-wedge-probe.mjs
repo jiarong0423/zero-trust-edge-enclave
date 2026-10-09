@@ -2,11 +2,13 @@
 // Checks, against a running instance, that a request whose body never arrives cannot freeze the service.
 // Run by the owner in their own terminal, like hosted-smoke.mjs, so no credential is pasted into a chat.
 //
-//   SMOKE_BASE_URL=https://<host> SMOKE_TOKEN_DIR=<private dir> \
-//   [SMOKE_GATE_USER=<user> SMOKE_GATE_PASSWORD=<password>] [PROBE_HOLD_MS=8000] \
 //   node scripts/hosted-wedge-probe.mjs
 //
-// Same configuration, token files and redaction as hosted-smoke.mjs; it needs only the sender's token.
+// Run from a terminal it asks for the judge sign-in (the account is shown as you type, the password is
+// not) and nothing else: the target defaults to the hosted instance and the token folder to
+// logs/hosted-registry/tokens next to this script, so it also works from any directory. Every default can
+// be overridden with the same variables as hosted-smoke.mjs (SMOKE_BASE_URL, SMOKE_TOKEN_DIR,
+// SMOKE_GATE_USER, SMOKE_GATE_PASSWORD) and PROBE_HOLD_MS (default 8000). It needs only the sender's token.
 //
 // Background: every /api/ request runs on one serial queue. Before the fix, a request that declared a body
 // and never finished sending it held that queue forever. The fix settles a body when its connection
@@ -24,8 +26,53 @@
 // Exit codes: 0 every check passed, 1 a check failed or was inconclusive, 2 configuration or usage error.
 import net from 'node:net';
 import tls from 'node:tls';
+import path from 'node:path';
+import readline from 'node:readline';
 import { pathToFileURL } from 'node:url';
 import { loadConfig, redact } from './hosted-smoke.mjs';
+
+
+export const DEFAULT_BASE_URL = 'https://zero-trust-edge-enclave.zeabur.app';
+export const DEFAULT_TOKEN_DIR = path.resolve(import.meta.dirname, '..', 'logs', 'hosted-registry', 'tokens');
+
+function askVisible(question) {
+  const rl = readline.createInterface({ input: process.stdin, output: process.stdout });
+  return new Promise(resolve => rl.question(question, answer => { rl.close(); resolve(answer.trim()); }));
+}
+
+// The characters are read one by one with echo off, so a pasted password is accepted and never shown.
+function askHidden(question) {
+  return new Promise((resolve, reject) => {
+    const stdin = process.stdin;
+    process.stdout.write(question);
+    stdin.setRawMode(true); stdin.resume(); stdin.setEncoding('utf8');
+    let value = '';
+    const done = (settle, result) => { stdin.removeListener('data', onData); stdin.setRawMode(false); stdin.pause(); process.stdout.write('\n'); settle(result); };
+    const onData = chunk => {
+      for (const character of chunk) {
+        if (character === '\r' || character === '\n') return done(resolve, value);
+        if (character === '\u0003') return done(reject, new Error('cancelled'));
+        if (character === '\u007f' || character === '\b') value = value.slice(0, -1);
+        else if (character >= ' ') value += character;
+      }
+    };
+    stdin.on('data', onData);
+  });
+}
+
+// Fills in what the person did not give. The prompts run only when there is a terminal to ask on, and
+// only for what is missing; with no terminal the configuration stays as it was and loadConfig says what
+// is wrong. `ask` and `askSecret` are injectable so this can be tested without a terminal.
+export async function withDefaults(env, { interactive = Boolean(process.stdin.isTTY && process.stdout.isTTY), ask = askVisible, askSecret = askHidden } = {}) {
+  const filled = { ...env };
+  if (!filled.SMOKE_BASE_URL) filled.SMOKE_BASE_URL = DEFAULT_BASE_URL;
+  if (!filled.SMOKE_TOKEN_DIR) filled.SMOKE_TOKEN_DIR = DEFAULT_TOKEN_DIR;
+  if (interactive) {
+    if (!filled.SMOKE_GATE_USER) filled.SMOKE_GATE_USER = await ask('評審帳號: ');
+    if (!filled.SMOKE_GATE_PASSWORD) filled.SMOKE_GATE_PASSWORD = await askSecret('評審密碼（輸入時不會顯示）: ');
+  }
+  return filled;
+}
 
 const SENDER = 'manager-sender';
 const RECOVERY_LIMIT_MS = 5000;
@@ -121,12 +168,12 @@ export async function runProbe(config, { holdMs = 8000, write = out } = {}) {
   return failed ? 1 : 0;
 }
 
-export async function main(env = process.env, argv = process.argv.slice(2)) {
+export async function main(env = process.env, argv = process.argv.slice(2), options = {}) {
   let config;
-  try { config = await loadConfig(env, argv); }
+  try { config = await loadConfig(await withDefaults(env, options), argv); }
   catch (error) {
     process.stderr.write(redact(`CONFIG ERROR: ${error?.message || 'configuration could not be read'}`) + '\n');
-    process.stderr.write('Usage: SMOKE_BASE_URL=... SMOKE_TOKEN_DIR=... [SMOKE_GATE_USER=... SMOKE_GATE_PASSWORD=...] [PROBE_HOLD_MS=8000] node scripts/hosted-wedge-probe.mjs\n');
+    process.stderr.write('Usage: node scripts/hosted-wedge-probe.mjs   (asks for the judge sign-in; see the top of the file for the variables that override the defaults)\n');
     return 2;
   }
   const requested = env.PROBE_HOLD_MS === undefined ? 8000 : Number(env.PROBE_HOLD_MS);

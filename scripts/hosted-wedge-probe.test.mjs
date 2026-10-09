@@ -7,7 +7,7 @@ import path from 'node:path';
 import { spawn } from 'node:child_process';
 import { once } from 'node:events';
 import { loadConfig } from '../scripts/hosted-smoke.mjs';
-import { runProbe, main } from '../scripts/hosted-wedge-probe.mjs';
+import { runProbe, main, withDefaults, DEFAULT_BASE_URL, DEFAULT_TOKEN_DIR } from '../scripts/hosted-wedge-probe.mjs';
 
 // The probe against the real server on a loopback port. The fix under test is the body reader: this run
 // must pass on the current code. (Run against the tree before the fix, the same probe fails; that check
@@ -65,7 +65,26 @@ test('the hold time is validated before anything is sent', async () => {
     for (const value of ['abc', '500', '99999', '1.5']) {
       assert.equal(await main({ SMOKE_BASE_URL: base, SMOKE_TOKEN_DIR: tokenDir, PROBE_HOLD_MS: value }, []), 2);
     }
-    assert.equal(await main({}, []), 2);
+    assert.equal(await main({ SMOKE_BASE_URL: base, SMOKE_TOKEN_DIR: path.join(dir, 'no-such-folder') }, []), 2);
   } finally { process.stderr.write = original; }
   assert.ok(written.join('').includes('PROBE_HOLD_MS must be'));
+});
+
+test('with nothing given the target and token folder default, and the sign-in is asked for only when there is a terminal', async () => {
+  const asked = [];
+  const ask = async question => { asked.push(question); return 'someone'; };
+  const askSecret = async question => { asked.push(question); return 'a secret'; };
+  const filled = await withDefaults({}, { interactive: true, ask, askSecret });
+  assert.deepEqual([filled.SMOKE_BASE_URL, filled.SMOKE_TOKEN_DIR, filled.SMOKE_GATE_USER, filled.SMOKE_GATE_PASSWORD], [DEFAULT_BASE_URL, DEFAULT_TOKEN_DIR, 'someone', 'a secret']);
+  assert.equal(asked.length, 2);
+  assert.ok(path.isAbsolute(DEFAULT_TOKEN_DIR) && DEFAULT_TOKEN_DIR.endsWith(path.join('logs', 'hosted-registry', 'tokens')));
+  assert.equal(DEFAULT_BASE_URL.startsWith('https://'), true);
+  // Nothing is asked for what was already given, and nothing at all without a terminal.
+  asked.length = 0;
+  const given = await withDefaults({ SMOKE_GATE_USER: 'u', SMOKE_GATE_PASSWORD: 'p', SMOKE_BASE_URL: 'http://127.0.0.1:1', SMOKE_TOKEN_DIR: '/x' }, { interactive: true, ask, askSecret });
+  assert.deepEqual([asked.length, given.SMOKE_GATE_USER, given.SMOKE_BASE_URL, given.SMOKE_TOKEN_DIR], [0, 'u', 'http://127.0.0.1:1', '/x']);
+  const quiet = await withDefaults({}, { interactive: false, ask, askSecret });
+  assert.deepEqual([asked.length, quiet.SMOKE_GATE_USER, quiet.SMOKE_GATE_PASSWORD], [0, undefined, undefined]);
+  const partial = await withDefaults({ SMOKE_GATE_USER: 'u' }, { interactive: true, ask, askSecret });
+  assert.deepEqual([asked.length, partial.SMOKE_GATE_USER, partial.SMOKE_GATE_PASSWORD], [1, 'u', 'a secret']);
 });
