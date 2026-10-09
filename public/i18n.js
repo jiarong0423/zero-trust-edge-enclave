@@ -81,7 +81,7 @@ export const labels = {
   'Nothing in the note matched this authorization.': '說明裡沒有符合這份授權的內容。',
   'The note names more than one department; choose one.': '說明提到不只一個部門，請自行選擇。',
   'department': '部門', 'name': '姓名', 'employee number': '員工編號', 'list narrowed by surname': '已依姓氏縮小名單',
-  'Please confirm this person': '請確認是這位', 'Select this person': '選取這位',
+  'Please confirm this person': '請確認是這位', 'Matched through another name on record; please confirm': '由紀錄中的另一個名稱配對到，請確認', 'Select this person': '選取這位',
   'Describe the person to sort the list (sent to the local server, not stored)': '描述這位收件人以排序名單（會送到本機伺服器，不儲存）', 'Sort by similarity': '依相似度排序',
   'Sorted by similarity (model on this machine).': '已依相似度排序（使用本機模型）。', 'Similarity sorting is off or unavailable; showing the fixed order.': '相似度排序未開啟或無法使用，顯示固定順序。',
   'Fixed order restored.': '已恢復固定順序。',

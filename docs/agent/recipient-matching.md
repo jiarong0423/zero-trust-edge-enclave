@@ -24,9 +24,13 @@ the employee number. Full-width forms and white space are normalised.
 
 ## Data
 
-`nameZh` (string, up to 64) and `tags` (`region`, `team`, `role`; each a short word) are optional per person,
-validated when the registry loads and by the administrator's `person.create` / `person.update`. A registry
-without them behaves as before.
+`nameZh` (string, up to 64), `aliases` (up to eight other names: a nickname, an English name, a former name),
+`title` (a short job title, shown beside the name) and `tags` (`region`, `team`, `role`; each a short word)
+are optional per person, validated when the registry loads and by the administrator's `person.create` /
+`person.update`. A registry without them behaves as before.
+
+An alias is tried only when nobody carries the formal name, and a match through one is never treated as a
+verified name: the checklist turns it into a question for the sender.
 
 ## Routes
 
@@ -42,8 +46,10 @@ directory, private to the owner; a file that exists but cannot be read stops mat
 
 ## The checklist and the second opinion
 
-After the match, `match-confirm.js` holds a table of 108 cells over four codes (how many people fit, what
-decided it, whether the reverse check passed, how many failures came before). It answers CONFIRM, ASK_HUMAN or
+After the match, `match-confirm.js` holds a table of 405 cells over five codes (how many people fit, what
+decided it, whether the department or tags decided it, whether the reverse check passed, how many failures
+came before). The tags themselves never reach an adviser: only whether they were what made a shared name
+unique (`NARROW_DECISIVE`). It answers CONFIRM, ASK_HUMAN or
 REFUSE. CONFIRM exists only for one person, checked both ways, with a verified name or number. The page selects
 the person on CONFIRM and otherwise shows a button, so the sender chooses.
 
@@ -79,3 +85,19 @@ first result correct 10 times in 12, against 3 in 12 for the page's existing sea
 fixed order. The search box found nobody in 9 of the 12 queries. It does not read every phrasing: for
 "業務的劉先生" the first result was wrong, which is the case the note reader handles by rule. The numbers
 describe that model on that directory only.
+
+## Filling the directory from a table
+
+`node scripts/import-directory-mapping.mjs --table mapping.csv --registry access.json [--out candidate.json]`
+
+The table is a CSV (UTF-8) with the columns `employee_id` (required), `name_zh`, `name_en`, `aliases`
+(separated by `|`), `title`, `department`, `region`, `team`, `role`, `email`. Rows are matched to people who are
+already in the registry; the tool never creates a person, because creating one issues a token. An empty cell
+leaves that field alone. By default it only reads and reports: line numbers and employee numbers, never a
+name, plus how many Chinese names would still be shared. With `--out` and no errors it writes a new candidate
+registry (never over an existing file, never over the registry), for the owner to review and put in place.
+
+## Not done
+
+The follow-up decision table has no tag dimension. What a tag should change about a reminder is a policy
+question, and adding a dimension that changes nothing would be decoration. It needs the owner's rule first.

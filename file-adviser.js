@@ -166,7 +166,7 @@ export const ADVICE_KINDS = {
   // Recipient-match confirmation (match-confirm.js): four codes in, one of three actions out. It is
   // only asked when MATCH_AI_REVIEW is set, and fixed code holds the full table and a veto.
   match: {
-    keys: ['taskAlias', 'snapshotVersion', 'candidateCode', 'keyCode', 'reverseCode', 'attemptCode'],
+    keys: ['taskAlias', 'snapshotVersion', 'candidateCode', 'keyCode', 'narrowCode', 'reverseCode', 'attemptCode'],
     rejection: 'MATCH_METADATA_REJECTED',
     accepts: acceptsMatchMetadata,
     boundary: MATCH_ADVISER_BOUNDARY,

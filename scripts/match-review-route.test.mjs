@@ -86,7 +86,7 @@ test('an adviser that agrees leaves the table answer in place', async () => {
 
 test('what the adviser is sent is codes only', async () => {
   const sent = seen.at(-1).input;
-  assert.deepEqual(Object.keys(sent).sort(), ['attemptCode', 'candidateCode', 'keyCode', 'reverseCode', 'snapshotVersion', 'taskAlias']);
+  assert.deepEqual(Object.keys(sent).sort(), ['attemptCode', 'candidateCode', 'keyCode', 'narrowCode', 'reverseCode', 'snapshotVersion', 'taskAlias']);
   const text = JSON.stringify(sent);
   for (const forbidden of ['劉', 'recipient-', 'operator', grantId]) assert.equal(text.includes(forbidden), false, forbidden);
   assert.ok(seen.at(-1).system.includes('match-confirmation adviser'));

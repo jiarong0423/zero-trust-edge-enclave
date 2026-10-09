@@ -171,3 +171,43 @@ test('the administrator can set a Chinese name and tags, and the listing returns
     assert.throws(() => changeDirectory(config, admin, { expectedRevision: 1, operation: 'person.update', value }), error => error.status === 422);
   }
 });
+
+test('an alias matches only when nobody carries the formal name, and is never marked as a verified name', () => {
+  const config = directory();
+  Object.assign(config.principals.find(p => p.id === 'e3190'), { aliases: ['小龍', 'Dragon Liu'] });
+  Object.assign(config.principals.find(p => p.id === 'h0001'), { aliases: ['小龍'] });
+  const unique = ask({ nameZh: 'Dragon Liu' }, config);
+  assert.deepEqual([unique.status, unique.code, unique.via, unique.id, unique.nameVerified], ['MATCHED', 'MATCH_BY_ALIAS', 'ALIAS', 'e3190', false]);
+  const shared = ask({ nameZh: '小龍' }, config);
+  assert.deepEqual([shared.status, shared.code, shared.candidates], ['AMBIGUOUS', 'AMBIGUOUS_NEED_ID', ['e3190', 'h0001']]);
+  const decided = ask({ nameZh: '小龍', employeeId: 'h0001' }, config);
+  assert.deepEqual([decided.code, decided.id, decided.nameVerified], ['MATCH_BY_ID_NAME_UNLISTED', 'h0001', false]);
+  assert.equal(ask({ nameZh: '小龍', employeeId: 'e1001' }, config).code, 'NONE_ID_NOT_IN_NAME_SET');
+  assert.equal(ask({ nameZh: 'Dragon Liu', employeeId: 'e1001' }, config).code, 'CONFLICT_ID_NAME');
+  // The formal name wins: an alias that equals someone else's formal name is never consulted.
+  Object.assign(config.principals.find(p => p.id === 'h0001'), { aliases: ['劉慶龍'] });
+  assert.deepEqual([ask({ nameZh: '劉慶龍' }, config).code, ask({ nameZh: '劉慶龍' }, config).id], ['MATCH_BY_NAME', 'e3190']);
+});
+
+test('the narrowing code says whether the department or tags decided it', () => {
+  assert.equal(ask({ nameZh: '劉慶龍' }).narrow, 'NARROW_NOT_USED');
+  assert.equal(ask({ nameZh: '劉慶龍', department: 'sales' }).narrow, 'NARROW_NOT_DECISIVE');
+  assert.equal(ask({ nameZh: '劉文祥', department: 'accounting' }).narrow, 'NARROW_DECISIVE');
+  assert.equal(ask({ nameZh: '劉文祥', department: 'sales', tags: { region: 'north' } }).narrow, 'NARROW_DECISIVE');
+  assert.equal(ask({ nameZh: '劉文祥', department: 'sales' }).narrow, 'NARROW_NOT_DECISIVE');   // still two people in sales
+  assert.equal(ask({ nameZh: '劉文祥' }).narrow, 'NARROW_NOT_USED');
+  assert.equal(ask({ nameZh: '無此人', department: 'sales' }).narrow, 'NARROW_NOT_USED');
+});
+
+test('title and aliases are validated at load and by the administrator', () => {
+  const base = () => ({ schemaVersion: 2, revision: 1, departments: [{ id: 'sales', displayName: 'Sales' }],
+    principals: [{ id: 'e1', kind: 'recipient', department: 'sales' }], grants: [] });
+  for (const mutate of [c => { c.principals[0].title = ''; }, c => { c.principals[0].title = 'x'.repeat(65); }, c => { c.principals[0].title = 5; },
+    c => { c.principals[0].aliases = 'x'; }, c => { c.principals[0].aliases = ['a', ' a ']; }, c => { c.principals[0].aliases = Array.from({ length: 9 }, (_, i) => `n${i}`); },
+    c => { c.principals[0].aliases = ['']; }, c => { c.principals[0].aliases = [3]; }]) {
+    const config = base(); mutate(config);
+    assert.throws(() => normalizeDirectory(config), error => error.status === 503);
+  }
+  const good = base(); Object.assign(good.principals[0], { title: '業務代表', aliases: ['小劉', 'Liu'] });
+  assert.deepEqual(normalizeDirectory(good).principals[0].aliases, ['小劉', 'Liu']);
+});

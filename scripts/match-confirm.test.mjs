@@ -1,20 +1,20 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {
-  CANDIDATE_CODES, KEY_CODES, REVERSE_CODES, ATTEMPT_CODES, MATCH_ACTIONS, MATCH_REASONS,
+  CANDIDATE_CODES, KEY_CODES, NARROW_CODES, REVERSE_CODES, ATTEMPT_CODES, MATCH_ACTIONS, MATCH_REASONS,
   legalMatchActions, matchTable, validateMatchAdvice, matchProjection, reviewMatch, createMatchReviewer, acceptsMatchMetadata
 } from '../match-confirm.js';
 import { requestFileAdvice, ADVICE_KINDS } from '../file-adviser.js';
 
 const ALIAS = '11111111-1111-4111-8111-111111111111';
-const cell = (candidateCode, keyCode, reverseCode, attemptCode = 'ATTEMPT_FIRST') =>
-  ({ taskAlias: ALIAS, snapshotVersion: 1, candidateCode, keyCode, reverseCode, attemptCode });
-const everyCell = () => CANDIDATE_CODES.flatMap(c => KEY_CODES.flatMap(k => REVERSE_CODES.flatMap(r => ATTEMPT_CODES.map(a => cell(c, k, r, a)))));
+const cell = (candidateCode, keyCode, reverseCode, attemptCode = 'ATTEMPT_FIRST', narrowCode = 'NARROW_NOT_USED') =>
+  ({ taskAlias: ALIAS, snapshotVersion: 1, candidateCode, keyCode, narrowCode, reverseCode, attemptCode });
+const everyCell = () => CANDIDATE_CODES.flatMap(c => KEY_CODES.flatMap(k => NARROW_CODES.flatMap(n => REVERSE_CODES.flatMap(r => ATTEMPT_CODES.map(a => cell(c, k, r, a, n))))));
 
-test('the table answers every one of the 108 combinations, and every answer is legal and coherent', () => {
+test('the table answers every one of the 405 combinations, and every answer is legal and coherent', () => {
   const cells = everyCell();
-  assert.equal(cells.length, CANDIDATE_CODES.length * KEY_CODES.length * REVERSE_CODES.length * ATTEMPT_CODES.length);
-  assert.equal(cells.length, 108);
+  assert.equal(cells.length, CANDIDATE_CODES.length * KEY_CODES.length * NARROW_CODES.length * REVERSE_CODES.length * ATTEMPT_CODES.length);
+  assert.equal(cells.length, 405);
   for (const metadata of cells) {
     const answer = matchTable(metadata);
     assert.ok(legalMatchActions(metadata).includes(answer.action), JSON.stringify(metadata));
@@ -28,7 +28,7 @@ test('CONFIRM exists in exactly one family of cells: one person, checked both wa
   assert.ok(confirming.length > 0);
   for (const m of confirming) {
     assert.deepEqual([m.candidateCode, m.reverseCode], ['CANDIDATE_ONE', 'REVERSE_PASS']);
-    assert.notEqual(m.keyCode, 'KEY_ID_NAME_UNLISTED');
+    assert.ok(!['KEY_ID_NAME_UNLISTED', 'KEY_ALIAS'].includes(m.keyCode));
   }
   // The number of earlier failures never changes the answer.
   for (const m of everyCell()) {
@@ -42,6 +42,8 @@ test('the four situations of the owner example come out as designed', () => {
   assert.equal(matchTable(cell('CANDIDATE_ONE', 'KEY_ID', 'REVERSE_PASS')).action, 'CONFIRM');                // 劉文祥 plus a number
   assert.equal(matchTable(cell('CANDIDATE_ONE', 'KEY_ID_NAME_UNLISTED', 'REVERSE_PASS')).reasonCode, 'NAME_UNVERIFIED'); // 劉先生 plus a number
   assert.equal(matchTable(cell('CANDIDATE_NONE', 'KEY_NONE', 'REVERSE_FAIL')).reasonCode, 'REVERSE_FAILED');  // name and number disagree
+  assert.equal(matchTable(cell('CANDIDATE_ONE', 'KEY_ALIAS', 'REVERSE_PASS')).reasonCode, 'NAME_UNVERIFIED');  // a nickname
+  assert.equal(matchTable(cell('CANDIDATE_ONE', 'KEY_NAME', 'REVERSE_PASS', 'ATTEMPT_FIRST', 'NARROW_DECISIVE')).action, 'CONFIRM');  // tags made the shared name unique
 });
 
 test('the validator refuses an action the codes do not allow and a reason that contradicts them', () => {
@@ -63,7 +65,10 @@ test('the validator refuses an action the codes do not allow and a reason that c
 test('the projection carries codes only and maps each outcome of the resolver', () => {
   const p = (status, code, reversePass = false, failsBefore = 0) => matchProjection({ status, code }, { reversePass, failsBefore, alias: ALIAS });
   assert.deepEqual(Object.keys(p('MATCHED', 'MATCH_BY_NAME', true)).sort(),
-    ['attemptCode', 'candidateCode', 'keyCode', 'reverseCode', 'snapshotVersion', 'taskAlias']);
+    ['attemptCode', 'candidateCode', 'keyCode', 'narrowCode', 'reverseCode', 'snapshotVersion', 'taskAlias']);
+  assert.equal(p('MATCHED', 'MATCH_BY_ALIAS', true).keyCode, 'KEY_ALIAS');
+  assert.equal(matchProjection({ status: 'MATCHED', code: 'MATCH_BY_NAME', narrow: 'NARROW_DECISIVE' }, { reversePass: true, failsBefore: 0, alias: ALIAS }).narrowCode, 'NARROW_DECISIVE');
+  assert.equal(matchProjection({ status: 'MATCHED', code: 'MATCH_BY_NAME', narrow: 'bogus' }, { reversePass: true, failsBefore: 0, alias: ALIAS }).narrowCode, 'NARROW_NOT_USED');
   assert.equal(p('MATCHED', 'MATCH_BY_NAME', true).keyCode, 'KEY_NAME');
   assert.equal(p('MATCHED', 'MATCH_BY_ID', true).keyCode, 'KEY_ID');
   assert.equal(p('MATCHED', 'MATCH_BY_ID_NAME_UNLISTED', true).keyCode, 'KEY_ID_NAME_UNLISTED');

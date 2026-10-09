@@ -27,7 +27,7 @@ export function fixedOrder(people) {
 }
 
 export function personText(person, departmentLabel) {
-  return [person.nameZh, person.displayName, departmentLabel || person.department, ...Object.values(person.tags || {})]
+  return [person.nameZh, person.displayName, ...(person.aliases || []), person.title, departmentLabel || person.department, ...Object.values(person.tags || {})]
     .filter(value => typeof value === 'string' && value).join(' ').slice(0, 300);
 }
 

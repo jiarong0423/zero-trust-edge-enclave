@@ -25,6 +25,18 @@ export function validNameZh(value) {
     normalizeZhName(value) !== '';
 }
 
+// A short job title, shown beside the name. Free text, not a key for matching.
+export function validTitle(value) {
+  return typeof value === 'string' && value.length <= 64 && !/[\u0000-\u001f\u007f]/.test(value) && value.trim() !== '';
+}
+
+// Other names the person goes by: a nickname, an English name, a former name. Up to eight.
+export function validAliases(value) {
+  if (value === undefined) return true;
+  return Array.isArray(value) && value.length <= 8 && value.every(validNameZh) &&
+    new Set(value.map(normalizeZhName)).size === value.length;
+}
+
 export function validTags(value) {
   if (value === undefined) return true;
   if (value === null || typeof value !== 'object' || Array.isArray(value)) return false;
@@ -39,7 +51,7 @@ export function validTags(value) {
 // `nameVerified` is false only when the match rests on the employee number alone while a name was given
 // that nobody carries (for example a surname with an honorific); the caller must show the name on record.
 export function resolveRecipient(config, query = {}) {
-  const refuse = (status, code) => ({ status, code, via: null, id: null, candidates: [], nameVerified: false });
+  const refuse = (status, code) => ({ status, code, via: null, id: null, candidates: [], nameVerified: false, narrow: 'NARROW_NOT_USED' });
   const asked = query && typeof query === 'object' ? query : {};
   const hasName = asked.nameZh !== undefined && asked.nameZh !== null && asked.nameZh !== '';
   const hasId = asked.employeeId !== undefined && asked.employeeId !== null && asked.employeeId !== '';
@@ -58,23 +70,35 @@ export function resolveRecipient(config, query = {}) {
     Object.entries(asked.tags || {}).every(([key, tag]) => person.tags?.[key] === tag));
 
   const wanted = hasName ? normalizeZhName(asked.nameZh) : '';
-  const named = hasName ? pool.filter(person => normalizeZhName(person.nameZh) === wanted) : [];
+  const nameOf = person => normalizeZhName(person.nameZh) === wanted;
+  const aliasOf = person => (person.aliases || []).some(alias => normalizeZhName(alias) === wanted);
+  const named = hasName ? pool.filter(nameOf) : [];
+  // The formal name always comes first; an alias is tried only when nobody carries the name itself, and
+  // a match through an alias is never marked as a verified name.
+  const aliased = hasName && !named.length ? pool.filter(aliasOf) : [];
+  const set = named.length ? named : aliased;
+  const viaAlias = !named.length && aliased.length > 0;
   const byId = hasId ? pool.find(person => person.id === asked.employeeId) : undefined;
+  // Did the department or tags decide it? Only when the name alone would have named several people.
+  const narrowed = Boolean(asked.department) || Object.keys(asked.tags || {}).length > 0;
+  const wholeCount = hasName && narrowed
+    ? (config.principals || []).filter(person => person.kind === 'recipient' && enabled(person) && nameOf(person)).length : 0;
+  const narrow = !narrowed ? 'NARROW_NOT_USED' : set.length === 1 && wholeCount > 1 ? 'NARROW_DECISIVE' : 'NARROW_NOT_DECISIVE';
+  const matched = (code, via, id, nameVerified) => ({ status: 'MATCHED', code, via, id, candidates: [], nameVerified, narrow });
 
-  if (hasName && named.length === 1) {
-    if (hasId && byId?.id !== named[0].id) return refuse('CONFLICT', 'CONFLICT_ID_NAME');
-    return { status: 'MATCHED', code: 'MATCH_BY_NAME', via: 'NAME', id: named[0].id, candidates: [], nameVerified: true };
+  if (hasName && set.length === 1) {
+    if (hasId && byId?.id !== set[0].id) return refuse('CONFLICT', 'CONFLICT_ID_NAME');
+    return viaAlias ? matched('MATCH_BY_ALIAS', 'ALIAS', set[0].id, false) : matched('MATCH_BY_NAME', 'NAME', set[0].id, true);
   }
-  if (hasName && named.length > 1) {
-    if (!hasId) return { ...refuse('AMBIGUOUS', 'AMBIGUOUS_NEED_ID'), candidates: named.map(person => person.id).sort() };
-    const hit = named.find(person => person.id === asked.employeeId);
-    return hit ? { status: 'MATCHED', code: 'MATCH_BY_ID', via: 'ID', id: hit.id, candidates: [], nameVerified: true }
-      : refuse('NONE', 'NONE_ID_NOT_IN_NAME_SET');
+  if (hasName && set.length > 1) {
+    if (!hasId) return { ...refuse('AMBIGUOUS', 'AMBIGUOUS_NEED_ID'), candidates: set.map(person => person.id).sort(), narrow };
+    const hit = set.find(person => person.id === asked.employeeId);
+    if (!hit) return refuse('NONE', 'NONE_ID_NOT_IN_NAME_SET');
+    return viaAlias ? matched('MATCH_BY_ID_NAME_UNLISTED', 'ID', hit.id, false) : matched('MATCH_BY_ID', 'ID', hit.id, true);
   }
   if (hasId) {
     if (!byId) return refuse('NONE', 'NONE_NOT_FOUND');
-    return { status: 'MATCHED', code: hasName ? 'MATCH_BY_ID_NAME_UNLISTED' : 'MATCH_BY_ID', via: 'ID', id: byId.id,
-      candidates: [], nameVerified: !hasName };
+    return matched(hasName ? 'MATCH_BY_ID_NAME_UNLISTED' : 'MATCH_BY_ID', 'ID', byId.id, !hasName);
   }
   return refuse('NONE', 'NONE_NOT_FOUND');
 }

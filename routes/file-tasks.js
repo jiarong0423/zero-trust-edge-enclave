@@ -188,7 +188,7 @@ export function createFileTaskRoutes({ dataDir, tasksPath, packagesPath, auditsP
       const onGrant = new Map(visible.recipients.map(person => [person.id, person]));
       let result = found;
       if (found.status === 'MATCHED' && !onGrant.has(found.id)) {
-        result = { status: 'NONE', code: 'NONE_NOT_AUTHORIZED', via: null, id: null, candidates: [], nameVerified: false };
+        result = { status: 'NONE', code: 'NONE_NOT_AUTHORIZED', via: null, id: null, candidates: [], nameVerified: false, narrow: 'NARROW_NOT_USED' };
       } else if (found.status === 'AMBIGUOUS') {
         const allowed = found.candidates.filter(id => onGrant.has(id));
         result = allowed.length ? { ...found, candidates: allowed }
@@ -199,7 +199,7 @@ export function createFileTaskRoutes({ dataDir, tasksPath, packagesPath, auditsP
       const state = await matchGuard.record(principal.id, authorizationId, success);
       // The checklist: fixed code holds the full table and a veto; an adviser, when one is configured,
       // is asked only about outcomes the table did not already refuse, and can only add care.
-      const projection = matchProjection({ status: result.status, code: result.code },
+      const projection = matchProjection({ status: result.status, code: result.code, narrow: result.narrow },
         { reversePass: success, failsBefore, alias: crypto.randomUUID() });
       const table = matchTable(projection);
       let review = reviewMatch(table, []);

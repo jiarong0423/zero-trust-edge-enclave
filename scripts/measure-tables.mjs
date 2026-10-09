@@ -10,7 +10,7 @@
 import { promises as fs } from 'node:fs';
 import path from 'node:path';
 import { followupCells } from '../followup-table.js';
-import { CANDIDATE_CODES, KEY_CODES, REVERSE_CODES, ATTEMPT_CODES, matchTable, legalMatchActions } from '../match-confirm.js';
+import { CANDIDATE_CODES, KEY_CODES, NARROW_CODES, REVERSE_CODES, ATTEMPT_CODES, matchTable, legalMatchActions } from '../match-confirm.js';
 
 const root = path.resolve(import.meta.dirname, '..');
 const argument = process.argv[2];
@@ -55,8 +55,8 @@ out.push(`In the cells with more than one legal action: 4B ${pct(openAgree.local
 out.push('Agreement is not accuracy: nobody has labelled these cells.', '');
 
 const matches = [];
-for (const c of CANDIDATE_CODES) for (const k of KEY_CODES) for (const r of REVERSE_CODES) for (const a of ATTEMPT_CODES) {
-  matches.push({ candidateCode: c, keyCode: k, reverseCode: r, attemptCode: a, taskAlias: 'x', snapshotVersion: 1 });
+for (const c of CANDIDATE_CODES) for (const k of KEY_CODES) for (const n of NARROW_CODES) for (const r of REVERSE_CODES) for (const a of ATTEMPT_CODES) {
+  matches.push({ candidateCode: c, keyCode: k, narrowCode: n, reverseCode: r, attemptCode: a, taskAlias: 'x', snapshotVersion: 1 });
 }
 const counts = {};
 for (const m of matches) { const act = matchTable(m).action; counts[act] = (counts[act] || 0) + 1; }

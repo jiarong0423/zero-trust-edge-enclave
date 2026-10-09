@@ -9,7 +9,8 @@ export function recipientLabel(person) {
   const zh = typeof person.nameZh === 'string' && person.nameZh ? `${person.nameZh} · ` : '';
   const tags = person.tags && typeof person.tags === 'object'
     ? Object.values(person.tags).filter(value => typeof value === 'string' && value).join('/') : '';
-  return `${zh}${name} · ${department} · ${person.id}${tags ? ` [${tags}]` : ''}${email}`;
+  const title = typeof person.title === 'string' && person.title ? ` · ${person.title}` : '';
+  return `${zh}${name} · ${department} · ${person.id}${tags ? ` [${tags}]` : ''}${title}${email}`;
 }
 
 // True when another person in the list carries the same Chinese name, so the sender is told to look at

@@ -15,7 +15,7 @@ test('the report prints both tables from a result file and makes no model call',
   const run = spawnSync(process.execPath, [script, file], { encoding: 'utf8' });
   assert.equal(run.status, 0, run.stderr);
   assert.match(run.stdout, /Cells where more than one action is legal: 24 of 36/);
-  assert.match(run.stdout, /Recipient match: 108 cells/);
+  assert.match(run.stdout, /Recipient match: 405 cells/);
   assert.match(run.stdout, /\| WINDOW_FULL \| PICKUP_NONE \| 0 \| WAIT \| WAIT REMIND ESCALATE \| WAIT \| REMIND \|/);
   assert.match(run.stdout, /4B 1\/1, 120B 0\/1/);
   assert.match(run.stdout, /Agreement is not accuracy/);

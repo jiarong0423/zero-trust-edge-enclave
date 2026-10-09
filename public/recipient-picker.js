@@ -159,7 +159,7 @@ export function createRecipientPicker(postJson, onEdit) {
           setText(findStatus, () => `${t('Selected')}: ${label}`);
           return;
         }
-        setText(findStatus, () => `${t(result.nameVerified ? 'Please confirm this person' : 'Selected by employee number; the name on record is')}: ${label}`);
+        setText(findStatus, () => `${t(result.via === 'ALIAS' ? 'Matched through another name on record; please confirm' : result.nameVerified ? 'Please confirm this person' : 'Selected by employee number; the name on record is')}: ${label}`);
         const item = document.createElement('li');
         const take = document.createElement('button');
         take.type = 'button';
