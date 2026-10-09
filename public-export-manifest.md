@@ -1,6 +1,6 @@
 # Public Export Manifest
 
-Review date: 2026-10-08 (244 entries; was 211 on 2026-10-08 and 122 on 2026-09-27). Status: public on GitHub since 2026-09-18; this list is the allowlist every push is checked against.
+Review date: 2026-10-08 (246 entries; was 211 on 2026-10-08 and 122 on 2026-09-27). Status: public on GitHub since 2026-09-18; this list is the allowlist every push is checked against.
 
 The following exact paths are the release allowlist, not directory wildcards. Runtime data, credentials, environment secrets, logs, output, dependencies, Git metadata, screenshots and raw provider evidence are excluded even when untracked. New source files require explicit review and a manifest update.
 
@@ -78,6 +78,7 @@ public/i18n.js
 public/index.html
 public/judge-login.html
 public/judge-login.js
+public/judge-next.js
 public/recipient-picker.js
 public/styles.css
 public/task-history.js
@@ -98,6 +99,7 @@ scripts/delivery-followup-worker.test.mjs
 scripts/delivery-followup.test.mjs
 scripts/followup-table.test.mjs
 scripts/demo-gate.test.mjs
+scripts/judge-next.test.mjs
 scripts/directory-admin.test.mjs
 scripts/download-policy.test.mjs
 scripts/file-adviser.test.mjs

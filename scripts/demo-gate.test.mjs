@@ -15,7 +15,7 @@ test('demo gate issues a derived session and admits only that session', () => {
   assert.equal(gateAllows(gate, request(), '/judge-login.html'), true);
   assert.equal(gateSignIn(gate, { user: 'judge', password: 'wrong' }, true).status, 401);
   const { cookie } = gateSignIn(gate, { user: 'judge', password: 'correct horse' }, true);
-  assert.match(cookie, /HttpOnly; SameSite=Strict; Max-Age=43200; Secure$/);
+  assert.match(cookie, /HttpOnly; SameSite=Lax; Max-Age=43200; Secure$/);
   assert.ok(!cookie.includes('correct horse'));
   const session = cookie.split(';')[0];
   assert.equal(gateAllows(gate, request(`other=1; ${session}`), '/api/tasks'), true);

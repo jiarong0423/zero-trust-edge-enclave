@@ -10,7 +10,7 @@ import crypto from 'node:crypto';
  * derived from them, never the password, so changing either value signs every session out.
  */
 const cookieName = 'enclave_gate';
-const openPaths = new Set(['/judge-login.html', '/judge-login.js', '/styles.css', '/api/judge-login', '/api/health']);
+const openPaths = new Set(['/judge-login.html', '/judge-login.js', '/judge-next.js', '/styles.css', '/api/judge-login', '/api/health']);
 const failureWindowMs = 60_000;
 // One client is limited well below the global ceiling, so a single client guessing (or merely
 // hammering the form) cannot sign every judge out. The global ceiling still bounds a distributed
@@ -66,5 +66,14 @@ export function gateSignIn(gate, input, secure, now = Date.now(), client = 'shar
     while (gate.clients.size > maxClients) gate.clients.delete(gate.clients.keys().next().value);
     return { status: 401 };
   }
-  return { cookie: `${cookieName}=${sessionValue(gate)}; Path=/; HttpOnly; SameSite=Strict; Max-Age=43200${secure ? '; Secure' : ''}` };
+  return { cookie: `${cookieName}=${sessionValue(gate)}; Path=/; HttpOnly; SameSite=Lax; Max-Age=43200${secure ? '; Secure' : ''}` };
+}
+
+// Where an unsigned visitor is sent. A page the visitor was heading to is remembered as a same-origin path in
+// `next` so sign-in can return there; the sign-in page and the API are never remembered.
+export function loginRedirect(method, pathname, search = '') {
+  const base = '/judge-login.html';
+  if (method !== 'GET' || pathname === '/' || pathname.startsWith('/api/') || pathname === base) return base;
+  const target = pathname + search;
+  return target.length > 300 ? base : base + '?next=' + encodeURIComponent(target);
 }

@@ -8,7 +8,7 @@ import { clientKey, countsAsGuess, throttleFromEnv } from './auth-throttle.js';
 import { createNetworkPolicy } from './network-policy.js';
 import { createSsoRoutes } from './sso-routes.js';
 import { createWebhookFromEnv } from './webhook-adapter.js';
-import { gateConfig, gateAllows, gateSignIn } from './demo-gate.js';
+import { gateConfig, gateAllows, gateSignIn, loginRedirect } from './demo-gate.js';
 import { createBudget } from './nebius-budget.js';
 import { loadAccess, authenticateWithSession, fail } from './access-control.js';
 import { sendJson, readBody, createBodyGate } from './http-helpers.js';
@@ -206,7 +206,7 @@ const server = createServer(async (req, res) => {
     if (!gateAllows(demoGate, req, url.pathname)) {
       if (!demoGate.ready) fail('Demo sign-in is not configured', 503);
       if (url.pathname.startsWith('/api/')) fail('Demo sign-in required', 401);
-      res.writeHead(302, { location: '/judge-login.html', 'cache-control': 'no-store' });
+      res.writeHead(302, { location: loginRedirect(req.method, url.pathname, url.search), 'cache-control': 'no-store' });
       res.end();
       return;
     }
