@@ -27,7 +27,7 @@ Order of checks in the request handler and `routeApi` (both in `server.js` at th
 | 6 | Failed-sign-in lock (`authThrottle.check()`; `auth-throttle.js` `createAuthThrottle()`) | 429 with `Retry-After`, even for a valid token |
 | 7 | Authentication (`access-control.js` `authenticateWithSession()`: a live SSO session token resolves to the same registry principal that `authenticate()` returns, and is re-checked against the registry on every call; any other token goes to `authenticate()` unchanged). `authenticate()`: `Bearer` plus 32 to 256 URL-safe characters, hash match, person and department enabled. Only a 43-character token that matches no registered identity, and is not a live or just-ended SSO session (`sso-session.js` `knows()`), is counted toward the lock (`auth-throttle.js` `countsAsGuess()`) | 401 `Authentication required` / `Authentication failed` |
 | 8 | `GET /api/whoami`, `/api/admin/*` (`server.js` routes of those names) | see table 3 |
-| 9 | Kind gate: administrators stop here (`Administrator endpoint only`); coordinators may only call `/api/coordinator/call` (`Coordinator endpoint only`); recipients may only call the file-access and legacy credential routes (`Recipient endpoint only`) | 403 |
+| 9 | Kind gate: administrators stop here (`Administrator endpoint only`); coordinators may only call `/api/coordinator/call` (`Coordinator endpoint only`); recipients may only call the file-access routes, `GET /api/inbox` and the legacy credential routes (`Recipient endpoint only`) | 403 |
 | 10 | Route handler checks: ownership, grant, snapshot, membership, window, tickets | see table 3 |
 
 Status codes used: 401 not authenticated; 403 authenticated but not permitted; 404 task or file not found
@@ -43,6 +43,7 @@ tickets; 502 and 503 provider or store unavailable; 507 quota.
 | `/api/admin/*` | yes | 403 | 403 | 403 |
 | `/api/file-tasks`, `/api/tasks*`, `/api/authorizations`, `/api/directory`, `/api/audit`, legacy `/api/packages*` write routes, `/api/mcp/*`, `/api/delivery/*`, `/api/policy/*` | 403 | yes | 403 | 403 |
 | `/api/file-access/<id>/*` | 403 | 403 (`Recipient required`) | yes | 403 |
+| `GET /api/inbox` | 403 | 403 (`Recipient required`) | yes | 403 |
 | `/api/packages/<id>/credential`, `/verify` | 403 | reaches the handler (see table 3) | yes | 403 |
 | `/api/coordinator/call` | 403 | yes (own tasks) | 403 | yes (own grant) |
 
@@ -76,6 +77,7 @@ caller of a route are named once in the last column.
 | `POST /api/coordinator/call` | operator (own task), coordinator (own grant) | `server.js` route `/api/coordinator/call` and `coordinatorCall()`; operator must own the task, coordinator must be the grant's coordinator (`Task access denied`); snapshot must be approved and current (`dispatchSnapshot()`); input restricted to alias plus version (`exact()`) | 403; 404 `File task unavailable`; 422; 502/503 provider |
 | `GET /api/authorizations` | operator | kind gate; lists only the caller's own unrevoked, unexpired grants (`server.js` route `GET /api/authorizations`) | 403 |
 | `POST /api/directory` | operator who owns the grant | `recipient-directory.js` `listRecipients()`; grant must be active and owned; result intersected with the grant's recipients | 403 `Directory access denied`; 422 |
+| `GET /api/inbox` | any recipient, for the deliveries whose approved snapshot lists that recipient | `recipient-inbox.js` `buildInbox()`; returns the task code, version, sending department, approval and expiry times and a state (waiting, downloaded, received, revoked, expired); never the file name, hash, key material, the sender's name or the other recipients; read only, not written to the audit trail, and opening a listed delivery goes through the same checks as a link |
 | `POST /api/file-access/<id>/receipt-status` | recipient on the approved snapshot | `routes/file-access.js` `handleFileAccess()` (route family `/api/file-access/<id>/...`); `file-receipts.js` `recipientReceiptStatus()` | 403 not a recipient, not on the snapshot, unknown version; 404 not a file task; 422 extra fields |
 | `POST /api/file-access/<id>/receipt` | recipient on the approved snapshot who has taken the key | `file-receipts.js` `recordFileReceipt()`; `ACKNOWLEDGED` needs `FILE_VERIFIED` first | 403 (no key release, not on the snapshot); 409 acknowledgement before verification; 422 unknown code |
 | `POST /api/file-access/<id>/packet` | recipient on the approved snapshot | `routes/file-access.js` `handleFileAccess()` (route family `/api/file-access/<id>/...`): grant active (`activeGrant()`); snapshot valid (`dispatchSnapshot()`); window open (`download-policy.js` `checkDownloadAccess()`); membership (`Recipient outside approved snapshot`); job prepared (`File delivery not prepared`); packet matches commitment (`File integrity rejected`) | 403 grant inactive, window closed (`DOWNLOAD_WINDOW_CLOSED`), not a member; 409 snapshot rejected (revoked, superseded, expired), not prepared, integrity |

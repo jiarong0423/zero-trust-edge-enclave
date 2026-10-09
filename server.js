@@ -13,6 +13,7 @@ import { createBudget } from './nebius-budget.js';
 import { loadAccess, authenticateWithSession, fail } from './access-control.js';
 import { sendJson, readBody, createBodyGate } from './http-helpers.js';
 import { createStaticServer } from './static-files.js';
+import { buildInbox } from './recipient-inbox.js';
 import { validatePolicy as validatePolicyWithModel } from './policy-envelope.js';
 import { createEmailDraftBuilder } from './email-draft.js';
 import { loadLocalEnv } from './local-env.js';
@@ -155,8 +156,13 @@ async function routeApi(req, res, pathname) {
   await recoverAudit(tasksPath);
   await recoverAudit(packagesPath);
   if (principal.kind === 'coordinator' && pathname !== '/api/coordinator/call') fail('Coordinator endpoint only');
-  if (principal.kind === 'recipient' && !/^\/api\/packages\/[a-zA-Z0-9-]+\/(credential|verify)$/.test(pathname) &&
+  if (principal.kind === 'recipient' && !(pathname === '/api/inbox' && req.method === 'GET') && !/^\/api\/packages\/[a-zA-Z0-9-]+\/(credential|verify)$/.test(pathname) &&
       !/^\/api\/file-access\/[a-f0-9-]{36}\/(credential|packet|key|receipt|receipt-status)$/.test(pathname)) fail('Recipient endpoint only');
+  if (pathname === '/api/inbox' && req.method === 'GET') {
+    if (principal.kind !== 'recipient') fail('Recipient required');
+    sendJson(res, 200, { items: buildInbox(await readJson(tasksPath, []), config, principal) });
+    return;
+  }
   const fileAccessRoute = pathname.match(/^\/api\/file-access\/([a-f0-9-]{36})\/(credential|packet|key|receipt|receipt-status)$/);
   if (fileAccessRoute && req.method === 'POST') {
     await fileAccess.handleFileAccess(req, res, fileAccessRoute, { config, principal });

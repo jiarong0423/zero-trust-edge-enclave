@@ -39,6 +39,16 @@
         <button id="decodeBtn" class="button primary" data-i18n="Download original file">Download original file</button>
       </section>
 
+      <section class="panel" id="inboxPanel">
+        <div class="section-heading">
+          <p class="eyebrow" data-i18n="Approved for you">Approved for you</p>
+          <h2 data-i18n="My inbox">My inbox</h2>
+        </div>
+        <p id="inboxStatus" class="status-card" role="status" data-i18n="Choose your token to see what was approved for you.">Choose your token to see what was approved for you.</p>
+        <ul id="inboxList" class="inbox-list"></ul>
+        <button id="refreshInbox" class="button" data-i18n="Refresh inbox">Refresh inbox</button>
+      </section>
+
       <section class="panel">
         <div class="section-heading">
           <p class="eyebrow" data-i18n="Protected View">Protected View</p>
@@ -53,5 +63,6 @@
     </main>
 
     <script src="/decode.js" type="module"></script>
+    <script src="/inbox.js" type="module"></script>
   </body>
 </html>
