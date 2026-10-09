@@ -57,4 +57,4 @@ response time**. The channel is TO BE SET BY THE MAINTAINER. This index does not
 4. No data deletion or erasure path, no backup and restore procedure.
 5. No CI, no versioned release gate (the commit hook lives outside the repository), and no test pins the routing prompt text (the follow-up default is hash-pinned by a test committed on this branch).
 6. No incident process: no on-call, no alerting, no breach notification procedure.
-7. Legacy endpoints (`/api/policy/recommend`, the legacy coordinator `recommend`) send more than the five-field projection to the hosted model by default; `LEGACY_HOSTED_ADVICE=off` keeps both local, and the legacy call sites do not apply the file-workflow outlet's host rule.
+7. Legacy endpoints (`/api/policy/recommend`, the legacy coordinator `recommend`) send more than the five-field projection to the hosted model by default; `LEGACY_HOSTED_ADVICE=off` keeps both local, and the legacy call sites do not apply the file-workflow outlet's host rule. The hosted demo instance has run with `off` since 2026-10-09 (`/api/health` reports `legacyHostedAdviceOff`); the default for any other deployment is still on.

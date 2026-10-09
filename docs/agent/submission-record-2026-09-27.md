@@ -60,7 +60,7 @@ The submission itself is unchanged. What changed afterwards, in the repository a
 | Tests | 595 in the full suite (`npm run test:all`), 117 in `npm test`; a candidate built from `public-export-manifest.md` (211 files) passes the same 595 |
 | Fixed since the submission | the first reminder notice could be lost when the follow-up pass replaced it; IPv6 clients were refused when a network allowlist was set; half-typed tokens counted toward the sign-in lock; a request body that never completed could stall the serial API queue |
 | Added, all off by default | OIDC sign-in (run once against Keycloak 26.0 on loopback http, with a sign-in button), signed webhook notices, a failure-driven local-then-hosted cascade, tooling for human-labelled answers, department and id shown next to every candidate recipient |
-| Not changed on the hosted instance | environment variables (`LEGACY_HOSTED_ADVICE` is still on); SSO, webhook and cascade are not configured there |
+| Not changed on the hosted instance | SSO, webhook and cascade are not configured there. `LEGACY_HOSTED_ADVICE` was on at the 2026-10-09 redeploy and was set to `off` later the same day (environment variable plus a restart, no new upload; `/api/health` then reported `legacyHostedAdviceOff: true`), so on the hosted instance both legacy paths now answer from local code. The default for a local run is unchanged: on |
 
 The Devpost description and the video are still the versions of 2026-09-27 until the owner replaces them; the replacement drafts are kept with the project notes, not in this repository. Known limits are in `README.md`, `docs/agent/sso.md`, `docs/agent/webhook-notices.md` and `docs/agent/cascade-outlet.md`.
 
