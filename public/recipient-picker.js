@@ -1,5 +1,5 @@
 import { setText, t } from './i18n.js';
-import { recipientLabel } from './recipient-label.js';
+import { recipientLabel, sharesChineseName } from './recipient-label.js';
 
 export function createRecipientPicker(postJson, onEdit) {
   const grantInput = document.querySelector('#authorizationId');
@@ -8,6 +8,11 @@ export function createRecipientPicker(postJson, onEdit) {
   const query = document.querySelector('#recipientQuery');
   const list = document.querySelector('#recipientList');
   const status = document.querySelector('#recipientSelectionStatus');
+  const findName = document.querySelector('#findNameZh');
+  const findId = document.querySelector('#findEmployeeId');
+  const findButton = document.querySelector('#findRecipient');
+  const findStatus = document.querySelector('#findStatus');
+  const findCandidates = document.querySelector('#findCandidates');
   let directory = null;
   let selected = new Set();
   let generation = 0;
@@ -32,6 +37,12 @@ export function createRecipientPicker(postJson, onEdit) {
       const name = document.createElement('span');
       name.textContent = recipientLabel(person);
       row.append(check, name);
+      if (sharesChineseName(person, directory.recipients)) {
+        const warning = document.createElement('strong');
+        warning.className = 'same-name';
+        setText(warning, ' Same name as another person: check the employee number');
+        row.append(warning);
+      }
       list.append(row);
     }
   }
@@ -46,6 +57,8 @@ export function createRecipientPicker(postJson, onEdit) {
     department.append(option);
     render();
     setText(status, 'Load authorized recipients');
+    findCandidates.replaceChildren();
+    findStatus.textContent = '';
     onEdit();
   }
   grantInput.addEventListener('input', reset);
@@ -72,10 +85,47 @@ export function createRecipientPicker(postJson, onEdit) {
       if (generation === requestGeneration) setText(status, error.message);
     } finally { load.disabled = locked; }
   });
+  findButton.addEventListener('click', async () => {
+    const requestGeneration = generation;
+    const authorizationId = grantInput.value.trim();
+    findCandidates.replaceChildren();
+    if (!directory || directory.authorizationId === undefined) { setText(findStatus, 'Load authorized recipients'); return; }
+    const question = { authorizationId };
+    if (findName.value.trim()) question.nameZh = findName.value.trim();
+    if (findId.value.trim()) question.employeeId = findId.value.trim();
+    if (department.value) question.department = department.value;
+    findButton.disabled = true;
+    try {
+      const result = await postJson('/api/directory/resolve', question);
+      if (generation !== requestGeneration || authorizationId !== grantInput.value.trim()) return;
+      if (result.status === 'MATCHED') {
+        selected.add(result.person.id);
+        render(); renderCount(); onEdit();
+        const label = recipientLabel(result.person);
+        setText(findStatus, () => result.nameVerified ? `${t('Selected')}: ${label}`
+          : `${t('Selected by employee number; the name on record is')}: ${label}`);
+        return;
+      }
+      setText(findStatus, () => `${t(result.message)} (${t('Attempts left')}: ${result.attemptsLeft})`);
+      for (const person of result.candidates) {
+        const item = document.createElement('li');
+        const choose = document.createElement('button');
+        choose.type = 'button';
+        choose.className = 'button';
+        choose.textContent = recipientLabel(person);
+        choose.addEventListener('click', () => { findId.value = person.id; findId.focus(); });
+        item.append(choose);
+        findCandidates.append(item);
+      }
+    } catch (error) {
+      if (generation !== requestGeneration) return;
+      setText(findStatus, error.message === 'MATCH_QUARANTINED' ? 'Matching is locked after repeated failures. Ask an administrator to unlock it.' : error.message);
+    } finally { findButton.disabled = locked; }
+  });
   return {
     setBusy(value) {
       locked = value;
-      for (const control of [load, department, query, ...list.querySelectorAll('input')]) control.disabled = value;
+      for (const control of [load, department, query, findName, findId, findButton, ...list.querySelectorAll('input')]) control.disabled = value;
     },
     selection(grant) {
       if (!directory || directory.authorizationId !== grant.id || directory.authorizationVersion !== grant.version) {
