@@ -12,9 +12,10 @@ export function listRecipients(config, actor, grantId, department = '', query = 
   const departments = [...new Set(candidates.map(person => person.department || 'unassigned'))].sort();
   const needle = query.trim().toLowerCase();
   const recipients = candidates.filter(person => (!department || (person.department || 'unassigned') === department) &&
-    (!needle || [person.id, person.displayName, person.email].some(value => typeof value === 'string' && value.toLowerCase().includes(needle))))
+    (!needle || [person.id, person.displayName, person.nameZh, person.email].some(value => typeof value === 'string' && value.toLowerCase().includes(needle))))
     .map(person => ({ id: person.id, displayName: person.displayName || person.id,
-      department: person.department || 'unassigned', email: person.email || null }));
+      department: person.department || 'unassigned', email: person.email || null,
+      ...(person.nameZh ? { nameZh: person.nameZh } : {}), ...(person.tags ? { tags: person.tags } : {}) }));
   const departmentLabels = Object.fromEntries(departments.map(id =>
     [id, config.departments?.find(entry => entry.id === id)?.displayName || id]));
   return { authorizationId: grant.id, authorizationVersion: grant.version, departments, departmentLabels, recipients };

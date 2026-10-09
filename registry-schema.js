@@ -1,3 +1,5 @@
+import { validNameZh, validTags } from './recipient-match.js';
+
 const code = value => typeof value === 'string' && /^[a-zA-Z0-9_-]{1,64}$/.test(value);
 const object = value => value !== null && typeof value === 'object' && !Array.isArray(value);
 const text = (value, max) => typeof value === 'string' && value.trim().length > 0 &&
@@ -17,6 +19,8 @@ export function normalizeDirectory(config) {
         !optionalBoolean(person.disabled) ||
         (person.department !== undefined && !code(person.department)) ||
         (person.displayName !== undefined && !text(person.displayName, 128)) ||
+        (person.nameZh !== undefined && !validNameZh(person.nameZh)) ||
+        !validTags(person.tags) ||
         (person.email !== undefined && person.email !== null &&
           (!text(person.email, 254) || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(person.email)))) invalid();
     ids.add(person.id);

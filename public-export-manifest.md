@@ -1,6 +1,6 @@
 # Public Export Manifest
 
-Review date: 2026-10-08 (211 entries; was 2026-09-27, 122 entries). Status: public on GitHub since 2026-09-18; this list is the allowlist every push is checked against.
+Review date: 2026-10-08 (213 entries; was 211 on 2026-10-08 and 122 on 2026-09-27). Status: public on GitHub since 2026-09-18; this list is the allowlist every push is checked against.
 
 The following exact paths are the release allowlist, not directory wildcards. Runtime data, credentials, environment secrets, logs, output, dependencies, Git metadata, screenshots and raw provider evidence are excluded even when untracked. New source files require explicit review and a manifest update.
 
@@ -79,6 +79,7 @@ public/recipient-picker.js
 public/styles.css
 public/task-history.js
 recipient-directory.js
+recipient-match.js
 registry-schema.js
 registry-store.js
 retention-policy.js
@@ -117,6 +118,7 @@ scripts/model-negative.test.mjs
 scripts/nebius-budget.test.mjs
 scripts/private-mapping.test.mjs
 scripts/recipient-directory.test.mjs
+scripts/recipient-match.test.mjs
 scripts/registry-schema.test.mjs
 scripts/render-architecture.mjs
 scripts/retention-policy.test.mjs

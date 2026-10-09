@@ -12,6 +12,7 @@ export function adminDirectory(config, actor) {
   return { revision: config.revision || 1, departments: config.departments,
     principals: config.principals.map(person => ({ id: person.id, kind: person.kind,
       department: person.department, displayName: person.displayName || person.id,
+      nameZh: person.nameZh || null, tags: person.tags || {},
       email: person.email || null, disabled: Boolean(person.disabled) })),
     grants: config.grants.map(grant => ({ id: grant.id, version: grant.version, operatorId: grant.operatorId,
       coordinatorId: grant.coordinatorId, recipients: grant.recipients, channels: grant.channels,
@@ -46,8 +47,8 @@ export function changeDirectory(original, actor, input, now = Date.now()) {
       for (const person of next.principals) if (person.department === value.id) changedPeople.add(person.id);
     }
   } else if (['person.create', 'person.update', 'person.rotate'].includes(input.operation)) {
-    exact(value, input.operation === 'person.create' ? ['id', 'kind', 'department', 'displayName', 'email', 'disabled']
-      : input.operation === 'person.rotate' ? ['id'] : ['id', 'department', 'displayName', 'email', 'disabled']);
+    exact(value, input.operation === 'person.create' ? ['id', 'kind', 'department', 'displayName', 'nameZh', 'tags', 'email', 'disabled']
+      : input.operation === 'person.rotate' ? ['id'] : ['id', 'department', 'displayName', 'nameZh', 'tags', 'email', 'disabled']);
     const index = next.principals.findIndex(person => person.id === value.id);
     if (input.operation === 'person.create') {
       if (index !== -1) fail('PERSON_EXISTS', 409);
