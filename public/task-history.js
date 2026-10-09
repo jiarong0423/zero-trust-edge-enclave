@@ -6,6 +6,7 @@ export function initializeTaskHistory(onSelect, onRestore) {
   const select = document.querySelector('#taskHistory');
   const show = document.querySelector('#showTask');
   const resume = document.querySelector('#resumeTask');
+  const check = document.querySelector('#checkTask');
   const restore = document.querySelector('#restoreDraft');
   const status = document.querySelector('#historyStatus');
   let entries = [];
@@ -14,6 +15,7 @@ export function initializeTaskHistory(onSelect, onRestore) {
   function update() {
     const entry = selected();
     show.disabled = !entry?.job;
+    check.disabled = !entry?.job;
     resume.disabled = !entry?.job?.canRequestResume;
     restore.disabled = !entry?.task.hasFile || entry.snapshot.version !== entry.task.snapshots.at(-1).version;
   }
@@ -64,6 +66,23 @@ export function initializeTaskHistory(onSelect, onRestore) {
       await reload();
       if (current + 1 === generation) onSelect(entry.task.id, entry.snapshot.version);
     } catch { if (current === generation) setText(status, 'Resume rejected; refresh task'); }
+  });
+  // Read only. The level and the sentence come from a fixed table, by code.
+  check.addEventListener('click', async () => {
+    const entry = selected();
+    if (!entry?.job) return;
+    const current = generation; check.disabled = true;
+    try {
+      const response = await authenticatedFetch('/api/tasks/status-check', { method: 'POST',
+        headers: { 'content-type': 'application/json' }, body: JSON.stringify({ taskId: entry.task.id }) });
+      const body = await response.json();
+      if (current !== generation) return;
+      if (!response.ok) throw Error('Status check unavailable');
+      const mine = body.checks.find(item => item.version === entry.snapshot.version);
+      if (!mine) throw Error('Status check unavailable');
+      setText(status, () => `${t(mine.severity)}: ${t(mine.message)}`);
+    } catch { if (current === generation) setText(status, 'Status check unavailable'); }
+    finally { if (current === generation) update(); }
   });
   window.addEventListener('authenticationchange', reset);
   reset();

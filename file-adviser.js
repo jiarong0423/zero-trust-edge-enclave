@@ -1,6 +1,7 @@
 import { exact, fail } from './access-control.js';
 import { syntheticFileAdvice, validateFileAdvice } from './file-routing.js';
 import { syntheticFollowupAdvice, validateFollowupAdvice, MAX_NUDGES } from './delivery-followup.js';
+import { STATE_ADVISER_BOUNDARY, STATE_SCHEMA, acceptsStateMetadata, syntheticStateAdvice, validateStateAdvice } from './state-check.js';
 import { MATCH_ADVISER_BOUNDARY, MATCH_SCHEMA, acceptsMatchMetadata, syntheticMatchAdvice, validateMatchAdvice } from './match-confirm.js';
 
 export const FILE_ADVISER_BOUNDARY = `You are a restricted routing adviser, not an authorizer or delivery executor.
@@ -173,6 +174,16 @@ export const ADVICE_KINDS = {
     validate: validateMatchAdvice,
     synthetic: syntheticMatchAdvice,
     schema: MATCH_SCHEMA,
+  },
+  // Delivery status check (state-check.js): six codes in, a level and a reason out.
+  state: {
+    keys: ['taskAlias', 'snapshotVersion', 'stateCode', 'ageCode', 'triesCode', 'causeCode', 'pickupCode', 'windowCode'],
+    rejection: 'STATE_METADATA_REJECTED',
+    accepts: acceptsStateMetadata,
+    boundary: STATE_ADVISER_BOUNDARY,
+    validate: validateStateAdvice,
+    synthetic: syntheticStateAdvice,
+    schema: STATE_SCHEMA,
   },
 };
 

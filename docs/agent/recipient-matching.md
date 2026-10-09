@@ -97,6 +97,17 @@ leaves that field alone. By default it only reads and reports: line numbers and 
 name, plus how many Chinese names would still be shared. With `--out` and no errors it writes a new candidate
 registry (never over an existing file, never over the registry), for the owner to review and put in place.
 
+## Delivery status check
+
+`state-check.js` and `POST /api/tasks/status-check` (the sender, for their own task; the button "Check status"
+in the task history). For each delivery it reads six codes (the job state, how long it has been in that state
+judged against what is normal for the state, how many tries, a class for the reason it is in that state, the
+pickup state, the window band) and a table of 4500 cells answers NORMAL, WATCH or NEEDS_HUMAN with one of nine
+reasons. The page shows a fixed sentence by reason. It only reads: nothing is written, not even to the audit
+trail. `STATE_AI_REVIEW` (exactly `local` or `dual`, off by default) asks a model for a second opinion on the
+same codes; the model can raise the level by one step and never lower it, and is not asked when the table
+already says a person is needed.
+
 ## Not done
 
 The follow-up decision table has no tag dimension. What a tag should change about a reminder is a policy

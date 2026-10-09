@@ -8,6 +8,7 @@ import { resolveRecipient, validTags, MATCH_MESSAGES } from '../recipient-match.
 import { fixedOrder, RANK_TEXT_MAX } from '../recipient-rank.js';
 import { matchProjection, matchTable, reviewMatch } from '../match-confirm.js';
 import crypto from 'node:crypto';
+import { stateProjection, stateTable, reviewState, STATE_MESSAGES } from '../state-check.js';
 import { departmentMap } from '../registry-schema.js';
 import { resumeFileTask } from '../task-operations.js';
 import { packetCommitment } from '../public/file-envelope.js';
@@ -26,7 +27,7 @@ const sanitizeAuditEvent = event => auditProjection(event);
 // principal; `handleFileTasks` returns true when it answered the request and false when the path is
 // not one of its own, so routeApi can carry on. Every state write is followed by recoverAudit inside
 // the same queued request (risk 2 in the split plan).
-export function createFileTaskRoutes({ dataDir, tasksPath, packagesPath, auditsPath, readJson, writeJson, appendAudit, recoverAudit, matchGuard, matchReviewer = null,
+export function createFileTaskRoutes({ dataDir, tasksPath, packagesPath, auditsPath, readJson, writeJson, appendAudit, recoverAudit, matchGuard, matchReviewer = null, stateReviewer = null,
   recipientRanker = { rank: async people => ({ order: fixedOrder(people), method: 'fixed', fallback: 'RANKING_OFF' }) } }) {
   // One EVIDENCE_VIEWED record per task per minute: repeated views add nothing and would push older
   // delivery events out of the retained audit window.
@@ -86,6 +87,31 @@ export function createFileTaskRoutes({ dataDir, tasksPath, packagesPath, auditsP
       sendJson(res, 201, { task: senderTask(task) });
       return true;
     }
+    // Status check for one of the sender's own tasks: for each delivery, a level (normal, watch, needs a
+    // person) and a fixed sentence, from a table over six codes. An adviser, when one is configured, can
+    // only raise the level by one step. Read only: it changes nothing and writes nothing.
+    if (pathname === '/api/tasks/status-check' && req.method === 'POST') {
+      if (principal.kind !== 'operator') fail('Operator required');
+      const input = await readBody(req, 1024);
+      exact(input, ['taskId']);
+      if (!/^[a-f0-9-]{36}$/.test(String(input.taskId))) fail('Invalid task', 422);
+      const task = (await readJson(tasksPath, [])).find(item => item.id === input.taskId && item.ownerId === principal.id);
+      if (!task) fail('Task not found', 404);
+      const checks = [];
+      for (const job of task.jobs || []) {
+        const snapshot = task.snapshots.find(item => item.version === job.version);
+        if (!snapshot) continue;
+        const projection = stateProjection(task, snapshot, job, crypto.randomUUID());
+        const table = stateTable(projection);
+        const review = stateReviewer && table.severity !== 'NEEDS_HUMAN' ? await stateReviewer(projection, table) : reviewState(table, []);
+        const { taskAlias, snapshotVersion, ...codes } = projection;
+        checks.push({ version: job.version, severity: review.final, reason: table.reasonCode, message: STATE_MESSAGES[table.reasonCode],
+          tableSeverity: review.tableSeverity, disagreement: review.disagreement, sources: review.sources, codes });
+      }
+      sendJson(res, 200, { ok: true, checks });
+      return true;
+    }
+
     const taskRoute = pathname.match(/^\/api\/tasks\/([a-f0-9-]{36})(?:\/(revise|confirm-first|confirm-second|revoke|invalidate|resume|evidence))?$/);
     if (taskRoute) {
       if (principal.kind !== 'operator') fail('Operator required');
