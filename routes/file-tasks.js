@@ -4,6 +4,7 @@ import { auditProjection } from '../audit-boundary.js';
 import { queueAudit } from '../audit-outbox.js';
 import { newTask, reviseTask, confirmFirst, confirmSecond, revokeSnapshot, invalidatePending } from '../snapshot-lifecycle.js';
 import { listRecipients } from '../recipient-directory.js';
+import { resolveRecipient, MATCH_MESSAGES } from '../recipient-match.js';
 import { departmentMap } from '../registry-schema.js';
 import { resumeFileTask } from '../task-operations.js';
 import { packetCommitment } from '../public/file-envelope.js';
@@ -22,7 +23,7 @@ const sanitizeAuditEvent = event => auditProjection(event);
 // principal; `handleFileTasks` returns true when it answered the request and false when the path is
 // not one of its own, so routeApi can carry on. Every state write is followed by recoverAudit inside
 // the same queued request (risk 2 in the split plan).
-export function createFileTaskRoutes({ dataDir, tasksPath, packagesPath, auditsPath, readJson, writeJson, appendAudit, recoverAudit }) {
+export function createFileTaskRoutes({ dataDir, tasksPath, packagesPath, auditsPath, readJson, writeJson, appendAudit, recoverAudit, matchGuard }) {
   // One EVIDENCE_VIEWED record per task per minute: repeated views add nothing and would push older
   // delivery events out of the retained audit window.
   const evidenceViews = new Map();
@@ -162,6 +163,44 @@ export function createFileTaskRoutes({ dataDir, tasksPath, packagesPath, auditsP
 
     if (pathname === '/api/authorizations' && req.method === 'GET') {
       sendJson(res, 200, { grants: config.grants.filter(g => g.operatorId === principal.id && !g.revoked && Date.parse(g.expiresAt) > Date.now()).map(g => ({ id: g.id, version: g.version, recipients: g.recipients, channels: g.channels, expiresAt: g.expiresAt })) });
+      return true;
+    }
+
+    // Recipient matching for the sender: the Chinese name first, the employee number second, and a
+    // refusal otherwise (recipient-match.js). Fixed code only; the answer carries ids and the sender's
+    // own view of people already on this authorization, never anyone outside it. Three failures in a
+    // row on one (sender, authorization) quarantine it until an administrator unlocks it.
+    if (pathname === '/api/directory/resolve' && req.method === 'POST') {
+      const input = await readBody(req);
+      exact(input, ['authorizationId', 'nameZh', 'employeeId', 'department', 'tags']);
+      const visible = listRecipients(config, principal, input.authorizationId);
+      const audit = (result, reasons) => appendAudit({ type: 'MATCH_ATTEMPT', result, reasons });
+      if ((await matchGuard.status(principal.id, input.authorizationId)).quarantined) {
+        await audit('DENY', ['MATCH_REFUSED_WHILE_QUARANTINED']);
+        throw Object.assign(new Error('MATCH_QUARANTINED'), { status: 423 });
+      }
+      const { authorizationId, ...question } = input;
+      const found = resolveRecipient(config, question);
+      const onGrant = new Map(visible.recipients.map(person => [person.id, person]));
+      let result = found;
+      if (found.status === 'MATCHED' && !onGrant.has(found.id)) {
+        result = { status: 'NONE', code: 'NONE_NOT_AUTHORIZED', via: null, id: null, candidates: [], nameVerified: false };
+      } else if (found.status === 'AMBIGUOUS') {
+        const allowed = found.candidates.filter(id => onGrant.has(id));
+        result = allowed.length ? { ...found, candidates: allowed }
+          : { status: 'NONE', code: 'NONE_NOT_AUTHORIZED', via: null, id: null, candidates: [], nameVerified: false };
+      }
+      const success = result.status === 'MATCHED';
+      const state = await matchGuard.record(principal.id, authorizationId, success);
+      await audit(success ? 'ALLOW' : 'DENY', [result.code.startsWith('MATCH_') ? result.code : `MATCH_${result.code}`]);
+      if (state.justQuarantined) await audit('DENY', ['MATCH_QUARANTINED']);
+      sendJson(res, 200, {
+        ok: true, status: result.status, code: result.code, via: result.via, nameVerified: result.nameVerified,
+        message: result.status === 'MATCHED' ? null : MATCH_MESSAGES[result.code] || MATCH_MESSAGES.NONE_NOT_FOUND,
+        person: success ? onGrant.get(result.id) : null,
+        candidates: result.candidates.map(id => onGrant.get(id)),
+        attemptsLeft: state.quarantined ? 0 : matchGuard.limit - state.fails, quarantined: state.quarantined
+      });
       return true;
     }
 
