@@ -1,6 +1,6 @@
 # Public Export Manifest
 
-Review date: 2026-10-08 (257 entries; was 211 on 2026-10-08 and 122 on 2026-09-27). Status: public on GitHub since 2026-09-18; this list is the allowlist every push is checked against.
+Review date: 2026-10-08 (258 entries; was 211 on 2026-10-08 and 122 on 2026-09-27). Status: public on GitHub since 2026-09-18; this list is the allowlist every push is checked against.
 
 The following exact paths are the release allowlist, not directory wildcards. Runtime data, credentials, environment secrets, logs, output, dependencies, Git metadata, screenshots and raw provider evidence are excluded even when untracked. New source files require explicit review and a manifest update.
 
@@ -85,7 +85,6 @@ public/inbox.js
 public/recipient-picker.js
 public/role-nav.js
 public/role-plan.js
-
 public/styles.css
 public/task-history.js
 recipient-directory.js
@@ -111,8 +110,8 @@ scripts/recipient-inbox.test.mjs
 scripts/feature-visibility.test.mjs
 scripts/hosted-employee-probe.mjs
 scripts/hosted-employee-probe.test.mjs
+scripts/manifest.test.mjs
 scripts/role-separation.test.mjs
-
 scripts/directory-admin.test.mjs
 scripts/download-policy.test.mjs
 scripts/file-adviser.test.mjs
