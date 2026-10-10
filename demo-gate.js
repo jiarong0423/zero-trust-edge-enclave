@@ -11,6 +11,14 @@ import crypto from 'node:crypto';
  */
 const cookieName = 'enclave_gate';
 const openPaths = new Set(['/judge-login.html', '/judge-login.js', '/judge-next.js', '/styles.css', '/api/judge-login', '/api/health']);
+// The recipient side stands on its own token and the sender's approved list, so an employee who was sent a
+// delivery never meets the judge sign-in: the receiving page, the scripts it loads, and the few calls it makes
+// (who am I, my inbox, the file-access steps) are open. Each call still has to present a registered token, and
+// none of them reaches the model outlet. Sending, auditing and administration stay behind the gate.
+export const recipientPages = ['/decode.html', '/decode.js', '/inbox.js', '/auth.js', '/i18n.js', '/sso-client.js', '/file-envelope.js', '/crypto-utils.js', '/role-nav.js', '/role-plan.js', '/zh-TW/decode.html'];
+const recipientOpen = new Set(recipientPages);
+const fileAccessPath = /^\/api\/file-access\/[a-f0-9-]{36}\/(credential|packet|key|receipt|receipt-status)$/;
+export const recipientApi = pathname => pathname === '/api/whoami' || pathname === '/api/inbox' || fileAccessPath.test(pathname);
 const failureWindowMs = 60_000;
 // One client is limited well below the global ceiling, so a single client guessing (or merely
 // hammering the form) cannot sign every judge out. The global ceiling still bounds a distributed
@@ -40,7 +48,7 @@ function cookieValue(req) {
 }
 
 export function gateAllows(gate, req, pathname) {
-  if (!gate || openPaths.has(pathname)) return true;
+  if (!gate || openPaths.has(pathname) || recipientOpen.has(pathname) || recipientApi(pathname)) return true;
   // Without both values the session key would be derivable by anyone, so nothing is let through.
   if (!gate.ready) return false;
   const presented = cookieValue(req);

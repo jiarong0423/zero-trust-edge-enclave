@@ -66,7 +66,7 @@ const roles = { operator: 'Sender', recipient: 'Recipient', coordinator: 'Coordi
 let identityCheck = 0;
 window.addEventListener('authenticationchange', () => {
   const current = ++identityCheck;
-  if (!input.value.trim()) { identity.hidden = true; return; }
+  if (!input.value.trim()) { identity.hidden = true; window.dispatchEvent(new Event('identitycleared')); return; }
   setTimeout(async () => {
     if (current !== identityCheck) return;
     let result = null;
@@ -82,8 +82,10 @@ window.addEventListener('authenticationchange', () => {
     if (result?.ok) {
       identity.className = 'identity-badge verified';
       setText(identity, () => `${t('IDENTITY VERIFIED')} · ${t(roles[result.kind] || 'Unknown role')}`);
+      window.dispatchEvent(new CustomEvent('identityverified', { detail: { kind: result.kind } }));
     } else {
       identity.className = 'identity-badge rejected';
+      window.dispatchEvent(new Event('identitycleared'));
       setText(identity, result?.gate ? 'Judge sign-in expired; reload the page to sign in again'
         : result?.denied ? 'IDENTITY NOT VERIFIED' : 'Identity check unavailable');
     }

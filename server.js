@@ -8,7 +8,7 @@ import { clientKey, countsAsGuess, throttleFromEnv } from './auth-throttle.js';
 import { createNetworkPolicy } from './network-policy.js';
 import { createSsoRoutes } from './sso-routes.js';
 import { createWebhookFromEnv } from './webhook-adapter.js';
-import { gateConfig, gateAllows, gateSignIn, loginRedirect } from './demo-gate.js';
+import { gateConfig, gateAllows, gateSignIn, loginRedirect, recipientApi } from './demo-gate.js';
 import { createBudget } from './nebius-budget.js';
 import { loadAccess, authenticateWithSession, fail } from './access-control.js';
 import { sendJson, readBody, createBodyGate } from './http-helpers.js';
@@ -139,10 +139,12 @@ async function routeApi(req, res, pathname) {
 
   const config = await loadAccess(accessPath);
   const throttleKey = clientKey(req, trustProxy);
-  authThrottle.check(throttleKey);
   let principal;
   try { principal = authenticateWithSession(config, req.headers.authorization, sso.resolveSession); }
   catch (error) {
+    // The lockout applies to a request that failed to authenticate. A valid token is not held back by an address's
+    // earlier failures: otherwise anyone sending bad tokens from a shared proxy address could lock every employee out.
+    authThrottle.check(throttleKey);
     // Only a real guess counts: a 43-character token that belongs to no registered identity. Every
     // prefix of a token being typed reaches this point too; see auth-throttle.js. A live SSO session
     // token is not a guess, even when its person has since been disabled.
@@ -222,7 +224,8 @@ const server = createServer(async (req, res) => {
     if (url.pathname.startsWith('/api/')) {
       // The body is read here, before the request joins the serial queue, so a body that never finishes
       // cannot hold every other request; readBody returns what was read.
-      await bodyGate(req, res, clientKey(req, trustProxy));
+      // The receiving calls carry a few bytes, and they are open to a visitor who has not signed in, so they get a small cap.
+      await bodyGate(req, res, clientKey(req, trustProxy), recipientApi(url.pathname) ? 16_384 : undefined);
       await apiQueue.chain(() => requestContext.run({}, async () => {
         try { return await routeApi(req, res, url.pathname); }
         catch (error) { await auditRejection(error); throw error; }

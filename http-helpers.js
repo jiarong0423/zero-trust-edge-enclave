@@ -94,11 +94,11 @@ export const hasBody = req => ['POST', 'PUT', 'PATCH', 'DELETE'].includes(req.me
 // Reads the whole body now and remembers the outcome, a Buffer or an error, for `readBody`. Never rejects:
 // an error is handed to the handler, which throws it from the place it always threw from, so the response
 // and the audit record are the same as for a live read.
-export function startBodyRead(req) {
+export function startBodyRead(req, limit = BODY_MAX_BYTES) {
   const declared = declaredLength(req);
-  if (declared > BODY_MAX_BYTES) { preRead.set(req, Promise.resolve({ error: fail('Request body too large', 413) })); return preRead.get(req); }
+  if (declared > limit) { preRead.set(req, Promise.resolve({ error: fail('Request body too large', 413) })); return preRead.get(req); }
   const timeoutMs = declared > 0 && declared <= 1_000_000 ? 30_000 : 120_000;
-  const outcome = readRaw(req, BODY_MAX_BYTES, timeoutMs, BODY_IDLE_MS).then(buffer => ({ buffer }), error => ({ error }));
+  const outcome = readRaw(req, limit, timeoutMs, BODY_IDLE_MS).then(buffer => ({ buffer }), error => ({ error }));
   preRead.set(req, outcome);
   return outcome;
 }
@@ -135,7 +135,7 @@ export function createBodyGate({ perClient = 8, total = 24, waitMs = 10_000 } = 
       else index++;
     }
   };
-  return async function admit(req, res, key) {
+  return async function admit(req, res, key, limit = BODY_MAX_BYTES) {
     if (!hasBody(req)) return;
     if (hasRoom(key)) take(key);
     else {
@@ -157,6 +157,6 @@ export function createBodyGate({ perClient = 8, total = 24, waitMs = 10_000 } = 
       wake();
     };
     res.once('close', release); res.once('finish', release);
-    await startBodyRead(req);
+    await startBodyRead(req, limit);
   };
 }

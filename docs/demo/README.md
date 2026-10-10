@@ -16,7 +16,7 @@ use the instance and its Token Factory budget.
 
 ## Walkthrough
 
-1. **Sign in to the site** with the judge username and password you were given. This only
+1. **Sign in to the site** with the judge username and password you were given (needed for the sender, audit and administration pages only; an employee who receives a file uses just their own token and never sees this sign-in). This only
    opens the site; each page then asks for a role token.
 2. **Sender page (`/`).** Choose the manager-sender token file — a green
    `IDENTITY VERIFIED · Sender` badge appears. Choose a sample document; it is encrypted in

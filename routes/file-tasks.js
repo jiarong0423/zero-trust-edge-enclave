@@ -288,7 +288,16 @@ export function createFileTaskRoutes({ dataDir, tasksPath, packagesPath, auditsP
     if (pathname === '/api/directory' && req.method === 'POST') {
       const input = await readBody(req);
       exact(input, ['authorizationId', 'department', 'query']);
-      sendJson(res, 200, { ...listRecipients(config, principal, input.authorizationId, input.department, input.query), noteModel: Boolean(noteReader.enabled) });
+      const listed = listRecipients(config, principal, input.authorizationId, input.department, input.query);
+      // Which optional controls can work here. The Chinese-name find box needs at least one listed person
+      // with a nameZh (otherwise every attempt fails and counts toward the quarantine); the other two
+      // need a model on this machine. Read from state already held; no model is called.
+      const features = {
+        findByName: (input.department || input.query ? listRecipients(config, principal, input.authorizationId) : listed).recipients.some(person => typeof person.nameZh === 'string' && person.nameZh !== ''),
+        noteReader: Boolean(noteReader.enabled),
+        ranking: Boolean(recipientRanker.enabled)
+      };
+      sendJson(res, 200, { ...listed, noteModel: features.noteReader, features });
       return true;
     }
 

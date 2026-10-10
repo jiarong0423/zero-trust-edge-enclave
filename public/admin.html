@@ -1,7 +1,7 @@
 <!doctype html>
 <html lang="en">
 <head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>Directory administration</title><link rel="stylesheet" href="/styles.css"></head>
-<body class="admin-page">
+<body class="admin-page" data-roles="administrator">
 <header class="topbar"><div><p class="eyebrow" data-i18n="Administration">Administration</p><h1 data-i18n="Directory administration">Directory administration</h1></div>
 <nav aria-label="Primary navigation"><a class="nav-link" href="/" data-i18n="Sender Enclave">Sender Enclave</a><a class="nav-link active" href="/admin.html" data-i18n="Administration">Administration</a></nav></header>
 <main class="layout">
@@ -13,4 +13,5 @@
 <div class="table-wrap"><table><thead><tr><th data-i18n="Code">Code</th><th data-i18n="Name">Name</th><th data-i18n="Department">Department</th><th data-i18n="Disabled">Disabled</th></tr></thead><tbody id="adminRows"></tbody></table></div>
 </div></section>
 <section class="panel wide"><h2 data-i18n="Retention inventory">Retention inventory</h2><button id="loadRetention" class="button" data-i18n="Check retention">Check retention</button><p id="retentionStatus" role="status"></p><div class="table-wrap"><table><thead><tr><th data-i18n="Task code">Task code</th><th data-i18n="Status">Status</th><th data-i18n="Reasons">Reasons</th></tr></thead><tbody id="retentionRows"></tbody></table></div></section>
-</main><script type="module" src="/admin.js"></script></body></html>
+</main><script type="module" src="/admin.js"></script>
+<script src="/role-nav.js" type="module"></script></body></html>

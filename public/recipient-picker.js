@@ -1,6 +1,7 @@
 import { setText, t } from './i18n.js';
 import { recipientLabel, sharesChineseName } from './recipient-label.js';
 import { classifyNote } from './note-classify.js';
+import { featureVisibility } from './feature-flags.js';
 
 export function createRecipientPicker(postJson, onEdit) {
   const grantInput = document.querySelector('#authorizationId');
@@ -19,6 +20,21 @@ export function createRecipientPicker(postJson, onEdit) {
   const understand = document.querySelector('#understandNote');
   const rankInput = document.querySelector('#rankText');
   const rankButton = document.querySelector('#rankRecipients');
+  // Controls whose feature the server says is unavailable are not shown at all (hidden until the list
+  // response says otherwise, so nothing flashes). The input boxes are shown or hidden with their labels.
+  const field = input => input.closest('label') || input;
+  const groups = {
+    findByName: [field(findName), field(findId), findButton, readNote],
+    note: [field(noteInput)],
+    noteReader: [understand],
+    ranking: [field(rankInput), rankButton]
+  };
+  function showFeatures(features) {
+    const visible = featureVisibility(features);
+    const on = { findByName: visible.findByName, note: visible.findByName || visible.noteReader, noteReader: visible.noteReader, ranking: visible.ranking };
+    for (const [name, elements] of Object.entries(groups)) for (const element of elements) element.hidden = !on[name];
+  }
+  showFeatures(null);
   let directory = null;
   let rankOrder = null;
   let findTags = {};
@@ -63,7 +79,7 @@ export function createRecipientPicker(postJson, onEdit) {
     directory = null;
     rankOrder = null;
     findTags = {};
-    understand.hidden = true;
+    showFeatures(null);
     selected.clear();
     department.replaceChildren();
     const option = new Option(t('All departments'), '');
@@ -88,7 +104,7 @@ export function createRecipientPicker(postJson, onEdit) {
       const result = await postJson('/api/directory', { authorizationId });
       if (generation !== requestGeneration || authorizationId !== grantInput.value.trim()) return;
       directory = result;
-      understand.hidden = !result.noteModel;
+      showFeatures(result.features);
       for (const name of result.departments) {
         const option = new Option('', name);
         setText(option, result.departmentLabels?.[name] || name);

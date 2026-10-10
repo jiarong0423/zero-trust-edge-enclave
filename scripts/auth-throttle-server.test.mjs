@@ -50,8 +50,12 @@ test('failed sign-ins lock the client out with 429 and Retry-After; a half-typed
   const retryAfter = Number(locked.headers.get('retry-after'));
   assert.ok(Number.isInteger(retryAfter) && retryAfter >= 1 && retryAfter <= 30);
   assert.equal((await locked.json()).ok, false);
-  // The lock applies to the client, so even the right token waits: a guesser does not get a free oracle.
-  assert.equal((await whoami(valid)).status, 429);
+  // The lock refuses requests that fail to authenticate. A valid token is not held back by an address's earlier failures:
+  // otherwise anyone sending bad tokens from a shared address could lock every legitimate user out. Tokens are 256-bit
+  // random values, so the lock limits noise rather than being what stops guessing.
+  assert.equal((await whoami(valid)).status, 200);
+  assert.equal((await whoami(wrong())).status, 429);
+  assert.equal((await whoami(undefined)).status, 429);
   assert.equal((await fetch(base + '/api/health')).status, 200);
 });
 

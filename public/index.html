@@ -1,7 +1,7 @@
 <!doctype html>
 <html lang="en">
 <head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>Zero-Trust Edge Enclave</title><link rel="stylesheet" href="/styles.css"></head>
-<body>
+<body data-roles="operator">
 <header class="topbar"><div><p class="eyebrow" data-i18n="Sender Enclave">Sender Enclave</p><h1 data-i18n="Zero-Trust Edge Enclave">Zero-Trust Edge Enclave</h1></div>
 <nav aria-label="Primary navigation" data-i18n-aria-label="Primary navigation"><a class="nav-link active" href="/" data-i18n="Sender Enclave">Sender Enclave</a><a class="nav-link" href="/decode.html" data-i18n="Recipient Decode Gate">Recipient Decode Gate</a><a class="nav-link" href="/audit.html" data-i18n="SOC Audit Dashboard">SOC Audit Dashboard</a></nav></header>
 <main class="layout">
@@ -42,4 +42,5 @@
 <div class="button-row"><button id="refreshTasks" class="button" data-i18n="Refresh tasks">Refresh tasks</button><button id="showTask" class="button" disabled data-i18n="Show status">Show status</button><button id="checkTask" class="button" disabled data-i18n="Check status">Check status</button><button id="resumeTask" class="button" disabled data-i18n="Request resume">Request resume</button><button id="restoreDraft" class="button" disabled data-i18n="Review staged file again">Review staged file again</button></div>
 <label class="field"><span data-i18n="Task history">Task history</span><select id="taskHistory"></select></label><p id="historyStatus" role="status"></p></section>
 </main><script src="/app.js" type="module"></script>
+<script src="/role-nav.js" type="module"></script>
 </body></html>

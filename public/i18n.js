@@ -85,6 +85,7 @@ export const labels = {
   'Describe the person to sort the list (sent to the local server, not stored)': '描述這位收件人以排序名單（會送到本機伺服器，不儲存）', 'Sort by similarity': '依相似度排序',
   'Sorted by similarity (model on this machine).': '已依相似度排序（使用本機模型）。', 'Similarity sorting is off or unavailable; showing the fixed order.': '相似度排序未開啟或無法使用，顯示固定順序。',
   'Fixed order restored.': '已恢復固定順序。',
+  'This page is not for your role': '這一頁不是給你的角色使用', 'Go to your page': '前往你的頁面',
   'Approved for you': '已核准給你', 'My inbox': '我的收件匣', 'Refresh inbox': '重新整理收件匣',
   'Choose your token to see what was approved for you.': '請先選擇你的 token，才看得到核准給你的檔案。',
   'These were approved for you.': '以下是核准給你的檔案。', 'Nothing has been approved for you yet.': '目前沒有核准給你的檔案。',

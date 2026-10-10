@@ -1,6 +1,6 @@
 # Public Export Manifest
 
-Review date: 2026-10-08 (250 entries; was 211 on 2026-10-08 and 122 on 2026-09-27). Status: public on GitHub since 2026-09-18; this list is the allowlist every push is checked against.
+Review date: 2026-10-08 (257 entries; was 211 on 2026-10-08 and 122 on 2026-09-27). Status: public on GitHub since 2026-09-18; this list is the allowlist every push is checked against.
 
 The following exact paths are the release allowlist, not directory wildcards. Runtime data, credentials, environment secrets, logs, output, dependencies, Git metadata, screenshots and raw provider evidence are excluded even when untracked. New source files require explicit review and a manifest update.
 
@@ -74,6 +74,7 @@ public/crypto-utils.js
 public/decode.html
 public/decode.js
 public/evidence-chain.js
+public/feature-flags.js
 public/file-envelope.js
 public/i18n.js
 public/index.html
@@ -82,6 +83,9 @@ public/judge-login.js
 public/judge-next.js
 public/inbox.js
 public/recipient-picker.js
+public/role-nav.js
+public/role-plan.js
+
 public/styles.css
 public/task-history.js
 recipient-directory.js
@@ -104,6 +108,11 @@ scripts/followup-table.test.mjs
 scripts/demo-gate.test.mjs
 scripts/judge-next.test.mjs
 scripts/recipient-inbox.test.mjs
+scripts/feature-visibility.test.mjs
+scripts/hosted-employee-probe.mjs
+scripts/hosted-employee-probe.test.mjs
+scripts/role-separation.test.mjs
+
 scripts/directory-admin.test.mjs
 scripts/download-policy.test.mjs
 scripts/file-adviser.test.mjs

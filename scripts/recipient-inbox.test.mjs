@@ -119,3 +119,19 @@ test('the inbox route: a recipient sees what was approved for them, nobody else 
   assert.equal((await request(taskUrl + '/revoke', { version: 2 })).status, 200);
   assert.equal((await request('/api/inbox', undefined, 'recipient-a')).body.items[0].state, 'REVOKED');
 });
+
+test('the receiving calls take only a few bytes, however they are reached', async () => {
+  const id = '00000000-0000-0000-0000-000000000000';
+  const big = JSON.stringify({ version: 1, pad: 'x'.repeat(20_000) });
+  // A signed-in recipient is refused for size; a request with no token is refused for that first. Either way the body
+  // is read only up to the small cap, never the 7 MB an unsigned visitor could otherwise make the server buffer.
+  for (const [who, status] of [['recipient-a', 413], [null, 401]]) {
+    const response = await fetch(`${base}/api/file-access/${id}/key`, { method: 'POST',
+      headers: { 'content-type': 'application/json', ...(who ? { authorization: `Bearer ${tokens[who]}` } : {}) }, body: big });
+    assert.equal(response.status, status, String(who));
+  }
+  // A normal-sized body still reaches the handler (the delivery does not exist: 404, not 413).
+  const small = await fetch(`${base}/api/file-access/${id}/receipt-status`, { method: 'POST',
+    headers: { 'content-type': 'application/json', authorization: `Bearer ${tokens['recipient-a']}` }, body: JSON.stringify({ version: 1 }) });
+  assert.equal(small.status, 404);
+});

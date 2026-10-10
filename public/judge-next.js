@@ -5,5 +5,9 @@ export function safeNext(raw, origin) {
   let url;
   try { url = new URL(raw, origin); } catch { return '/'; }
   if (url.origin !== origin || url.pathname.startsWith('/judge-login') || url.pathname.startsWith('/api/')) return '/';
-  return url.pathname + url.search;
+  // Dot segments collapse during parsing: "/.//evil.com" becomes the path "//evil.com", which a browser reads as another
+  // site. So the result is checked again after normalisation, and must resolve to this origin on its own.
+  const result = url.pathname + url.search;
+  if (result.startsWith('//') || new URL(result, origin).origin !== origin) return '/';
+  return result;
 }

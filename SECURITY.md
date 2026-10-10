@@ -36,3 +36,22 @@ full waits up to 10 s for one and is then refused with 429. Measured on 2026-10-
 authenticated stalled connections delayed a normal request by 59.9 s before this change and by 17 ms after;
 40 concurrent deliveries all completed. The limits count clients by address, so behind a proxy that does not
 forward the real address all clients share one share (`TRUST_PROXY`).
+
+## The receiving side and the judge sign-in
+
+The shared judge sign-in (hosted demo only) guards sending, the audit trail, administration and every route that can reach the
+model outlet. The receiving side stands on its own: the receiving page and the scripts it loads, `GET /api/whoami`,
+`GET /api/inbox` and the `/api/file-access/<id>/*` calls are open to a visitor who has not signed in, because an employee who
+was sent a file should need only their own token. Each of those calls still has to present a registered token and the
+recipient must be on the approved snapshot; none of them calls the model; their bodies are capped at 16 KB.
+
+Because these calls now meet unsigned traffic, the failed-token lockout changed: it refuses a request that **fails to
+authenticate**, and a valid token is no longer refused because of an address's earlier failures. Before, a lock refused every
+token from that address, so anyone sending ten bad tokens from a shared proxy address could have locked every employee out for a
+minute. The cost is that during a lock a correct guess would still succeed. Tokens are 256-bit random values, so the lock limits
+noise; it is not what makes guessing infeasible. Responses still distinguish an unknown token (401) from a valid token of the
+wrong kind (403), as before.
+
+Known and accepted: a registered recipient token can tell whether a task id exists (a real task not on their snapshot answers 403,
+an unknown id 404). Task ids are random UUIDs. Open slots for request bodies are counted per client address, so behind a proxy that
+does not forward the real address (`TRUST_PROXY`), clients share one allowance.
