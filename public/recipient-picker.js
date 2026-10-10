@@ -33,6 +33,9 @@ export function createRecipientPicker(postJson, onEdit) {
     const visible = featureVisibility(features);
     const on = { findByName: visible.findByName, note: visible.findByName || visible.noteReader, noteReader: visible.noteReader, ranking: visible.ranking };
     for (const [name, elements] of Object.entries(groups)) for (const element of elements) element.hidden = !on[name];
+    // With nothing to show, the container goes too, so no empty gap is left in the form.
+    const find = document.querySelector('#recipientFind');
+    if (find) find.hidden = !Object.values(on).some(Boolean);
   }
   showFeatures(null);
   let directory = null;
@@ -105,6 +108,9 @@ export function createRecipientPicker(postJson, onEdit) {
       if (generation !== requestGeneration || authorizationId !== grantInput.value.trim()) return;
       directory = result;
       showFeatures(result.features);
+      // A short list needs no search box, and one department needs no department filter.
+      field(query).hidden = (result.recipients || []).length <= 8;
+      field(department).hidden = (result.departments || []).length <= 1;
       for (const name of result.departments) {
         const option = new Option('', name);
         setText(option, result.departmentLabels?.[name] || name);

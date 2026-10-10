@@ -20,6 +20,8 @@ function showAccess(state) {
 const READABLE = { SNAPSHOT_REJECTED: 'This delivery was revoked, has expired, or was never approved.' };
 const params = new URLSearchParams(location.search);
 taskId.value = params.get('id') || '';
+// A link carries its task code, so the manual panel is shown ready to download; without one the inbox is the way in.
+if (taskId.value) document.querySelector('#manualClaim').open = true;
 version.value = params.get('version') || '1';
 let identityGeneration = 0;
 let verifiedDelivery = null;

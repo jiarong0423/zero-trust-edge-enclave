@@ -19,6 +19,9 @@ if (typeof document !== 'undefined') {
   const show = kind => {
     const plan = rolePlan(kind, here, pageRoles, links.map(item => item.href));
     for (const { link, href } of links) link.hidden = !plan.visible.includes(href);
+    const bar = document.querySelector('header nav');
+    if (bar) bar.hidden = plan.visible.length <= 1;
+    for (const link of document.querySelectorAll('main a[href$="/admin.html"]')) link.hidden = kind !== 'administrator';
     if (main) main.hidden = plan.wrongPage;
     notice.hidden = !plan.wrongPage;
     if (!plan.wrongPage) return;

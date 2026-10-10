@@ -9,10 +9,10 @@
 <h2 id="runtimeHeading" data-i18n="Model and responsibilities">Model and responsibilities</h2>
 <p id="modelRuntimeStatus" role="status" data-i18n="Model status unavailable">Model status unavailable</p>
 <p id="configuredModel"></p>
-<ul><li data-i18n="Human approves recipients and delivery limits twice.">Human approves recipients and delivery limits twice.</li>
+<details class="notice-more"><summary data-i18n="What the system does and does not do">What the system does and does not do</summary><ul><li data-i18n="Human approves recipients and delivery limits twice.">Human approves recipients and delivery limits twice.</li>
 <li data-i18n="AI proposes an approved route, or whether to remind; it cannot read files or grant access.">AI proposes an approved route, or whether to remind; it cannot read files or grant access.</li>
 <li data-i18n="Browser encrypts files; backend validates authority, releases keys and records receipts.">Browser encrypts files; backend validates authority, releases keys and records receipts.</li>
-<li data-i18n="Delivery is simulated; no real email is sent.">Delivery is simulated; no real email is sent.</li></ul>
+<li data-i18n="Delivery is simulated; no real email is sent.">Delivery is simulated; no real email is sent.</li></ul></details>
 </section>
 <a class="nav-link" href="/admin.html" data-localized-link data-i18n="Administration">Administration</a>
 <section class="panel primary-panel wide">
@@ -21,26 +21,30 @@
 <button type="button" class="button primary" id="chooseDocument" data-i18n="Choose document">Choose document</button>
 <p id="fileStatus" role="status" data-i18n="No document selected">No document selected</p>
 <div id="recipientReview" hidden>
-<label class="field"><span data-i18n="Authorization id">Authorization id</span><select id="authorizationId"></select></label>
+<div id="authorizationRow"><label class="field"><span data-i18n="Authorization id">Authorization id</span><select id="authorizationId"></select></label>
 <button type="button" class="button" id="refreshAuthorizations" data-i18n="Refresh authorizations">Refresh authorizations</button>
-<p id="authorizationStatus" role="status" data-i18n="No active authorizations">No active authorizations</p>
+<p id="authorizationStatus" role="status" data-i18n="No active authorizations">No active authorizations</p></div>
 <fieldset id="recipientPicker"><legend data-i18n="Recipients">Recipients</legend>
 <button type="button" class="button" id="loadRecipients" data-i18n="Load authorized recipients">Load authorized recipients</button>
 <label class="field"><span data-i18n="Department">Department</span><select id="recipientDepartment"><option value="" data-i18n="All departments">All departments</option></select></label>
 <label class="field"><span data-i18n="Search name or email">Search name or email</span><input type="search" id="recipientQuery" autocomplete="off"></label>
 <div id="recipientFind"><label class="field"><span data-i18n="Note about the recipient (stays in this browser)">Note about the recipient (stays in this browser)</span><input type="text" id="senderNote" autocomplete="off" maxlength="200"></label><button type="button" class="button" id="readNote" data-i18n="Fill fields from the note">Fill fields from the note</button><button type="button" class="button" id="understandNote" hidden data-i18n="Fill with the local model (sends the note to the model on this machine)">Fill with the local model (sends the note to the model on this machine)</button><label class="field"><span data-i18n="Chinese name">Chinese name</span><input type="text" id="findNameZh" autocomplete="off" maxlength="64"></label><label class="field"><span data-i18n="Employee number">Employee number</span><input type="text" id="findEmployeeId" autocomplete="off" maxlength="64" spellcheck="false"></label><button type="button" class="button" id="findRecipient" data-i18n="Find and select">Find and select</button><label class="field"><span data-i18n="Describe the person to sort the list (sent to the local server, not stored)">Describe the person to sort the list (sent to the local server, not stored)</span><input type="text" id="rankText" autocomplete="off" maxlength="100"></label><button type="button" class="button" id="rankRecipients" data-i18n="Sort by similarity">Sort by similarity</button><p id="findStatus" role="status"></p><ul id="findCandidates"></ul></div>
 <div id="recipientList"></div><p id="recipientSelectionStatus" role="status" data-i18n="Load authorized recipients">Load authorized recipients</p></fieldset>
+<details class="advanced"><summary data-i18n="Delivery options">Delivery options</summary>
 <label class="field" id="requestedExpiryField" hidden><span data-i18n="Requested expiry">Requested expiry</span><select id="requestedExpiry"><option value="1" data-i18n="1 hour">1 hour</option><option value="4" data-i18n="4 hours">4 hours</option><option value="24" data-i18n="24 hours">24 hours</option></select></label>
 <label class="field"><span data-i18n="Delivery deadline minutes">Delivery deadline minutes</span><input id="requestedDeadline" type="number" min="1" max="1440" value="30" step="1"></label>
 <label class="field"><span data-i18n="Delivery mode">Delivery mode</span><select id="deliveryMode"><option value="REQUIRED_ACK" data-i18n="Designated recipient acknowledgement">Designated recipient acknowledgement</option><option value="TIME_LIMITED" data-i18n="Time-limited download">Time-limited download</option></select></label>
 <label class="field" id="downloadWindowField" hidden><span data-i18n="Download window minutes">Download window minutes</span><input id="downloadWindow" type="number" min="1" max="1440" value="60" step="1"></label>
+</details>
 <div class="button-row"><button class="button" id="sealBtn" disabled data-i18n="Confirm 1: Lock draft">Confirm 1: Lock draft</button><button class="button primary" id="approveBtn" disabled data-i18n="Confirm 2: Approve delivery">Confirm 2: Approve delivery</button></div>
 <pre class="code-block" id="snapshotReview" aria-live="polite" data-i18n="No confirmed draft.">No confirmed draft.</pre>
 </div></section>
-<section class="panel wide"><h2 data-i18n="Package result">Package result</h2><pre class="code-block" id="packageResult"></pre><p id="deliveryStatus" role="status" data-i18n="No delivery task.">No delivery task.</p><p id="receiptSummary" role="status"></p><button id="refreshDelivery" class="button" disabled data-i18n="Refresh delivery status">Refresh delivery status</button><a id="recipientLink" hidden data-i18n="Recipient Decode Gate">Recipient Decode Gate</a></section>
+<div class="side-column">
+<section class="panel wide"><h2 data-i18n="Package result">Package result</h2><details class="advanced"><summary data-i18n="Technical details">Technical details</summary><pre class="code-block" id="packageResult"></pre></details><p id="deliveryStatus" role="status" data-i18n="No delivery task.">No delivery task.</p><p id="receiptSummary" role="status"></p><button id="refreshDelivery" class="button" disabled data-i18n="Refresh delivery status">Refresh delivery status</button><a id="recipientLink" hidden data-i18n="Recipient link (send this to the employee)">Recipient link (send this to the employee)</a></section>
 <section class="panel wide"><h2 data-i18n="Task history">Task history</h2>
-<div class="button-row"><button id="refreshTasks" class="button" data-i18n="Refresh tasks">Refresh tasks</button><button id="showTask" class="button" disabled data-i18n="Show status">Show status</button><button id="checkTask" class="button" disabled data-i18n="Check status">Check status</button><button id="resumeTask" class="button" disabled data-i18n="Request resume">Request resume</button><button id="restoreDraft" class="button" disabled data-i18n="Review staged file again">Review staged file again</button></div>
+<div class="button-row"><button id="refreshTasks" class="button" data-i18n="Refresh tasks">Refresh tasks</button><button id="showTask" class="button" disabled data-i18n="Show status">Show status</button><button id="checkTask" class="button" disabled data-i18n="Check status">Check status</button><details class="more-actions"><summary data-i18n="More">More</summary><button id="resumeTask" class="button" disabled data-i18n="Request resume">Request resume</button><button id="restoreDraft" class="button" disabled data-i18n="Review staged file again">Review staged file again</button></details></div>
 <label class="field"><span data-i18n="Task history">Task history</span><select id="taskHistory"></select></label><p id="historyStatus" role="status"></p></section>
+</div>
 </main><script src="/app.js" type="module"></script>
 <script src="/role-nav.js" type="module"></script>
 </body></html>

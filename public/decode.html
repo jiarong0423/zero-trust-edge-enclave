@@ -20,12 +20,19 @@
     </header>
 
     <main class="layout two-column">
-      <section class="panel">
+      <section class="panel" id="inboxPanel">
         <div class="section-heading">
-          <p class="eyebrow" data-i18n="Access Claim">Access Claim</p>
-          <h2 data-i18n="Authorized recipient access">Authorized recipient access</h2>
+          <p class="eyebrow" data-i18n="Approved for you">Approved for you</p>
+          <h2 data-i18n="My inbox">My inbox</h2>
         </div>
+        <p id="inboxStatus" class="status-card" role="status" data-i18n="Choose your token to see what was approved for you.">Choose your token to see what was approved for you.</p>
+        <ul id="inboxList" class="inbox-list"></ul>
+        <details id="inboxPast" class="advanced" hidden><summary id="inboxPastSummary" data-i18n="Earlier deliveries">Earlier deliveries</summary><ul id="inboxPastList" class="inbox-list"></ul></details>
+        <button id="refreshInbox" class="button" data-i18n="Refresh inbox">Refresh inbox</button>
+      </section>
 
+      <section class="panel" id="manualClaimPanel">
+        <details id="manualClaim"><summary data-i18n="I have a task code">I have a task code</summary>
         <label class="field">
           <span data-i18n="Task code">Task code</span>
           <input id="packageId" placeholder="Paste or open a sealed link" data-i18n-placeholder="Paste or open a sealed link">
@@ -37,28 +44,19 @@
         </label>
 
         <button id="decodeBtn" class="button primary" data-i18n="Download original file">Download original file</button>
-      </section>
-
-      <section class="panel" id="inboxPanel">
-        <div class="section-heading">
-          <p class="eyebrow" data-i18n="Approved for you">Approved for you</p>
-          <h2 data-i18n="My inbox">My inbox</h2>
-        </div>
-        <p id="inboxStatus" class="status-card" role="status" data-i18n="Choose your token to see what was approved for you.">Choose your token to see what was approved for you.</p>
-        <ul id="inboxList" class="inbox-list"></ul>
-        <button id="refreshInbox" class="button" data-i18n="Refresh inbox">Refresh inbox</button>
+        </details>
       </section>
 
       <section class="panel">
         <div class="section-heading">
           <p class="eyebrow" data-i18n="Protected View">Protected View</p>
-          <h2 data-i18n="Local browser memory render">Local browser memory render</h2>
+          <h2 data-i18n="Your file">Your file</h2>
         </div>
         <p id="accessBadge" class="access-badge" role="status" hidden></p>
         <div id="decodeStatus" class="status-card" data-i18n="No decode attempt yet.">No decode attempt yet.</div>
         <button id="acknowledgeFile" class="button" disabled data-i18n="Confirm complete receipt">Confirm complete receipt</button>
-        <button id="retryReceipt" class="button" disabled data-i18n="Retry receipt report">Retry receipt report</button>
-        <button id="refreshReceipt" class="button" data-i18n="Refresh receipt status">Refresh receipt status</button>
+        <details class="more-actions"><summary data-i18n="Receipt details">Receipt details</summary><button id="retryReceipt" class="button" disabled data-i18n="Retry receipt report">Retry receipt report</button>
+        <button id="refreshReceipt" class="button" data-i18n="Refresh receipt status">Refresh receipt status</button></details>
       </section>
     </main>
 
