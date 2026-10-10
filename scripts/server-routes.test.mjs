@@ -61,7 +61,7 @@ const content = () => ({ documentHash: 'a'.repeat(64), recipients: ['recipient-a
 test('health is unauthenticated and reports the configured outlet', async () => {
   const health = await request('/api/health', undefined, null);
   assert.equal(health.status, 200);
-  assert.deepEqual(keys(health.body), ['adviserProvider', 'demoFallbackEnabled', 'legacyHostedAdviceOff', 'localOnly',
+  assert.deepEqual(keys(health.body), ['adviserProvider', 'demoFallbackEnabled', 'fileTaskLimit', 'legacyHostedAdviceOff', 'localOnly',
     'localOutletBaseUrl', 'localOutletModel', 'nebiusBaseUrl', 'nebiusBudget', 'nebiusConfigured', 'nebiusModel', 'ok', 'project']);
   assert.equal(health.body.ok, true);
   assert.equal(health.body.project, 'zero-trust-edge-enclave');
@@ -69,6 +69,7 @@ test('health is unauthenticated and reports the configured outlet', async () => 
   assert.equal(health.body.adviserProvider, 'synthetic_fixture');
   assert.equal(health.body.nebiusConfigured, false);
   assert.equal(typeof health.body.nebiusBudget, 'object');
+  assert.equal(health.body.fileTaskLimit, 50);
 });
 
 test('authentication comes first: no token, malformed token and unknown path', async () => {

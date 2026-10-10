@@ -28,7 +28,7 @@ const sanitizeAuditEvent = event => auditProjection(event);
 // principal; `handleFileTasks` returns true when it answered the request and false when the path is
 // not one of its own, so routeApi can carry on. Every state write is followed by recoverAudit inside
 // the same queued request (risk 2 in the split plan).
-export function createFileTaskRoutes({ dataDir, tasksPath, packagesPath, auditsPath, readJson, writeJson, appendAudit, recoverAudit, matchGuard, matchReviewer = null, stateReviewer = null, noteReader = { enabled: false, read: async () => ({ method: 'off', fallback: 'NOTE_AI_OFF', fields: null }) },
+export function createFileTaskRoutes({ dataDir, tasksPath, packagesPath, auditsPath, readJson, writeJson, appendAudit, recoverAudit, matchGuard, fileTaskLimit = 50, matchReviewer = null, stateReviewer = null, noteReader = { enabled: false, read: async () => ({ method: 'off', fallback: 'NOTE_AI_OFF', fields: null }) },
   recipientRanker = { rank: async people => ({ order: fixedOrder(people), method: 'fixed', fallback: 'RANKING_OFF' }) } }) {
   // One EVIDENCE_VIEWED record per task per minute: repeated views add nothing and would push older
   // delivery events out of the retained audit window.
@@ -49,7 +49,7 @@ export function createFileTaskRoutes({ dataDir, tasksPath, packagesPath, auditsP
         deliveryMode: input.deliveryMode, downloadUntil: input.downloadUntil }, Date.now(), departmentMap(config));
       const tasks = await readJson(tasksPath, []);
       if (tasks.some(item => item.file?.packet.context === input.packet.context && item.ownerId === principal.id)) fail('File intake already exists', 409);
-      if (tasks.filter(item => item.file).length >= 50) fail('Local file staging quota reached', 507);
+      if (tasks.filter(item => item.file).length >= fileTaskLimit) fail('Local file staging quota reached', 507);
       const keyBytes = Buffer.from(input.documentKey, 'hex');
       delete input.documentKey;
       let vault;

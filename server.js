@@ -106,7 +106,16 @@ async function writeJson(filePath, value) {
 const { appendAudit, recoverAudit, auditRejection } = createAudit({ auditsPath, readJson, writeJson });
 const fileAccess = createFileAccessRoutes({ dataDir, tasksPath, readJson, writeJson, appendAudit, recoverAudit });
 const matchGuard = createMatchGuard(path.join(dataDir, 'match-guard.json'));
-const fileTasks = createFileTaskRoutes({ dataDir, tasksPath, packagesPath, auditsPath, readJson, writeJson, appendAudit, recoverAudit, matchGuard, matchReviewer: createMatchReviewer({ fileAdviser: (...args) => fileAdviser(...args) }),
+// How many staged file deliveries the instance keeps. Nothing purges them (see docs/compliance/data-protection-and-retention.md), so this
+// is a ceiling on the deliveries the instance can ever take; a deployment that serves many people raises it.
+const fileTaskLimit = (() => {
+  const raw = process.env.FILE_TASK_LIMIT;
+  if (raw === undefined || raw === '') return 50;
+  const value = Number(raw);
+  if (!Number.isSafeInteger(value) || value < 1 || value > 1000) throw new Error('FILE_TASK_LIMIT must be an integer from 1 to 1000');
+  return value;
+})();
+const fileTasks = createFileTaskRoutes({ fileTaskLimit, dataDir, tasksPath, packagesPath, auditsPath, readJson, writeJson, appendAudit, recoverAudit, matchGuard, matchReviewer: createMatchReviewer({ fileAdviser: (...args) => fileAdviser(...args) }),
   noteReader: createNoteReader({ env: process.env, baseUrl: localModelBaseUrl, model: localModelName }),
   stateReviewer: createStateReviewer({ fileAdviser: (...args) => fileAdviser(...args) }),
   recipientRanker: createRecipientRanker({ env: process.env, baseUrl: localModelBaseUrl }) });
@@ -136,6 +145,7 @@ async function routeApi(req, res, pathname) {
       localOutletModel: localModelName,
       demoFallbackEnabled,
       legacyHostedAdviceOff,
+      fileTaskLimit,
       nebiusBudget: await nebiusBudget.status()
     });
     return;
