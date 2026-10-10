@@ -146,3 +146,12 @@ platform address and adds the visitor's real address behind a shared secret (see
 The platform address `zero-trust-edge-enclave.zeabur.app` stays as the Worker's origin; with `REQUIRE_EDGE=true` and
 `EDGE_REDIRECT_TO`, links that still carry it are sent on to the public address. To roll back, unset `REQUIRE_EDGE` and
 `EDGE_REDIRECT_TO`: both addresses then serve directly.
+
+## Extending the authorizations
+
+The authorizations' end date (`--until` when the registry was prepared) lives in the registry on the hosted volume, which is
+read from `HOSTED_REGISTRY_B64` only when the volume has none, so changing the variable does not move it. Use the administrator
+interface instead: `node scripts/hosted-extend-grants.mjs` (a dry run) and then `--apply`, run by the owner in their own terminal
+(it asks for the judge sign-in and reads `admin.token` from the private token directory; it prints no credential and only ever moves a
+date later). Each changed authorization moves to the next version, so deliveries approved before the change stop opening and the
+recipient inbox shows them as expired; deliveries made afterwards are unaffected.
