@@ -55,3 +55,14 @@ wrong kind (403), as before.
 Known and accepted: a registered recipient token can tell whether a task id exists (a real task not on their snapshot answers 403,
 an unknown id 404). Task ids are random UUIDs. Open slots for request bodies are counted per client address, so behind a proxy that
 does not forward the real address (`TRUST_PROXY`), clients share one allowance.
+
+## Client addresses behind an edge
+
+The failed-token lockout, the sign-in limit and the request-body slots are counted per client address. Behind the hosting
+platform's proxy every visitor arrives from the proxy's address, so one visitor's failures count against everyone. When the
+site sits behind an edge this deployment controls (a Cloudflare Worker, `deploy/cloudflare-edge/`), the edge adds the secret
+header `X-Origin-Auth` and the visitor's address in `X-Verified-Client-IP`. The server (`edge-trust.js`, `EDGE_SECRET`, at
+least 32 characters) believes that address only when the secret matches, compared in constant time; without the secret every
+forwarded-address header is ignored, as before. `REQUIRE_EDGE=true` additionally refuses requests that arrive without the
+secret (the platform address that goes around the edge), except `/api/health`; it needs `EDGE_SECRET` and the server will not
+start without it. The secret lives in the edge's and the origin's environments only, never in Git.

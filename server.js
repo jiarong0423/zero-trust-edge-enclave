@@ -4,8 +4,9 @@ import { promises as fs } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { initializeArrays, readArray, writeArray } from './local-array-store.js';
-import { clientKey, countsAsGuess, throttleFromEnv } from './auth-throttle.js';
-import { createNetworkPolicy } from './network-policy.js';
+import { clientKey, addressKey, countsAsGuess, throttleFromEnv } from './auth-throttle.js';
+import { createEdgeTrust } from './edge-trust.js';
+import { createNetworkPolicy, clientAddress } from './network-policy.js';
 import { createSsoRoutes } from './sso-routes.js';
 import { createWebhookFromEnv } from './webhook-adapter.js';
 import { gateConfig, gateAllows, gateSignIn, loginRedirect, recipientApi } from './demo-gate.js';
@@ -54,6 +55,9 @@ const tasksPath = path.join(dataDir, 'tasks.json');
 
 const host = process.env.HOST || '127.0.0.1';
 const trustProxy = process.env.TRUST_PROXY === 'true';
+const edge = createEdgeTrust(process.env);
+// The address a request counts as: the edge's verified one when the secret matches, else the socket (or X-Forwarded-For when trusted).
+const keyOf = req => { const verified = edge.address(req); return verified ? addressKey(verified) : clientKey(req, trustProxy); };
 const authThrottle = throttleFromEnv(process.env, (key, seconds) => console.error(`WARN auth throttle locked client ${key} for ${seconds}s`));
 const networkPolicy = createNetworkPolicy(process.env.ALLOWED_CLIENT_CIDRS);
 // Off unless SSO_ISSUER is set (docs/agent/sso.md). `apiQueue` is defined further down; loadConfig is
@@ -62,7 +66,7 @@ const sso = createSsoRoutes({
   env: process.env,
   loadConfig: () => apiQueue.chain(() => loadAccess(accessPath), run => run.catch(() => {})),
   throttle: authThrottle,
-  clientKey: req => clientKey(req, trustProxy)
+  clientKey: keyOf
 });
 // LEGACY_HOSTED_ADVICE=off: the two legacy compatibility paths (/api/policy/recommend and the coordinator
 // `recommend` tool) answer from the local fixture and never call the hosted model. They send more than
@@ -138,7 +142,7 @@ async function routeApi(req, res, pathname) {
   }
 
   const config = await loadAccess(accessPath);
-  const throttleKey = clientKey(req, trustProxy);
+  const throttleKey = keyOf(req);
   let principal;
   try { principal = authenticateWithSession(config, req.headers.authorization, sso.resolveSession); }
   catch (error) {
@@ -196,15 +200,17 @@ const createServer = handler => tlsOptions ? https.createServer(tlsOptions, hand
 const server = createServer(async (req, res) => {
   try {
     // First, before anything is parsed: a client outside the allowlist gets the same 403 whatever it sends.
-    if (!networkPolicy.allowsRequest(req, trustProxy)) fail('Client network not allowed', 403);
+    if (!networkPolicy.allows(edge.address(req) || clientAddress(req, trustProxy))) fail('Client network not allowed', 403);
     let url;
     try { url = new URL(req.url || '/', `http://${req.headers.host || `${host}:${port}`}`); }
     catch { fail('Bad request', 400); }
+    // The site address that goes around the edge is refused when the edge is required (the health check stays open).
+    if (edge.required && !edge.verified(req) && url.pathname !== '/api/health') fail('Use the site address', 403);
     if (demoGate && url.pathname === '/api/judge-login') {
       if (req.method !== 'POST') fail('Method not allowed', 405);
       const input = await readBody(req, 4096);
       const secure = String(req.headers['x-forwarded-proto'] || '').split(',')[0].trim() === 'https' || Boolean(req.socket?.encrypted);
-      const result = gateSignIn(demoGate, input, secure, Date.now(), clientKey(req, trustProxy));
+      const result = gateSignIn(demoGate, input, secure, Date.now(), keyOf(req));
       if (result.status) throw Object.assign(new Error(result.status === 401 ? 'Sign-in rejected' : 'Sign-in unavailable'),
         { status: result.status, retryAfter: result.retryAfter });
       res.setHeader('set-cookie', result.cookie);
@@ -225,7 +231,7 @@ const server = createServer(async (req, res) => {
       // The body is read here, before the request joins the serial queue, so a body that never finishes
       // cannot hold every other request; readBody returns what was read.
       // The receiving calls carry a few bytes, and they are open to a visitor who has not signed in, so they get a small cap.
-      await bodyGate(req, res, clientKey(req, trustProxy), recipientApi(url.pathname) ? 16_384 : undefined);
+      await bodyGate(req, res, keyOf(req), recipientApi(url.pathname) ? 16_384 : undefined);
       await apiQueue.chain(() => requestContext.run({}, async () => {
         try { return await routeApi(req, res, url.pathname); }
         catch (error) { await auditRejection(error); throw error; }

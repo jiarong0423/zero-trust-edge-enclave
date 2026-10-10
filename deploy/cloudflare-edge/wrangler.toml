@@ -1,0 +1,11 @@
+# The Cloudflare edge for the hosted demo. Deploy with `npx wrangler deploy` from this directory after `wrangler login`.
+# The secret is never written here: set it with `wrangler secret put EDGE_SECRET` (and the same value as EDGE_SECRET on the
+# origin). workers_dev is off so the only way in is the custom domain below.
+name = "zte-edge"
+main = "src/worker.js"
+compatibility_date = "2026-10-01"
+workers_dev = false
+routes = [{ pattern = "enclave.jace0423.com", custom_domain = true }]
+
+[vars]
+ORIGIN_HOST = "zero-trust-edge-enclave.zeabur.app"
