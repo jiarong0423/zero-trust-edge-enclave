@@ -20,3 +20,12 @@ test('the honesty card says what the video is not claiming', () => {
   const text = CARD.join(' ').toLowerCase();
   for (const phrase of ['not end-to-end', 'simulated', 'hosted demo shows the core flow']) assert.ok(text.includes(phrase), phrase);
 });
+
+test('every badge names one of the two promises, and the Token Factory is named aloud in the scene that shows it', async () => {
+  const { BADGES, BADGE_TEXT } = await import('./demo-choreography.mjs');
+  for (const [scene, kind] of Object.entries(BADGES)) { assert.ok(scene in CAPTIONS, scene); assert.ok(kind in BADGE_TEXT, kind); }
+  assert.deepEqual(Object.keys(BADGE_TEXT).sort(), ['boundary', 'flexible']);
+  assert.ok(Object.values(BADGES).includes('flexible'));
+  assert.match(CAPTIONS.ai, /Nebius Token Factory/);
+  assert.match(CAPTIONS.ai, /Nemotron/);
+});
