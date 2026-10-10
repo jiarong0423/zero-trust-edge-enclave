@@ -205,7 +205,16 @@ const server = createServer(async (req, res) => {
     try { url = new URL(req.url || '/', `http://${req.headers.host || `${host}:${port}`}`); }
     catch { fail('Bad request', 400); }
     // The site address that goes around the edge is refused when the edge is required (the health check stays open).
-    if (edge.required && !edge.verified(req) && url.pathname !== '/api/health') fail('Use the site address', 403);
+    if (edge.required && !edge.verified(req) && url.pathname !== '/api/health') {
+      // Links already handed out keep working: a page request that went around the edge is sent to the same path on the edge's address.
+      // The target is the configured origin plus this request's own path, so it cannot be pointed anywhere else.
+      if (edge.redirectTo && (req.method === 'GET' || req.method === 'HEAD')) {
+        res.writeHead(307, { location: edge.redirectTo + url.pathname + url.search, 'cache-control': 'no-store' });
+        res.end();
+        return;
+      }
+      fail('Use the site address', 403);
+    }
     if (demoGate && url.pathname === '/api/judge-login') {
       if (req.method !== 'POST') fail('Method not allowed', 405);
       const input = await readBody(req, 4096);

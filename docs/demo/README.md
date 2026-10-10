@@ -1,7 +1,7 @@
 # Try the hosted demo
 
 A step-by-step walkthrough of the judging instance at
-https://zero-trust-edge-enclave.zeabur.app, using the three synthetic documents in
+https://enclave.jace0423.com, using the three synthetic documents in
 [`samples/`](samples/). Every document is synthetic and says so inside; none holds real data.
 
 **Credentials are not in this repository.** The site sign-in and the role tokens are given

@@ -65,4 +65,4 @@ header `X-Origin-Auth` and the visitor's address in `X-Verified-Client-IP`. The 
 least 32 characters) believes that address only when the secret matches, compared in constant time; without the secret every
 forwarded-address header is ignored, as before. `REQUIRE_EDGE=true` additionally refuses requests that arrive without the
 secret (the platform address that goes around the edge), except `/api/health`; it needs `EDGE_SECRET` and the server will not
-start without it. The secret lives in the edge's and the origin's environments only, never in Git.
+start without it. With `EDGE_REDIRECT_TO` (an https origin) a GET or HEAD that bypassed the edge is sent with a 307 to the same path and query on that origin, so links already handed out keep working; the target is the configured origin plus the request's own path, so it cannot be pointed elsewhere. The secret lives in the edge's and the origin's environments only, never in Git.

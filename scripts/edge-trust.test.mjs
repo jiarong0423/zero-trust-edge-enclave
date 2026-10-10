@@ -38,6 +38,16 @@ test('the feature is off without a secret, and a weak or half-set configuration 
   assert.equal(createEdgeTrust({ EDGE_SECRET: secret, REQUIRE_EDGE: 'true' }).required, true);
 });
 
+test('the redirect target is a plain https origin and only with the edge required', () => {
+  const base = { EDGE_SECRET: secret, REQUIRE_EDGE: 'true' };
+  assert.equal(createEdgeTrust({ ...base, EDGE_REDIRECT_TO: 'https://site.example' }).redirectTo, 'https://site.example');
+  for (const bad of ['http://site.example', 'https://site.example/', 'https://site.example/path', 'https://user:pw@site.example', 'site.example', '//site.example', 'javascript:alert(1)', 'https://site.example?x=1']) {
+    assert.throws(() => createEdgeTrust({ ...base, EDGE_REDIRECT_TO: bad }), /https origin/, bad);
+  }
+  assert.throws(() => createEdgeTrust({ EDGE_SECRET: secret, EDGE_REDIRECT_TO: 'https://site.example' }), /needs REQUIRE_EDGE/);
+  assert.equal(createEdgeTrust(base).redirectTo, null);
+});
+
 const root = path.resolve(import.meta.dirname, '..');
 async function start(extra) {
   const dir = await fs.mkdtemp(path.join(os.tmpdir(), 'enclave-edge-'));
@@ -92,4 +102,24 @@ test('REQUIRE_EDGE without a secret stops the server instead of locking everyone
     const [code] = await once(server, 'exit');
     assert.notEqual(code, 0);
   } finally { await fs.rm(dir, { recursive: true, force: true }); }
+});
+
+test('a link that goes around the edge is sent to the same path on the edge address, and nothing else is', async () => {
+  const { base, stop } = await start({ EDGE_SECRET: secret, REQUIRE_EDGE: 'true', EDGE_REDIRECT_TO: 'https://site.example' });
+  try {
+    const get = (p, init = {}) => fetch(base + p, { redirect: 'manual', ...init });
+    const one = await get('/decode.html?id=abc&version=1');
+    assert.equal(one.status, 307);
+    assert.equal(one.headers.get('location'), 'https://site.example/decode.html?id=abc&version=1');
+    assert.equal(one.headers.get('cache-control'), 'no-store');
+    // A hostile path cannot move the target off the configured origin.
+    for (const p of ['//evil.example/x', '/\\evil.example', '/..//evil.example']) {
+      const response = await get(p);
+      assert.equal(new URL(response.headers.get('location') || 'https://site.example/', 'https://site.example').origin, 'https://site.example', p);
+    }
+    // Writes are refused, not redirected, and the health check and the edge itself are untouched.
+    assert.equal((await get('/api/judge-login', { method: 'POST', headers: { 'content-type': 'application/json' }, body: '{}' })).status, 403);
+    assert.equal((await get('/api/health')).status, 200);
+    assert.equal((await get('/decode.html', { headers: { 'x-origin-auth': secret, 'x-verified-client-ip': '203.0.113.9' } })).status, 200);
+  } finally { await stop(); }
 });

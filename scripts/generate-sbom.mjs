@@ -266,7 +266,7 @@ const SERVICES = [
     endpoints: ['https://api.tokenfactory.nebius.com/v1'], authenticated: true, 'x-trust-boundary': true,
     description: 'Hosted OpenAI-compatible inference API used only in hosted mode (COORDINATOR_PROVIDER=nebius, LOCAL_ONLY=false, a key present). The adviser outlet accepts no other host.' },
   { 'bom-ref': 'service-zeabur-hosting', name: 'Zeabur', provider: { name: 'Zeabur' },
-    endpoints: ['https://zero-trust-edge-enclave.zeabur.app'], authenticated: true,
+    endpoints: ['https://enclave.jace0423.com'], authenticated: true,
     description: 'Hosts the judge demo instance only; it is not Nebius compute and is not part of the application.' },
 ];
 

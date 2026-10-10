@@ -32,6 +32,8 @@ or newer.
 | `DEMO_FALLBACK_ENABLED` | `false` | The default is `true`, which returns a synthetic result carrying its own warning that it is not submission evidence. A demo should fail visibly instead of quietly serving that. The one exception is the spending-cap fallback, which the page labels. |
 | `NODE_ENV` | `production` | Makes `TOKEN_SIGNING_SECRET` mandatory, so credentials survive a restart. |
 | `TRUST_PROXY` | `true`, only after confirming the platform proxy overwrites `X-Forwarded-For` | Without it every client arrives from the proxy's address, so the failed sign-in throttle and the judge sign-in limit act on all judges together: one noisy client could lock the others out for a minute. With it set behind a proxy that does not overwrite the header, a client could spoof its address. Check which case applies before enabling. |
+| `EDGE_SECRET` | Zeabur secret, at least 32 characters; the same value is the Cloudflare Worker's `EDGE_SECRET` | Makes the server believe the visitor address that the edge (`deploy/cloudflare-edge/`) forwards in `X-Verified-Client-IP`, only together with a matching `X-Origin-Auth`. Without it the platform proxy's address is what the throttles see. |
+| `REQUIRE_EDGE` / `EDGE_REDIRECT_TO` | `true` / `https://enclave.jace0423.com` | Requests that go around the edge (the platform address) are not served: a GET or HEAD is sent with a 307 to the same path on `EDGE_REDIRECT_TO`, anything else gets 403; `/api/health` stays open. Needs `EDGE_SECRET`; the server will not start without it. Set only after the edge address is verified. |
 | `REQUIRE_DEMO_GATE` | `true` | Puts the judge sign-in in front of every page and API route except `/api/health`. |
 | `DEMO_GATE_USER` / `DEMO_GATE_PASSWORD` | Zeabur secrets | The judge sign-in. Given to judges in the file uploaded privately with the submission. |
 | `HOSTED_REGISTRY_B64` | hash-only registry | A registry prepared locally with `setup-local.mjs --business --until`. It carries token hashes only; the plaintext role tokens stay with the owner and go to judges with the sign-in. Installed only when the volume has no registry. |
@@ -136,3 +138,11 @@ SMOKE_EXPECT_PROVIDER=nebius_token_factory node scripts/hosted-smoke.mjs
 ```
 
 `<private-dir>` holds `manager-sender.token`, `sales-a.token` and `sales-b.token` (mode 0600, directory not group or other readable). It makes one real Token Factory call per routing decision, so the cost is a fraction of a cent. The task it creates expires after 15 minutes and is revoked at the end; the sealed packet stays on the volume (access is closed, not deleted).
+
+## The public address and the edge
+
+The site is reached at https://enclave.jace0423.com, a Cloudflare Worker (`deploy/cloudflare-edge/`) that forwards to this service's
+platform address and adds the visitor's real address behind a shared secret (see SECURITY.md, "Client addresses behind an edge").
+The platform address `zero-trust-edge-enclave.zeabur.app` stays as the Worker's origin; with `REQUIRE_EDGE=true` and
+`EDGE_REDIRECT_TO`, links that still carry it are sent on to the public address. To roll back, unset `REQUIRE_EDGE` and
+`EDGE_REDIRECT_TO`: both addresses then serve directly.

@@ -11,10 +11,20 @@ import { normalizeAddress } from './network-policy.js';
 //   EDGE_SECRET   at least 32 characters; unset leaves the feature off
 //   REQUIRE_EDGE  'true' refuses requests that do not carry the secret (the site address that bypasses the edge),
 //                 except /api/health so the platform can keep checking the service. Needs EDGE_SECRET.
+//   EDGE_REDIRECT_TO  an https origin such as https://site.example. With REQUIRE_EDGE, a GET or HEAD that bypasses the edge is
+//                 sent there (307, same path and query) instead of refused, so links already handed out keep working.
 export function createEdgeTrust(env = process.env) {
   const secret = typeof env.EDGE_SECRET === 'string' ? env.EDGE_SECRET : '';
   const enabled = secret.length >= 32;
   const required = env.REQUIRE_EDGE === 'true';
+  let redirectTo = null;
+  if (env.EDGE_REDIRECT_TO) {
+    let parsed;
+    try { parsed = new URL(env.EDGE_REDIRECT_TO); } catch { throw new Error('EDGE_REDIRECT_TO must be an https origin'); }
+    if (parsed.protocol !== 'https:' || parsed.origin !== env.EDGE_REDIRECT_TO || parsed.username || parsed.password) throw new Error('EDGE_REDIRECT_TO must be an https origin');
+    if (!required) throw new Error('EDGE_REDIRECT_TO needs REQUIRE_EDGE');
+    redirectTo = parsed.origin;
+  }
   if (env.EDGE_SECRET && !enabled) throw new Error('EDGE_SECRET must be at least 32 characters');
   if (required && !enabled) throw new Error('REQUIRE_EDGE needs EDGE_SECRET');
   const digest = value => crypto.createHash('sha256').update(String(value)).digest();
@@ -29,5 +39,5 @@ export function createEdgeTrust(env = process.env) {
     const value = String(req.headers['x-verified-client-ip'] || '').trim();
     return net.isIP(value) ? normalizeAddress(value) : null;
   };
-  return { enabled, required, verified, address };
+  return { enabled, required, redirectTo, verified, address };
 }

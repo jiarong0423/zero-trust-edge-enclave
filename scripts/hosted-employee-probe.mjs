@@ -18,7 +18,7 @@
 // Exit codes: 0 every check passed, 1 a check failed, 2 configuration or usage error.
 import { pathToFileURL } from 'node:url';
 
-export const DEFAULT_BASE_URL = 'https://zero-trust-edge-enclave.zeabur.app';
+export const DEFAULT_BASE_URL = 'https://enclave.jace0423.com';
 export const TIMEOUT_MS = 5000;
 export const GATE_TEXT = 'Demo sign-in required';
 export const EMPLOYEE_ASSETS = ['/decode.js', '/inbox.js', '/auth.js', '/i18n.js', '/file-envelope.js', '/crypto-utils.js', '/role-nav.js', '/role-plan.js', '/styles.css'];

@@ -33,7 +33,7 @@ import { pathToFileURL } from 'node:url';
 import { loadConfig, redact } from './hosted-smoke.mjs';
 
 
-export const DEFAULT_BASE_URL = 'https://zero-trust-edge-enclave.zeabur.app';
+export const DEFAULT_BASE_URL = 'https://enclave.jace0423.com';
 export const DEFAULT_TOKEN_DIR = path.resolve(import.meta.dirname, '..', 'logs', 'hosted-registry', 'tokens');
 
 function askVisible(question) {

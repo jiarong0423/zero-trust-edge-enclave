@@ -31,7 +31,7 @@ high-entropy literal.
 | README states where Token Factory carried the work | Done | same section |
 | README states other Nebius services used | Done | same section, states none are used |
 | Architecture diagrams | Done | `docs/assets/`, redrawn 2026-09-25 from the code |
-| Working demo URL | Done | `https://zero-trust-edge-enclave.zeabur.app`, behind a judge sign-in, grants valid to 2026-12-16; the repository is also a test build |
+| Working demo URL | Done | `https://enclave.jace0423.com`, behind a judge sign-in, grants valid to 2026-12-16; the repository is also a test build |
 | Runs on Token Factory | Done | Hosted instance calls Token Factory at runtime, under a USD 20 spending cap |
 | Judge access | Done | The form has no testing-instructions field; sign-in, role tokens and an English walkthrough are in the private Devpost file upload |
 | Track | Done (form) | Best Apps and Agents |
