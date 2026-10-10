@@ -54,6 +54,21 @@ test('only a recipient has an inbox, and it is capped', () => {
   assert.equal(buildInbox(many, config, ann).length, INBOX_LIMIT);
 });
 
+test('a delivery whose authorization was changed, revoked or has expired is shown as expired, not offered', () => {
+  const future = new Date(Date.now() + 3600000).toISOString();
+  const withGrant = grant => ({ ...config, grants: grant ? [grant] : [] });
+  const task1 = task('t', [{ ...approved(1, ['ann']), grantVersion: 1 }], { grantId: 'g' });
+  const stateWith = grant => buildInbox([task1], withGrant(grant), ann)[0].state;
+  assert.equal(stateWith({ id: 'g', version: 1, expiresAt: future }), 'WAITING');
+  assert.equal(stateWith({ id: 'g', version: 2, expiresAt: future }), 'EXPIRED');          // the authorization moved on (for example its end date was extended)
+  assert.equal(stateWith({ id: 'g', version: 1, expiresAt: future, revoked: true }), 'EXPIRED');
+  assert.equal(stateWith({ id: 'g', version: 1, expiresAt: new Date(Date.now() - 1000).toISOString() }), 'EXPIRED');
+  assert.equal(stateWith(null), 'EXPIRED');                                                  // the authorization no longer exists
+  // The sender's revocation still wins over the authorization's state.
+  const revoked = buildInbox([task('t', [{ ...approved(1, ['ann'], { revokedAt: '2026-10-10T01:00:00Z' }), grantVersion: 1 }], { grantId: 'g' })], withGrant({ id: 'g', version: 1, expiresAt: future }), ann);
+  assert.equal(revoked[0].state, 'REVOKED');
+});
+
 const root = path.resolve(import.meta.dirname, '..');
 const dir = await fs.mkdtemp(path.join(os.tmpdir(), 'enclave-inbox-test-'));
 const tokens = {};

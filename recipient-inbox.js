@@ -8,9 +8,12 @@
 // snapshot, the delivery must be unrevoked and unexpired, and a key is released to that recipient alone.
 export const INBOX_LIMIT = 50;
 
-const stateOf = (snapshot, received, now) => {
+// A delivery stops being openable when its own expiry passes, and also when the authorization it was approved under has been
+// changed (its version moved on), revoked or has itself expired: the file route refuses those, so the inbox must not offer them.
+const stateOf = (snapshot, grant, received, now) => {
   if (snapshot.revokedAt) return 'REVOKED';
   if (Date.parse(snapshot.content.expiresAt) <= now) return 'EXPIRED';
+  if (grant !== undefined && (!grant || grant.revoked || snapshot.grantVersion !== grant.version || Date.parse(grant.expiresAt) <= now)) return 'EXPIRED';
   if (received.acknowledged) return 'RECEIVED';
   if (received.downloaded) return 'DOWNLOADED';
   return 'WAITING';
@@ -20,6 +23,7 @@ export function buildInbox(tasks, config, principal, now = Date.now()) {
   if (principal.kind !== 'recipient') return [];
   const departments = new Map((config.departments || []).map(item => [item.id, item.displayName || item.id]));
   const owners = new Map(config.principals.map(person => [person.id, person]));
+  const grants = Array.isArray(config.grants) ? new Map(config.grants.map(item => [item.id, item])) : null;
   const items = [];
   for (const task of tasks) {
     if (!task?.file) continue;
@@ -32,7 +36,7 @@ export function buildInbox(tasks, config, principal, now = Date.now()) {
       items.push({ id: task.id, version: snapshot.version,
         fromDepartment: from ? departments.get(from) || from : null,
         approvedAt: snapshot.approvedAt || null, expiresAt: snapshot.content.expiresAt,
-        state: stateOf(snapshot, { acknowledged: released && reported('ACKNOWLEDGED'),
+        state: stateOf(snapshot, grants ? grants.get(task.grantId) || null : undefined, { acknowledged: released && reported('ACKNOWLEDGED'),
           downloaded: released && (reported('DOWNLOAD_REQUESTED') || reported('FILE_VERIFIED')) }, now) });
     }
   }
