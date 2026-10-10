@@ -5,18 +5,19 @@ MIT-licensed local hackathon prototype for encrypted document handoff with a res
 **At a glance**
 
 - What it is: encrypted document handoff in which a restricted AI adviser only proposes routing and follow-up; fixed code verifies and executes. A prototype, not a certified deployment.
+- Two roles, kept apart: a **manager** (sender) on a computer chooses a file and an approved recipient list and confirms twice; an **employee** (recipient) on a phone, from anywhere, opens their **inbox** or the link with only their own token and receives the file decrypted in the browser. Each role sees only its own pages, and the employee never meets the hosted demo's shared judge sign-in. Two people can share a name: on the local build the sender tells them apart by employee number (the hosted directory has no Chinese names, so that finder is not shown there; it is in the video and in the tests).
 - Two modes, one contract: **edge** (Nemotron 3 Nano 4B on the same machine behind a loopback-only runtime: `LOCAL_ONLY=true`, `COORDINATOR_PROVIDER=local_openai_compatible`) and **hosted** (Nemotron 3 Super 120B on Nebius Token Factory). Switching is configuration, and there is no automatic fallback between them; an explicit, opt-in third value (`COORDINATOR_PROVIDER=local_then_nebius`, default off) asks the local model first and the hosted model only after a local failure, see [cascade outlet](docs/agent/cascade-outlet.md). The edge mode targets organisations that keep files inside a private network; that is a design goal, not a deployment.
 - In the file workflow the adviser sees five pseudonymous fields per decision and never the document, the recipient, the address or the key. Two legacy compatibility paths send more to the hosted model (see "Scope of the five-field promise" below); `LEGACY_HOSTED_ADVICE=off` keeps them local.
 - Edge mode has been run on a Mac mini (Apple M2 Pro, 16 GB) with LM Studio, the kind of small always-on host it targets: models and data stay on that host and users reach it through one private address or domain. It has not been run on NVIDIA edge hardware (Jetson, DGX Spark).
-- Proof: 772 tests in the full suite (`npm run test:all`), and a measured comparison of both models on the same inputs: [follow-up comparison](docs/agent/followup-adviser-comparison-2026-10-08.md). 12 of its 36 inputs (everything already collected) are never sent to a model in the product, so read it on the other 24. With the opt-in `FOLLOWUP_PROMPT=directive` profile both models act instead of waiting on those 24 inputs (single runs; see [prompt profile](docs/agent/followup-prompt-profile-2026-10-08.md)).
+- Proof: 796 tests in the full suite (`npm run test:all`), and a measured comparison of both models on the same inputs: [follow-up comparison](docs/agent/followup-adviser-comparison-2026-10-08.md). 12 of its 36 inputs (everything already collected) are never sent to a model in the product, so read it on the other 24. With the opt-in `FOLLOWUP_PROMPT=directive` profile both models act instead of waiting on those 24 inputs (single runs; see [prompt profile](docs/agent/followup-prompt-profile-2026-10-08.md)).
 - Optional, all off by default: [OIDC single sign-on](docs/agent/sso.md) (tested against a mock identity provider only), [signed webhook notices](docs/agent/webhook-notices.md) (link only, no recipients), a failure-driven [local-then-hosted cascade](docs/agent/cascade-outlet.md), and [tooling for human ground-truth labels](docs/agent/human-labels.md) (the labels themselves are the owner's, none exist yet). Each had a red-team pass; the open limits are listed in its document.
 - Details: [dual-mode edge](docs/agent/dual-mode-edge.md), [private-network deployment](docs/agent/private-network-deployment.md), [enterprise control mapping and evidence index](docs/compliance/README.md) (a mapping, not a certification), [model provenance](docs/agent/nvidia-model-provenance.md), [server split plan](docs/agent/server-split-plan.md).
 
 ## Try It
 
-- **Demo video (1:47):** https://youtu.be/klBuNhS5eYM
-- **Hosted demo:** https://enclave.jace0423.com (judge sign-in; the sign-in and role tokens are given to judges privately and are never committed here).
-- **Walkthrough:** [docs/demo/README.md](docs/demo/README.md), step by step: the sender approves a delivery for one person in a department, that recipient decrypts it, a colleague who is signed in but was not picked is refused, and the evidence chain shows exactly what the model was given and answered.
+- **Demo video (1:47, an earlier recording):** https://youtu.be/klBuNhS5eYM. It predates the employee inbox, the role-separated pages and the same-name finder; the walkthrough below is current.
+- **Hosted demo:** https://enclave.jace0423.com. The sender, audit and administration pages sit behind a judge sign-in; an employee who receives a file needs only their own token. The sign-in and the role tokens are given to judges privately and are never committed here.
+- **Walkthrough:** [docs/demo/README.md](docs/demo/README.md), step by step: the manager approves a delivery for one person, that employee finds it in their inbox on a phone and decrypts it, a colleague who is signed in but was not picked is refused, and the evidence chain shows exactly what the model was given and answered.
 - **Sample documents:** [docs/demo/samples/](docs/demo/samples/), three synthetic files (two PDFs and a CSV) that say so inside.
 
 ## Why This Boundary
@@ -188,7 +189,7 @@ implementation, not from intent: the state names come from the audit allowlist i
 from `file-routing.js` and `delivery-followup.js`, and the evidence chain from `task-evidence.js`.
 
 **What each party can reach.** Plaintext exists only on the two human devices, and each signs in with
-its own token (the hosted demo adds a judge sign-in in front). Inside the boundary, next to the
+its own token (the hosted demo adds a judge sign-in in front of the sender, audit and administration pages only). The backend holds the document key and releases it to an approved recipient, so this is not end-to-end encryption against whoever operates the server; demo files are synthetic. Inside the boundary, next to the
 snapshot, mapping and key vault, the backend keeps an evidence trail of every adviser call and a
 hash-chained audit log (unkeyed SHA-256 links: `node scripts/verify-audit-chain.mjs <DATA_DIR>` detects edits, deletions and reordering, but not tail truncation or a full rewrite by someone who can recompute every hash). The adviser sits outside and is reached by two dashed edges and nothing else;
 the hosted Token Factory outlet is behind a spending cap.
@@ -239,4 +240,4 @@ Email remains dry-run. No enterprise identity, malware inspection of ciphertext,
 
 [Security](SECURITY.md) | [Threat model](THREAT_MODEL.md) | [Release review](docs/agent/security-gate-summary.md) | [Export manifest](public-export-manifest.md)
 
-A hosted instance for judges runs at https://enclave.jace0423.com behind a judge sign-in; the sign-in and the role tokens are given to judges privately, and the walkthrough is in [docs/demo/README.md](docs/demo/README.md). See [Zeabur deployment](docs/agent/zeabur-deployment.md).
+A hosted instance for judges runs at https://enclave.jace0423.com (a small Cloudflare Worker in front of it passes each visitor's real address to the server, so one visitor's failed attempts do not count against everyone; see `deploy/cloudflare-edge/` and SECURITY.md). The sender, audit and administration pages are behind a judge sign-in; an employee needs only their own token. The sign-in and the role tokens are given to judges privately, and the walkthrough is in [docs/demo/README.md](docs/demo/README.md). See [Zeabur deployment](docs/agent/zeabur-deployment.md).
