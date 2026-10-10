@@ -11,3 +11,6 @@ security-audit-output/
 npm-debug.log*
 docs/ai-generated/
 .claude/
+
+# wrangler local state
+.wrangler/
