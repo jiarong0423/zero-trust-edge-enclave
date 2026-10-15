@@ -1,8 +1,8 @@
 # Zeabur Deployment
 
 Written 2026-09-18, revised 2026-09-24. Modelled on the Shared Room MCP deployment already running
-on Zeabur. Status: deployed on 2026-09-24 at `https://zero-trust-edge-enclave.zeabur.app`, with a
-Token Factory key, a spending cap and a judge sign-in.
+on Zeabur. Status: deployed on 2026-09-24 and now served at `https://enclave.jace0423.com` (the earlier
+`zero-trust-edge-enclave.zeabur.app` answers 307 to it), with a Token Factory key, a spending cap and a judge sign-in.
 
 ## What Zeabur Runs
 

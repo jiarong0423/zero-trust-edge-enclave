@@ -1,6 +1,6 @@
 # Threat Model
 
-Review date: 2026-09-08. Revised 2026-09-25 for answer validation, adviser retries, the evidence chain and identity shown apart from access. Revised 2026-09-18: a second adviser was added for delivery follow-up, with its own projection and validator, and group codes were added to the private mapping for the sender and receipt surfaces, and deliberately kept out of every adviser and coordinator projection. Current file workflow, not the legacy passphrase demo. A Traditional Chinese translation follows the English text.
+Review date: 2026-09-08. Revised 2026-10-16 for the recipient finder and its lock, the recipient inbox and the scope of the hosted demo's judge sign-in. Revised 2026-09-25 for answer validation, adviser retries, the evidence chain and identity shown apart from access. Revised 2026-09-18: a second adviser was added for delivery follow-up, with its own projection and validator, and group codes were added to the private mapping for the sender and receipt surfaces, and deliberately kept out of every adviser and coordinator projection. Current file workflow, not the legacy passphrase demo. A Traditional Chinese translation follows the English text.
 
 ## Assets
 
@@ -38,6 +38,9 @@ Revised 2026-09-25. Every adviser answer is validated by fixed code before anyth
 | Changed list or replay | Immutable version/mapping, fresh confirmation after edits, idempotent job creation. |
 | Self-claimed role | Stored principals and grant membership, not user-entered claims. |
 | Stolen token | Expiry, rotation and one-use tickets; bearer theft remains a risk. An SSO session token (optional) lives in memory only, has an absolute life of at most 8 hours (30 minutes by default) and is revoked at once when its principal is disabled; it is not revoked when only its subject-map entry is removed (`docs/agent/sso.md`). |
+| Guessing recipients through the finder | The sender's finder answers only about people already on that authorization, and seven failed or ambiguous matches in a row lock that sender for that authorization (423 MATCH_QUARANTINED) until an administrator clears it. A sender with a valid token can still learn who is on their own authorization. |
+| Over-exposure in the recipient inbox | The inbox lists only deliveries approved for the token holder, with the sending department, a state and the expiry, never a file name or another person. The holder sees their own metadata. |
+| Reading the judge sign-in as a role | In the hosted demo the shared judge sign-in is in front of the sender, audit and administration pages only; the recipient side needs the person's own token, so a signed-in judge is not a recipient. The sign-in is a shared demo secret, not a user identity. |
 | Unknown delivery result | Bounded retries; ambiguous outcomes do not automatically resend. |
 | Expired access | Current grant and TIME_LIMITED checks; released bytes/keys cannot be recalled. |
 | Tool or log leakage | Allowlisted codes; no file content, address, key or credential fields. |
@@ -53,7 +56,7 @@ See docs/agent/security-gate-summary.md for scoped review; tests are not a produ
 
 # 威脅模型（繁體中文）
 
-檢視日期 2026-09-08。2026-09-25 修訂：答案驗證、顧問重試、證據鏈、身分與存取分開顯示。2026-09-18 修訂：新增投遞催促顧問，具備獨立投影與驗證器；私有映射表新增組別代號供發文者介面與收據使用，並刻意排除於所有顧問與協調投影之外。適用目前的檔案流程，非舊版通行碼展示。本節為上方英文內容的翻譯。
+檢視日期 2026-09-08。2026-10-16 修訂：收件人查找與其鎖定、收件匣、雲端示範站評審登入的適用範圍。2026-09-25 修訂：答案驗證、顧問重試、證據鏈、身分與存取分開顯示。2026-09-18 修訂：新增投遞催促顧問，具備獨立投影與驗證器；私有映射表新增組別代號供發文者介面與收據使用，並刻意排除於所有顧問與協調投影之外。適用目前的檔案流程，非舊版通行碼展示。本節為上方英文內容的翻譯。
 
 ## 資產
 
@@ -91,6 +94,9 @@ See docs/agent/security-gate-summary.md for scoped review; tests are not a produ
 | 清單變動或重放 | 版本與映射不可變，編輯後須重新確認，工作建立具冪等性。 |
 | 自稱身分 | 以既存主體與授權成員為準，不採使用者自述。 |
 | token 遭竊 | 具期限、輪替與一次性票券；bearer 遭竊仍是風險。 |
+| 透過查找猜測收件人 | 寄件人的查找只回答已在該授權上的人；同一寄件人在同一授權上連續 7 次失敗或不明確的比對就會鎖住（423 MATCH_QUARANTINED），直到管理員解除。持有有效 token 的寄件人仍可得知自己授權上有誰。 |
+| 收件匣過度揭露 | 收件匣只列出核准給該 token 持有人的投遞，內容是寄件部門、狀態與到期時間，絕不顯示檔名或其他人。持有人看得到自己的中介資料。 |
+| 把評審登入當成角色 | 雲端示範站的共用評審登入只擋在寄件、稽核與管理頁面前；收件端只需要本人的 token，所以通過評審登入的人不是收件人。評審登入是示範用的共用密碼，不是使用者身分。 |
 | 投遞結果不明 | 有限重試；結果不明不自動重送。 |
 | 存取過期 | 即時授權與 TIME_LIMITED 檢查；已釋出的位元組與金鑰無法收回。 |
 | 工具或日誌洩漏 | 僅允許代碼欄位；無檔案內容、位址、金鑰或憑證。 |
