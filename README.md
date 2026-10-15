@@ -22,6 +22,14 @@ Entry for the Nebius x NVIDIA Global AI Hackathon, track Best Apps and Agents. F
 - **Walkthrough:** [docs/demo/README.md](docs/demo/README.md), step by step: the manager approves a delivery for one person, that employee finds it in their inbox on a phone and decrypts it, a colleague who is signed in but was not picked is refused, and the evidence chain shows exactly what the model was given and answered.
 - **Sample documents:** [docs/demo/samples/](docs/demo/samples/), three synthetic files (two PDFs and a CSV) that say so inside.
 
+## Where This Applies
+
+Two places where the wrong person seeing one document is the actual harm. A sales director hands a price quote to two named account managers and later needs to show who received it. A hospital team hands a patient file to the two clinicians treating the case. Hospitals still lean on mail and fax for this kind of exchange: about seven in 10 U.S. non-federal acute care hospitals used mail or fax to send or receive summary of care records in 2018 ([ONC Data Brief No. 51](https://healthit.gov/wp-content/uploads/2020/03/State-of-Interoperability-among-US-Non-federal-Acute-Care-Hospitals-in-2018.pdf)).
+
+Organizations usually decide who may see one sensitive document through an access policy; NIST SP 800-53 control AC-3 describes this as the system enforcing the approvals the organization has granted ([AC-3, access enforcement](https://csf.tools/reference/nist-sp-800-53/r4/ac/ac-3/)). This prototype enforces that kind of rule for one document at a time: only the picked people can open it, and the record shows who did.
+
+It is a prototype built and tested with synthetic documents. It is not certified for medical use and is not meant for classified information.
+
 ## Why This Boundary
 
 Data-residency and procurement rules often restrict sending regulated documents to an
