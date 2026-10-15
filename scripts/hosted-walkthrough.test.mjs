@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { parseArguments, summarise, scrubber, main } from './hosted-walkthrough.mjs';
+import { parseArguments, summarise, scrubber, phoneStartArgs, main } from './hosted-walkthrough.mjs';
 
 test('the phone is the default and --no-phone is the only option', () => {
   assert.deepEqual(parseArguments([]), { phone: true, headless: false });
@@ -26,4 +26,9 @@ test('a plain http origin is refused', async () => {
   const lines = [];
   assert.equal(await main({ SMOKE_BASE_URL: 'http://site.example', SMOKE_GATE_USER: 'u', SMOKE_GATE_PASSWORD: 'p' }, [], { write: line => lines.push(line), prompts: { interactive: false } }), 2);
   assert.match(lines.join('\n'), /https origin/);
+});
+test('the recipient link is quoted for the phone shell, so its & does not cut the command', () => {
+  const link = 'https://enclave.jace0423.com/decode.html?id=07f18a48-d3fd-439a-8c99-1d2811c35ca0&version=1';
+  assert.equal(phoneStartArgs(link).at(-2), `'${link}'`);
+  assert.throws(() => phoneStartArgs("https://x.example/a'; rm -rf /"), /plain https address/);
 });

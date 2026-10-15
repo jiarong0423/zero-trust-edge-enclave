@@ -77,6 +77,12 @@ async function connect(wsUrl) {
 const listTabs = async port => (await (await fetch(`http://127.0.0.1:${port}/json`)).json()).filter(tab => tab.type === 'page');
 const firstTab = async port => { for (let i = 0; i < 60; i += 1) { const tabs = await listTabs(port).catch(() => []); if (tabs.length) return tabs[0]; await sleep(250); } throw new Error('Chrome did not open a tab on port ' + port); };
 
+// adb hands the line to the phone's own shell, where an & in the address would cut the command in two, so the address is quoted for it.
+export function phoneStartArgs(link) {
+  if (!/^https:\/\/[A-Za-z0-9.-]+\/[A-Za-z0-9._~\/?&=%-]*$/.test(link)) throw new Error('the link does not look like a plain https address');
+  return ['shell', 'am', 'start', '-a', 'android.intent.action.VIEW', '-d', `'${link}'`, 'com.android.chrome'];
+}
+
 // Whatever the page or the browser says is cleaned of the secrets this run holds before it is printed.
 export function scrubber(secrets) {
   const list = secrets.filter(value => typeof value === 'string' && value.length >= 6);
@@ -174,7 +180,7 @@ export async function walkthrough({ origin, gate, tokens, phone, headless = fals
         execFileSync('adb', ['shell', 'input', 'keyevent', 'KEYCODE_WAKEUP'], { stdio: 'ignore' });
         cleanups.push(() => execFileSync('adb', ['forward', '--remove-all'], { stdio: 'ignore' }));
         const before = new Set((await listTabs(PHONE_CDP).catch(() => [])).map(tab => tab.id));
-        execFileSync('adb', ['shell', 'am', 'start', '-a', 'android.intent.action.VIEW', '-d', link, 'com.android.chrome'], { stdio: 'ignore' });
+        execFileSync('adb', phoneStartArgs(link), { stdio: 'ignore' });
         let found; for (let i = 0; i < 80 && !found; i += 1) { found = (await listTabs(PHONE_CDP).catch(() => [])).find(tab => !before.has(tab.id) && tab.url.startsWith(origin)); await sleep(250); }
         must(found, 'the phone did not open the page (is it unlocked, awake and on adb?)');
         cleanups.push(() => fetch(`http://127.0.0.1:${PHONE_CDP}/json/close/${found.id}`));
