@@ -2,6 +2,16 @@
 
 Updated: 2026-09-27 Asia/Taipei
 
+## Update 2026-10-15 (checked today; the sections below are the 2026-09-27 state and are kept as history)
+
+- Repository: public, MIT detected by GitHub, README with Run Locally; GitHub main is `895c001` (2026-10-10). The local branch is ahead by two commits plus uncommitted work (the video recording tools, text fixes); nothing of that is on GitHub yet.
+- Hosted demo: `https://enclave.jace0423.com` (the earlier `zero-trust-edge-enclave.zeabur.app` answers 307 to it). Every page sits behind a judge sign-in; the hosted build has the employee inbox and role separation.
+- Devpost organizer notice, 2026-10-15: the submission lacks the required access. The judge sign-in and tokens are in `ZTE-Judges.zip` under Devpost "Additional info", which the organizer did not find. To do on the Devpost form (not in this repository): put a "How to test (for judges)" block in the project description, with the demo URL, where the credentials are, the 5-minute path and the no-sign-in route (Run Locally). Step 2 of the path now reads: open the "Recipient link (send this to the employee)" under Package result.
+- Gate results today: export gate passes (blocking 0); release-boundary scan reports BLOCKED with 5 HIGH, identical on GitHub main and on the local tree (wording heuristics on README line 11, `docs/agent/dual-mode-edge.md:16`, and three "system prompt" phrases), so they are not new; the owner has not yet decided to accept or reword them. The 2026-09-27 line "release-boundary: PASS, findings 0" below is therefore out of date.
+- Tests: the full suite is 843 tests, all passing; `npm test` (one file) is 117.
+- Video: the 1:47 narrated recording of 2026-09-27 is still the one linked from README and Devpost. A new 174 s cut (no narration yet) exists locally and has not been uploaded; when it is, README line 18 and the Devpost video link change together.
+- Manifest: 272 paths on GitHub; 277 locally (the recording tools and the new Swift pointer helper are added).
+
 ## Current Gate Status
 
 Local self-checks against the 122-file candidate built from `public-export-manifest.md` (2026-09-27):

@@ -30,6 +30,10 @@ export async function prepare(directory) {
   for (const [id, nameZh, tags] of PEOPLE) { const person = config.principals.find(item => item.id === id); if (!person) throw new Error(`${id} is missing from the demo data`); Object.assign(person, { nameZh, tags }); }
   const grant = config.grants.find(item => item.id === 'procurement');
   grant.recipients = [...new Set([...grant.recipients, ...PEOPLE.map(([id]) => id)])];
+  // The grants carry an expiry. Demo data that is kept between runs would otherwise go stale (the lists then come up empty), so any grant that has
+  // expired or is about to is moved a week ahead. Only the expiry changes; the tokens, people and limits stay as they were.
+  const horizon = Date.now() + 3 * 86400000;
+  for (const item of config.grants) if (Date.parse(item.expiresAt) < horizon) item.expiresAt = new Date(Date.now() + 7 * 86400000).toISOString();
   validateAccess(config);
   await fs.writeFile(registry, JSON.stringify(config, null, 2) + '\n', { mode: 0o600 });
   return { directory, registry, created: !exists };

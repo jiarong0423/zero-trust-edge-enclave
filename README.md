@@ -2,15 +2,17 @@
 
 MIT-licensed local hackathon prototype for encrypted document handoff with a restricted AI adviser. Extracted from the Shared Room MCP direction; not a production security certification.
 
+Entry for the Nebius x NVIDIA Global AI Hackathon, track Best Apps and Agents. First commit 2026-09-07, after the hackathon opened on 2026-08-26. The Nemotron models are used through Nebius Token Factory and, locally, through an OpenAI-compatible runtime, under the NVIDIA Nemotron Open Model License; they are not bundled here. The Token Factory runtime call is `requestFileAdvice` in `file-adviser.js` (POST `/v1/chat/completions`).
+
 **At a glance**
 
 - What it is: encrypted document handoff in which a restricted AI adviser only proposes routing and follow-up; fixed code verifies and executes. A prototype, not a certified deployment.
-- Two roles, kept apart: a **manager** (sender) on a computer chooses a file and an approved recipient list and confirms twice; an **employee** (recipient) on a phone, from anywhere, opens their **inbox** or the link with only their own token and receives the file decrypted in the browser. Each role sees only its own pages, and the employee never meets the hosted demo's shared judge sign-in. Two people can share a name: on the local build the sender tells them apart by employee number (the hosted directory has no Chinese names, so that finder is not shown there; it is in the video and in the tests).
+- Two roles, kept apart: a **manager** (sender) on a computer chooses a file and an approved recipient list and confirms twice; an **employee** (recipient) on a phone, from anywhere, opens their **inbox** or the link with only their own token and receives the file decrypted in the browser. The interface shows each role only its own pages (the server enforces roles on every API call), and the employee never meets the hosted demo's shared judge sign-in. Two people can share a name: on the local build the sender tells them apart by employee number (the hosted directory has no Chinese names, so that finder is not shown there; it is in the video and in the tests).
 - Two modes, one contract: **edge** (Nemotron 3 Nano 4B on the same machine behind a loopback-only runtime: `LOCAL_ONLY=true`, `COORDINATOR_PROVIDER=local_openai_compatible`) and **hosted** (Nemotron 3 Super 120B on Nebius Token Factory). Switching is configuration, and there is no automatic fallback between them; an explicit, opt-in third value (`COORDINATOR_PROVIDER=local_then_nebius`, default off) asks the local model first and the hosted model only after a local failure, see [cascade outlet](docs/agent/cascade-outlet.md). The edge mode targets organisations that keep files inside a private network; that is a design goal, not a deployment.
 - In the file workflow the adviser sees five pseudonymous fields per decision and never the document, the recipient, the address or the key. Two legacy compatibility paths send more to the hosted model (see "Scope of the five-field promise" below); `LEGACY_HOSTED_ADVICE=off` keeps them local.
 - Edge mode has been run on a Mac mini (Apple M2 Pro, 16 GB) with LM Studio, the kind of small always-on host it targets: models and data stay on that host and users reach it through one private address or domain. It has not been run on NVIDIA edge hardware (Jetson, DGX Spark).
-- Proof: 812 tests in the full suite (`npm run test:all`), and a measured comparison of both models on the same inputs: [follow-up comparison](docs/agent/followup-adviser-comparison-2026-10-08.md). 12 of its 36 inputs (everything already collected) are never sent to a model in the product, so read it on the other 24. With the opt-in `FOLLOWUP_PROMPT=directive` profile both models act instead of waiting on those 24 inputs (single runs; see [prompt profile](docs/agent/followup-prompt-profile-2026-10-08.md)).
-- Optional, all off by default: [OIDC single sign-on](docs/agent/sso.md) (tested against a mock identity provider only), [signed webhook notices](docs/agent/webhook-notices.md) (link only, no recipients), a failure-driven [local-then-hosted cascade](docs/agent/cascade-outlet.md), and [tooling for human ground-truth labels](docs/agent/human-labels.md) (the labels themselves are the owner's, none exist yet). Each had a red-team pass; the open limits are listed in its document.
+- Proof: 843 tests in the full suite (`npm run test:all`), and a measured comparison of both models on the same inputs: [follow-up comparison](docs/agent/followup-adviser-comparison-2026-10-08.md). 12 of its 36 inputs (everything already collected) are never sent to a model in the product, so read it on the other 24. With the opt-in `FOLLOWUP_PROMPT=directive` profile both models mostly act instead of waiting on those 24 inputs (Nano 4B on 16, Super 120B on 20; single runs, tuned on the same inputs; see [prompt profile](docs/agent/followup-prompt-profile-2026-10-08.md)).
+- Optional, all off by default: [OIDC single sign-on](docs/agent/sso.md) (tested against a mock identity provider and once against a local Keycloak over loopback http), [signed webhook notices](docs/agent/webhook-notices.md) (link only, no recipients), a failure-driven [local-then-hosted cascade](docs/agent/cascade-outlet.md), and [tooling for human ground-truth labels](docs/agent/human-labels.md) (the labels themselves are the owner's, none exist yet). Each had a red-team pass; the open limits are listed in its document.
 - Details: [dual-mode edge](docs/agent/dual-mode-edge.md), [private-network deployment](docs/agent/private-network-deployment.md), [enterprise control mapping and evidence index](docs/compliance/README.md) (a mapping, not a certification), [model provenance](docs/agent/nvidia-model-provenance.md), [server split plan](docs/agent/server-split-plan.md).
 
 ## Try It
@@ -22,16 +24,16 @@ MIT-licensed local hackathon prototype for encrypted document handoff with a res
 
 ## Why This Boundary
 
-Data residency rules, the US CLOUD Act and EU AI Act Article 10 make "send the document
-to an API" the wrong answer for regulated material. The usual response is to move every
+Data-residency and procurement rules often restrict sending regulated documents to an
+external API (this is context, not legal advice, and no specific regulation is cited here). The usual response is to move every
 workload on-premises. This prototype takes the other route: keep the workload where it
 is and bound what crosses.
 
-What crosses to the model: `taskAlias`, `snapshotVersion`, `channels`, `state`,
+What crosses to the model for a routing decision: `taskAlias`, `snapshotVersion`, `channels`, `state`,
 `attempts`. Five pseudonymous workflow fields, validated by exact-key and format checks;
 anything else is rejected before dispatch.
 
-What never crosses: the document, the recipient, the address, the key.
+What never crosses to the file adviser: the document, the recipient, the address, the key. (The follow-up decision, described below, gets a different five fields.)
 
 **Scope of the five-field promise.** It describes the file workflow, which is what this project is
 about. Two legacy compatibility paths remain and send more to the hosted model when it is reachable.
@@ -48,11 +50,8 @@ The opt-in cascade (`COORDINATOR_PROVIDER=local_then_nebius`, default off) stays
 
 The adviser's small surface is the design, not an unfinished part. A model is the
 component an injected instruction attacks, so it cannot also be the component that
-enforces the boundary. Work on tool-using agents converged on the same answer between
-2024 and 2026 — enforce with deterministic policy outside the model rather than training
-it to refuse — and supervision is moving the same way, with FINRA treating AI agents as a
-distinct risk category and the AI AGENT Act of 2026 requiring human approval for
-sensitive transactions. The backend here re-verifies identity, authorization, revocation,
+enforces the boundary. Work on tool-using agents has pointed the same way — enforce with
+deterministic policy outside the model rather than training it to refuse. The backend here re-verifies identity, authorization, revocation,
 snapshot version, channel allowlist, expiry and retry budget on every dispatch, and the
 whole workflow completes with `COORDINATOR_PROVIDER=synthetic_fixture` and no model at
 all.
@@ -92,7 +91,7 @@ SKIP_LOCAL_ENV=true LOCAL_ONLY=true npm run dev
 
 Open http://127.0.0.1:3344/ or http://127.0.0.1:3344/zh-TW/. The language button switches the current page without reloading.
 
-Import generated operator.token on the sender page and select local-review. Import recipient-a.token on the recipient page; recipient-b is intentionally unauthorized. Setup generates private random tokens and refuses existing files. These are local bearer identities, not enterprise SSO.
+On the sender page click "Choose token file" and pick the generated operator.token; with a single authorization it is selected for you (otherwise pick local-review). On the recipient page choose recipient-a.token; recipient-b is intentionally unauthorized. Setup generates private random tokens and refuses existing files. These are local bearer identities, not enterprise SSO.
 
 For a separate departmental demo with an administrator:
 
@@ -153,7 +152,7 @@ loopback `LOCAL_MODEL_BASE_URL` and no key. Configure an untracked environment f
 `SKIP_LOCAL_ENV=true` only when deliberately loading that private configuration. Never place secrets
 in Git, browser code or model context.
 
-The hosted instance has a USD 20 Token Factory spending cap, enforced in code. Once it is spent, the advisers fall back to
+The hosted instance has a USD 20 Token Factory spending cap that the server enforces in code from its own count of token usage at configured prices (an estimate, not Nebius billing). Once it is spent, the advisers fall back to
 synthetic advice and every other step keeps working; the current state is under `nebiusBudget` in
 `/api/health`.
 
@@ -179,7 +178,7 @@ into `reasoning_content` while `content` is left empty. A client reading only `c
 empty success. None of these results prove superiority to deterministic routing, general injection
 resistance, or compatibility with an untested local runtime.
 
-Version 2026-10-08. `npm test` runs one file, `scripts/local-workflow.test.mjs` (117 tests). The full suite is `node --test scripts/*.test.mjs` (772 tests at this revision).
+Version 2026-10-08. `npm test` runs one file, `scripts/local-workflow.test.mjs` (117 tests). The full suite is `node --test scripts/*.test.mjs` (see the test count in the Proof line at the top).
 
 ## Architecture
 

@@ -61,7 +61,7 @@ The administration page (`/admin.html`) is for the owner only: the admin token i
   three failed matches; the hosted directory has no Chinese names, so that finder is not shown here. It is in the video and in the
   tests (`scripts/recipient-resolve-route.test.mjs`).
 - **Revoking a delivery from the page.** The sender page has no revoke button; revocation is an API call
-  (`POST /api/packages/<id>/revoke`) and a revoked delivery shows as *Revoked by the sender* in the inbox.
+  (`POST /api/tasks/<id>/revoke`) and a revoked delivery shows as *Revoked by the sender* in the inbox.
 - **Real notices.** Email and webhook notices are dry-run records; nothing is sent, so the manager passes the link on.
 - **End-to-end encryption.** The server holds the document key and releases it to an approved recipient; use synthetic files only.
 

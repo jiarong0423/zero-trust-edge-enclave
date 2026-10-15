@@ -1,6 +1,6 @@
 # Public Export Manifest
 
-Review date: 2026-10-08 (276 entries; was 211 on 2026-10-08 and 122 on 2026-09-27). Status: public on GitHub since 2026-09-18; this list is the allowlist every push is checked against.
+Review date: 2026-10-15 (277 entries; was 276 and 211 on 2026-10-08 and 122 on 2026-09-27). Status: public on GitHub since 2026-09-18; this list is the allowlist every push is checked against.
 
 The following exact paths are the release allowlist, not directory wildcards. Runtime data, credentials, environment secrets, logs, output, dependencies, Git metadata, screenshots and raw provider evidence are excluded even when untracked. New source files require explicit review and a manifest update.
 
@@ -283,6 +283,7 @@ scripts/demo-local-same-name.mjs
 scripts/demo-local-same-name.test.mjs
 scripts/demo-choreography.mjs
 scripts/demo-choreography.test.mjs
+scripts/os-mouse.swift
 scripts/compose-demo-video.mjs
 scripts/compose-demo-video.test.mjs
 ```

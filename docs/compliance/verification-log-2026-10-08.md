@@ -79,7 +79,7 @@ trail 20 / 10 per kind, 50 staged tasks, 1,000 directory events, 5-minute ticket
 last 20 legacy delivery receipts); the notice-outbox key list; `FOLLOWUP_PROMPT=directive` (exact string, read at each call, swaps one
 paragraph); the adviser timeouts and token ceilings; the browser-storage claim (no `localStorage`, `sessionStorage`,
 IndexedDB or service worker in `public/`); the zero-dependency claim and the bare-import search (both re-run);
-the commit hook text (`/Users/sunjiarong/Developer/tools/pre_commit_security_gate.sh` prints the quoted lines).
+the commit hook text (a local pre-commit script outside this repository prints the quoted lines).
 
 ## 5. Not verified
 

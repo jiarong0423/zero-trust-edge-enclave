@@ -23,3 +23,18 @@ test('every file the manifest lists exists, and the count in its heading is the 
   const stated = Number(text.match(/\((\d+) entries/)?.[1]);
   assert.equal(stated, files.length, 'the heading says ' + stated + ' entries, the list has ' + files.length);
 });
+
+// A listed script that names another scripts/ file by a path literal (a helper it compiles or spawns) fails in a public clone if that
+// helper is not listed too; the release builder drops unlisted files without a word.
+test('every scripts/ file that a listed script names by a path literal is itself listed', async () => {
+  const files = [...text.matchAll(/```text\n([\s\S]*?)\n```/g)][0][1].split('\n');
+  const listed = new Set(files);
+  const missing = [];
+  for (const name of files.filter(file => /^scripts\/[^/]+\.(mjs|js)$/.test(file))) {
+    const source = await fs.readFile(path.join(root, name), 'utf8');
+    for (const match of source.matchAll(/['"`](?:[^'"`\n]*\/)?(scripts\/[A-Za-z0-9._-]+\.[a-z]+)['"`]/g)) {
+      if (!listed.has(match[1])) missing.push(`${name} names ${match[1]}`);
+    }
+  }
+  assert.deepEqual([...new Set(missing)], []);
+});

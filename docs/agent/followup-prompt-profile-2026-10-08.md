@@ -12,7 +12,7 @@ With the shipped prompt the local `nvidia-nemotron-3-nano-4b` answered WAIT for 
 - Settings: production local settings, `reasoning_effort` none, temperature 0, `json_schema` strict with `ADVICE_KINDS.followup.schema`, loopback `127.0.0.1:1234` only, no cloud or hosted call. One run per variant per input (temperature 0, no repeats).
 - Only the `JUDGEMENT:` paragraph is swapped; the rest of the system text, the user message, the schema and `validateFollowupAdvice` are unchanged.
 - "Accepted" = `validateFollowupAdvice` passes. "Same action as fixture" = same action as `syntheticFollowupAdvice`, which is a deliberately blunt stand-in and NOT ground truth: agreement is not accuracy.
-- Script: `/private/tmp/claude-501/q2/variants.mjs` (scratch, not shipped); raw rows in `/private/tmp/claude-501/q2/results-*.json`.
+- Script: a scratch script that is not shipped; its raw result rows are not shipped either.
 
 ## Results (24 inputs each, one run each)
 

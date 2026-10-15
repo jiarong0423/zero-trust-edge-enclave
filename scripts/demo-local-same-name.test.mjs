@@ -20,5 +20,16 @@ test('the same-name demo data has two people called 劉文祥, one 劉慶龍, va
     const second = await prepare(dir);
     assert.equal(second.created, false);
     assert.equal(await fs.readFile(path.join(dir, 'manager-sender.token'), 'utf8'), token);   // the credentials are not replaced
+    // kept data does not go stale: a grant that has expired is moved ahead on the next run, and one with time left is left alone
+    const stored = JSON.parse(await fs.readFile(second.registry, 'utf8'));
+    const [early, late] = [stored.grants[0].expiresAt, stored.grants[1].expiresAt];
+    stored.grants[0].expiresAt = new Date(Date.now() - 86400000).toISOString();
+    stored.grants[1].expiresAt = new Date(Date.now() + 30 * 86400000).toISOString();
+    const kept = stored.grants[1].expiresAt;
+    await fs.writeFile(second.registry, JSON.stringify(stored));
+    await prepare(dir);
+    const again = JSON.parse(await fs.readFile(second.registry, 'utf8'));
+    assert.ok(Date.parse(again.grants[0].expiresAt) > Date.now() + 6 * 86400000, `expired grant was ${again.grants[0].expiresAt} (was ${early})`);
+    assert.equal(again.grants[1].expiresAt, kept, `a grant with time left must not change (was ${late})`);
   } finally { await fs.rm(dir, { recursive: true, force: true }); }
 });

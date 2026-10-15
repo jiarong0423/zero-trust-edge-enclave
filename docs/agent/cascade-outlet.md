@@ -131,7 +131,7 @@ line ends `cascade=BLOCKED_LOCAL_ONLY` and nothing else is asked.
   model is called; on failure the task is retried, then paused).
 - The hosted model sees the five fields only after the local model failed; the provider-side visibility
   risk in `docs/compliance/ai-governance.md` section 10 applies to those calls.
-- Nothing measured here: no live run of the cascade against LM Studio or Token Factory was made.
+- Measured only once: three live runs on one Mac against LM Studio and Token Factory with a synthetic file (see "A real run, 2026-10-10" below). That shows the mechanism works, not how often each path is taken.
 
 ## Verify
 
