@@ -136,7 +136,7 @@ export async function walkthrough({ origin, gate, tokens, phone, headless = fals
       must(await manager.waitFor(`document.querySelectorAll('#recipientList .recipient-row').length >= 2`, 15000), 'the recipient list did not load');
       const flagged = await manager.ev(`[...document.querySelectorAll('#recipientList .recipient-row')].filter(r => r.innerText.includes('劉文祥') && /Same name|同名/.test(r.innerText)).length`);
       must(flagged === 2, `expected two 劉文祥 rows with the same-name warning, found ${flagged}`);
-      await manager.ev(`document.getElementById('recipientList').scrollIntoView({ block: 'start' })`); await sleep(400);
+      await manager.ev(`(() => { document.getElementById('recipientList').scrollIntoView({ block: 'start' }); scrollBy(0, -170); })()`); await sleep(400);   // the page's own header is sticky, so leave room under it
       await manager.shot(path.join(shots, '03-same-name.png'));
       return 'two 劉文祥 with the warning';
     })) return finish();
@@ -190,7 +190,7 @@ export async function walkthrough({ origin, gate, tokens, phone, headless = fals
       }
       if (!shown) { write(`INFO evidence status line: ${await manager.ev(`document.getElementById('evidenceStatus').innerText`)}; chain length ${await manager.ev(`document.getElementById('evidenceChain').textContent.length`)}`); await manager.shot(path.join(shots, '04b-evidence-problem.png')); }
       must(shown, 'no evidence chain appeared');
-      await manager.ev(`(document.getElementById('evidenceChain').children[2] || document.getElementById('evidenceChain')).scrollIntoView({ block: 'start' })`); await sleep(500);
+      await manager.ev(`(() => { (document.getElementById('evidenceChain').children[2] || document.getElementById('evidenceChain')).scrollIntoView({ block: 'start' }); scrollBy(0, -170); })()`); await sleep(500);
       await manager.shot(path.join(shots, '04b-evidence-chain.png'));
       return 'the five anonymous fields the model was given are listed';
     });
