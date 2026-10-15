@@ -128,7 +128,10 @@ accepted by the validator; the 120B on Token Factory had a median of 0.99 s and 
 passive near the deadline (4B: WAIT in all 34 accepted answers; 120B: WAIT 31, REMIND 4, ESCALATE 1,
 where the deterministic fixture escalates in 12), so the project does not rely on the model to chase:
 fixed code decides who is contacted, the validator checks coherence, and the opt-in `FOLLOWUP_FLOOR=true`
-escalates a WAIT in the last part of the window. The fixture is not ground truth. See the
+escalates a WAIT in the last part of the window. On 2026-10-16 the same 36 inputs were run once on Nemotron 3 Ultra
+(`nvidia/Nemotron-3-Ultra-550b-a55b`, default prompt): it escalated in 11 of the 12 inputs where the fixture escalates, with a
+median of 0.9 s, so a larger model is decisive where the default prompt makes the 4B and the 120B passive; the shipped demo still
+uses the 120B. The fixture is not ground truth. See the
 [follow-up comparison](docs/agent/followup-adviser-comparison-2026-10-08.md).
 
 Neither is the boundary. `validateFileAdvice` decides what is valid, and a schema the server honours

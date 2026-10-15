@@ -152,3 +152,28 @@ variables.
 ## Addendum: the 24 reachable inputs, and the directive prompt on the hosted model
 
 Twelve of the 36 inputs above have everything already collected; fixed code never sends those to a model. On the 24 inputs the product can send, with the current prompt: fixture WAIT 4 / REMIND 8 / ESCALATE 12; local 4B 23 WAIT (23 accepted of 24); hosted 120B WAIT 19 / REMIND 4 / ESCALATE 1 (24 accepted, same action as the fixture on 6). With the opt-in `FOLLOWUP_PROMPT=directive` profile the hosted 120B gave WAIT 4 / REMIND 11 / ESCALATE 9, 24 accepted, same action as the fixture on 20 (one run, temperature 1), and the local 4B gave WAIT 8 / REMIND 6 / ESCALATE 10, 24 accepted, same on 20 (one run, temperature 0). Details and caveats: `followup-prompt-profile-2026-10-08.md`. The fixture is a blunt stand-in, not ground truth.
+
+## Addendum 2026-10-16: Nemotron 3 Ultra on the same inputs
+
+One run of the same benchmark (`node scripts/bench-adviser.mjs --cloud --yes-spend`, default prompt, no `FOLLOWUP_PROMPT`)
+with `NEBIUS_MODEL=nvidia/Nemotron-3-Ultra-550b-a55b`, the identifier Token Factory listed for this account under
+`/v1/models`. 36 calls, each input once, through the production `requestFileAdvice` path. The estimated cost printed by
+the script was at most USD 0.093 (an upper bound at assumed prices of USD 1 and 3 per million input and output tokens,
+which come from third-party listings and are not confirmed).
+
+| | Fixture | Local 4B | Hosted Super 120B | Hosted Ultra 550B |
+| --- | --- | --- | --- | --- |
+| Accepted, all 36 inputs | 36 | 34 | 36 | 33 |
+| Accepted, the 24 inputs the product can send | 24 | 23 | 24 | 24 |
+| On those 24: WAIT / REMIND / ESCALATE | 4 / 8 / 12 | 23 / 0 / 0 | 19 / 4 / 1 | 11 / 2 / 11 |
+| On those 24: same action as the fixture | n/a | not recorded | 6 | 17 |
+| Latency median, all accepted (ms) | n/a | 2856 | 987 | 895 (min 681, max 1468) |
+
+- Where the fixture escalates (12 inputs) Ultra escalated in 11; Super in 1; the 4B in none. In all six deadline-near inputs
+  with the pickup incomplete Ultra escalated. It reminded less than the fixture (2 against 8): it prefers to escalate.
+- The three refused answers (`FOLLOWUP_REASON_INCOHERENT` twice, `FOLLOWUP_ADVICE_REJECTED` once) were all on inputs where
+  everything was already collected. Fixed code never sends those to a model, so they do not occur in the product.
+- With the opt-in `FOLLOWUP_PROMPT=directive` profile the Super and the 4B also became decisive (see the previous
+  addendum), so the passivity above belongs to the default prompt, not to the model size alone.
+- Caveats: one run, temperature as configured, the fixture is a blunt stand-in and agreement is not accuracy. The shipped
+  demo still uses Super for both decisions; changing `NEBIUS_MODEL` switches both to Ultra.
