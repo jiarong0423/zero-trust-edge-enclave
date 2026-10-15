@@ -6,7 +6,7 @@
 //   node scripts/demo-local-same-name.mjs [directory] --prepare-only
 //
 // The tokens are written to <directory>/*.token (manager-sender.token, sales-a.token, sales-b.token, ...). Choose manager-sender.token on the
-// sender page; the find box appears because the directory has Chinese names. A sender is locked after three failed matches; an administrator
+// sender page; the find box appears because the directory has Chinese names. A sender is locked after seven failed matches; an administrator
 // unlocks it on the administration page (admin.token).
 import { promises as fs } from 'node:fs';
 import { spawn } from 'node:child_process';

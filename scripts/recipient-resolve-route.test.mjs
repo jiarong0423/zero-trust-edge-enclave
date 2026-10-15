@@ -7,6 +7,7 @@ import path from 'node:path';
 import crypto from 'node:crypto';
 import { spawn } from 'node:child_process';
 import { once } from 'node:events';
+import { MATCH_FAILURE_LIMIT } from '../match-guard.js';
 
 // The sender's matching route and the administrator's quarantine, against the real server on a loopback
 // port with the synthetic adviser. Two people carry the Chinese name 劉文祥, one carries 劉慶龍, and a
@@ -66,7 +67,7 @@ const unlock = () => call('/api/admin/match-guard', { operatorId: 'operator', au
 test('a unique Chinese name on the authorization matches directly and resets the count', async () => {
   const answer = await resolve({ nameZh: '劉慶龍' });
   assert.equal(answer.status, 200);
-  assert.deepEqual([answer.body.status, answer.body.code, answer.body.person.id, answer.body.attemptsLeft], ['MATCHED', 'MATCH_BY_NAME', 'recipient-c', 3]);
+  assert.deepEqual([answer.body.status, answer.body.code, answer.body.person.id, answer.body.attemptsLeft], ['MATCHED', 'MATCH_BY_NAME', 'recipient-c', MATCH_FAILURE_LIMIT]);
 });
 
 test('a shared name lists only people on the authorization, then the employee number decides', async () => {
@@ -111,19 +112,20 @@ test('only the operator of that authorization may ask, and unknown fields are re
 test('a success in between resets the count, so scattered failures never quarantine', async () => {
   await resolve({ nameZh: '無此人' });
   const second = await resolve({ nameZh: '無此人' });
-  assert.equal(second.body.attemptsLeft, 1);
+  assert.equal(second.body.attemptsLeft, MATCH_FAILURE_LIMIT - 2);
   await resolve({ nameZh: '劉慶龍' });
   const after = await resolve({ nameZh: '無此人' });
-  assert.deepEqual([after.body.quarantined, after.body.attemptsLeft], [false, 2]);
+  assert.deepEqual([after.body.quarantined, after.body.attemptsLeft], [false, MATCH_FAILURE_LIMIT - 1]);
   await resolve({ nameZh: '劉慶龍' });
 });
 
-test('three failures in a row quarantine the pair; only an administrator unlocks it', async () => {
-  const first = await resolve({ nameZh: '無此人' });
-  const second = await resolve({ employeeId: 'nobody-1' });
-  const third = await resolve({ nameZh: '劉文祥' });          // ambiguous counts as a failure
-  assert.deepEqual([first.body.attemptsLeft, second.body.attemptsLeft, third.body.attemptsLeft], [2, 1, 0]);
-  assert.equal(third.body.quarantined, true);
+test('the last allowed failure in a row quarantines the pair; only an administrator unlocks it', async () => {
+  const tries = [];
+  for (let i = 1; i < MATCH_FAILURE_LIMIT; i++) tries.push(await resolve(i % 2 ? { nameZh: '無此人' } : { employeeId: `nobody-${i}` }));
+  const last = await resolve({ nameZh: '劉文祥' });          // ambiguous counts as a failure
+  tries.push(last);
+  assert.deepEqual(tries.map(item => item.body.attemptsLeft), Array.from({ length: MATCH_FAILURE_LIMIT }, (_, i) => MATCH_FAILURE_LIMIT - 1 - i));
+  assert.equal(last.body.quarantined, true);
   const refused = await resolve({ nameZh: '劉慶龍' });
   assert.equal(refused.status, 423);
   assert.equal(refused.body.error, 'MATCH_QUARANTINED');
@@ -143,7 +145,7 @@ test('three failures in a row quarantine the pair; only an administrator unlocks
 });
 
 test('the quarantine survives a restart of the guard because it is stored', async () => {
-  for (let i = 0; i < 3; i++) await resolve({ nameZh: '無此人' });
+  for (let i = 0; i < MATCH_FAILURE_LIMIT; i++) await resolve({ nameZh: '無此人' });
   const text = await fs.readFile(path.join(dir, 'match-guard.json'), 'utf8');
   assert.equal(JSON.parse(text)[0].quarantined, true);
   assert.equal(((await fs.stat(path.join(dir, 'match-guard.json'))).mode & 0o077), 0);

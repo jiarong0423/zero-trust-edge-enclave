@@ -1,6 +1,6 @@
 #!/usr/bin/env node
-// Shows which senders of the hosted demo are locked after three failed or ambiguous recipient matches, and clears the locks on request.
-// A judge who mistypes a name three times in a row locks their sender for that authorization (423 MATCH_QUARANTINED); the administrator
+// Shows which senders of the hosted demo are locked after seven failed or ambiguous recipient matches, and clears the locks on request.
+// A judge who mistypes a name seven times in a row locks their sender for that authorization (423 MATCH_QUARANTINED); the administrator
 // token is not in the judge package and the page has no button for it, so the owner clears it here. Run by the owner in their own
 // terminal: it asks for the judge sign-in and reads the administrator token from the private token directory, so no credential passes
 // through a chat. It prints no token, password or cookie.

@@ -7,6 +7,7 @@ import path from 'node:path';
 import crypto from 'node:crypto';
 import { spawn } from 'node:child_process';
 import { once } from 'node:events';
+import { MATCH_FAILURE_LIMIT } from '../match-guard.js';
 
 // The ranking route with RECIPIENT_RANKING=vector and a stand-in for the embedding model on loopback.
 const root = path.resolve(import.meta.dirname, '..');
@@ -113,7 +114,7 @@ test('only the operator of the authorization may rank, and bad input is refused'
 test('ranking does not touch the failure count of matching', async () => {
   for (let i = 0; i < 5; i++) await rank('不存在的人');
   const answer = await call('/api/directory/resolve', { nameZh: '劉慶龍' });
-  assert.equal(answer.body.attemptsLeft, 3);
+  assert.equal(answer.body.attemptsLeft, MATCH_FAILURE_LIMIT);
 });
 
 test('when the embedding model is down the order is fixed, the status is 200 and matching is unaffected', async () => {

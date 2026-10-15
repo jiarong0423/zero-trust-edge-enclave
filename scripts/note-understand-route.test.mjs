@@ -7,6 +7,7 @@ import path from 'node:path';
 import crypto from 'node:crypto';
 import { spawn } from 'node:child_process';
 import { once } from 'node:events';
+import { MATCH_FAILURE_LIMIT } from '../match-guard.js';
 
 // POST /api/directory/understand with NOTE_AI=local and a stand-in for the loopback model.
 const root = path.resolve(import.meta.dirname, '..');
@@ -128,7 +129,7 @@ test('only the operator of the authorization may ask, and bad input is refused',
 
 test('matching is untouched and the note is not stored', async () => {
   for (let i = 0; i < 4; i++) await understand('業務部');
-  assert.equal((await call('/api/directory/resolve', { nameZh: '劉慶龍' })).body.attemptsLeft, 3);
+  assert.equal((await call('/api/directory/resolve', { nameZh: '劉慶龍' })).body.attemptsLeft, MATCH_FAILURE_LIMIT);
   const text = await fs.readFile(path.join(dir, 'audit.json'), 'utf8');
   const reasons = new Set(JSON.parse(text).filter(event => event.type === 'MATCH_ATTEMPT').flatMap(event => event.reasons));
   assert.ok(reasons.has('MATCH_NOTE_MODEL'));

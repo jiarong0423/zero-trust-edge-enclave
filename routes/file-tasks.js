@@ -199,7 +199,7 @@ export function createFileTaskRoutes({ dataDir, tasksPath, packagesPath, auditsP
 
     // Recipient matching for the sender: the Chinese name first, the employee number second, and a
     // refusal otherwise (recipient-match.js). Fixed code only; the answer carries ids and the sender's
-    // own view of people already on this authorization, never anyone outside it. Three failures in a
+    // own view of people already on this authorization, never anyone outside it. Seven failures in a
     // row on one (sender, authorization) quarantine it until an administrator unlocks it.
     if (pathname === '/api/directory/resolve' && req.method === 'POST') {
       const input = await readBody(req);

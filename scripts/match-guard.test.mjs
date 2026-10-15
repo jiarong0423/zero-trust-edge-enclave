@@ -10,15 +10,15 @@ async function fresh() {
   return { dir, file: path.join(dir, 'match-guard.json') };
 }
 
-test('the limit is three and a missing file means nobody is counted', async () => {
-  assert.equal(MATCH_FAILURE_LIMIT, 3);
+test('the limit is seven and a missing file means nobody is counted', async () => {
+  assert.equal(MATCH_FAILURE_LIMIT, 7);
   const { file } = await fresh();
   const guard = createMatchGuard(file);
   assert.deepEqual(await guard.status('op', 'g'), { fails: 0, quarantined: false });
   assert.deepEqual(await guard.list(), []);
 });
 
-test('failures count per sender and authorization, the third quarantines, a success resets', async () => {
+test('failures count per sender and authorization, the last allowed one quarantines, a success resets', async () => {
   const { file } = await fresh();
   const guard = createMatchGuard(file);
   assert.deepEqual(await guard.record('op', 'g', false), { fails: 1, quarantined: false, justQuarantined: false });
@@ -27,17 +27,17 @@ test('failures count per sender and authorization, the third quarantines, a succ
   assert.deepEqual(await guard.record('op', 'g2', false), { fails: 1, quarantined: false, justQuarantined: false });
   assert.deepEqual(await guard.record('op', 'g', true), { fails: 0, quarantined: false, justQuarantined: false });
   assert.deepEqual(await guard.status('op', 'g'), { fails: 0, quarantined: false });
-  await guard.record('op', 'g', false); await guard.record('op', 'g', false);
-  assert.deepEqual(await guard.record('op', 'g', false), { fails: 3, quarantined: true, justQuarantined: true });
+  for (let i = 1; i < MATCH_FAILURE_LIMIT; i++) assert.equal((await guard.record('op', 'g', false)).quarantined, false);
+  assert.deepEqual(await guard.record('op', 'g', false), { fails: MATCH_FAILURE_LIMIT, quarantined: true, justQuarantined: true });
   // Once locked, neither a success nor another failure changes anything.
-  assert.deepEqual(await guard.record('op', 'g', true), { fails: 3, quarantined: true, justQuarantined: false });
-  assert.deepEqual(await guard.record('op', 'g', false), { fails: 3, quarantined: true, justQuarantined: false });
+  assert.deepEqual(await guard.record('op', 'g', true), { fails: MATCH_FAILURE_LIMIT, quarantined: true, justQuarantined: false });
+  assert.deepEqual(await guard.record('op', 'g', false), { fails: MATCH_FAILURE_LIMIT, quarantined: true, justQuarantined: false });
 });
 
 test('a new guard on the same file sees the lock, and unlock is the only way out', async () => {
   const { file } = await fresh();
   const first = createMatchGuard(file);
-  for (let i = 0; i < 3; i++) await first.record('op', 'g', false);
+  for (let i = 0; i < MATCH_FAILURE_LIMIT; i++) await first.record('op', 'g', false);
   const second = createMatchGuard(file);
   assert.equal((await second.status('op', 'g')).quarantined, true);
   assert.equal(await second.unlock('op', 'g'), true);

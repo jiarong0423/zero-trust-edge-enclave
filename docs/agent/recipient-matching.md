@@ -40,7 +40,7 @@ verified name: the checklist turns it into a question for the sender.
 | `GET /api/admin/match-guard` | administrator | lists senders and authorizations with a failure count or a lock |
 | `POST /api/admin/match-guard` | administrator | `{operatorId, authorizationId}` clears a lock |
 
-Three failed or ambiguous matches in a row on one (sender, authorization) lock it: `423 MATCH_QUARANTINED`
+Seven failed or ambiguous matches in a row on one (sender, authorization) lock it: `423 MATCH_QUARANTINED`
 until an administrator clears it. A success resets the count. The state is `match-guard.json` in the data
 directory, private to the owner; a file that exists but cannot be read stops matching.
 

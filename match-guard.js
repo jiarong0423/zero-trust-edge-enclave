@@ -10,7 +10,7 @@ import crypto from 'node:crypto';
 // The state lives in its own small file and is not part of the all-or-nothing array store: a data
 // directory made before this file existed keeps starting normally (a missing file means "no entries").
 // A file that exists but cannot be read or understood stops matching altogether (fail closed).
-export const MATCH_FAILURE_LIMIT = 3;
+export const MATCH_FAILURE_LIMIT = 7;
 const unavailable = () => Object.assign(new Error('MATCH_GUARD_UNAVAILABLE'), { status: 503 });
 const keyOf = (operatorId, grantId) => `${operatorId}|${grantId}`;
 
