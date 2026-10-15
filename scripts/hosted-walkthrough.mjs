@@ -136,6 +136,7 @@ export async function walkthrough({ origin, gate, tokens, phone, headless = fals
       must(await manager.waitFor(`document.querySelectorAll('#recipientList .recipient-row').length >= 2`, 15000), 'the recipient list did not load');
       const flagged = await manager.ev(`[...document.querySelectorAll('#recipientList .recipient-row')].filter(r => r.innerText.includes('劉文祥') && /Same name|同名/.test(r.innerText)).length`);
       must(flagged === 2, `expected two 劉文祥 rows with the same-name warning, found ${flagged}`);
+      await manager.ev(`document.getElementById('recipientList').scrollIntoView({ block: 'start' })`); await sleep(400);
       await manager.shot(path.join(shots, '03-same-name.png'));
       return 'two 劉文祥 with the warning';
     })) return finish();
@@ -152,6 +153,7 @@ export async function walkthrough({ origin, gate, tokens, phone, headless = fals
       must(/^[a-f0-9-]{36}$/.test(taskId) && version >= 1, 'the recipient link has no task id');
       write(`INFO delivery ${taskId} v${version}`);
       must(await manager.waitFor(`/DRY_RUN_PREPARED/.test(document.body.innerText)`, 30000), 'the delivery was not prepared');
+      await manager.ev(`document.getElementById('recipientLink').scrollIntoView({ block: 'center' })`); await sleep(400);
       await manager.shot(path.join(shots, '04-delivery-prepared.png'));
     })) return finish();
 
@@ -169,6 +171,28 @@ export async function walkthrough({ origin, gate, tokens, phone, headless = fals
       must(!trail.some(entry => entry.realValuesInInput !== 0), 'an adviser input carried a real identifier');
       must(source === expect, `the advice was answered by ${source || 'nobody'}, not ${expect}`);
       return `answered by ${source} (adviser calls=${trail.length}), no real identifier in any input`;
+    });
+
+    await step('the audit page shows what the model was given', async () => {
+      await manager.go(`${origin}/audit.html`);
+      await manager.waitFor(`!!document.querySelector('input[type=file][accept=".token"]')`, 10000);
+      await manager.setFile('input[type=file][accept=".token"]', tokens.file('manager-sender'));
+      must(await manager.waitFor(`/IDENTITY VERIFIED/.test(document.body.innerText)`, 15000), 'the manager token was not verified on the audit page');
+      await manager.ev(`document.getElementById('refreshBtn').click()`);
+      must(await manager.waitFor(`[...document.getElementById('evidenceTask').options].some(option => option.value === ${JSON.stringify(taskId)})`, 20000), 'the delivery is not in the audit list');
+      let shown = false;
+      for (let attempt = 0; attempt < 4 && !shown; attempt += 1) {   // the page reloads its list a moment after Refresh, which can clear a first click
+        await sleep(1500);
+        await manager.ev(`(() => { const box = document.getElementById('evidenceTask'); box.value = ${JSON.stringify(taskId)}; box.dispatchEvent(new Event('change', { bubbles: true })); })()`);
+        if (!await manager.waitFor(`!document.getElementById('evidenceBtn').disabled`, 10000)) continue;
+        await manager.ev(`document.getElementById('evidenceBtn').click()`);
+        shown = await manager.waitFor(`/taskAlias/.test(document.getElementById('evidenceChain').textContent)`, 8000);
+      }
+      if (!shown) { write(`INFO evidence status line: ${await manager.ev(`document.getElementById('evidenceStatus').innerText`)}; chain length ${await manager.ev(`document.getElementById('evidenceChain').textContent.length`)}`); await manager.shot(path.join(shots, '04b-evidence-problem.png')); }
+      must(shown, 'no evidence chain appeared');
+      await manager.ev(`(document.getElementById('evidenceChain').children[2] || document.getElementById('evidenceChain')).scrollIntoView({ block: 'start' })`); await sleep(500);
+      await manager.shot(path.join(shots, '04b-evidence-chain.png'));
+      return 'the five anonymous fields the model was given are listed';
     });
 
     // ----- the employee: the phone, or a second window
