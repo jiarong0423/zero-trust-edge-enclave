@@ -9,7 +9,7 @@ Updated: 2026-09-27 Asia/Taipei
 - Devpost organizer notice, 2026-10-15: the submission lacks the required access. The judge sign-in and tokens are in `ZTE-Judges.zip` under Devpost "Additional info", which the organizer did not find. To do on the Devpost form (not in this repository): put a "How to test (for judges)" block in the project description, with the demo URL, where the credentials are, the 5-minute path and the no-sign-in route (Run Locally). Step 2 of the path now reads: open the "Recipient link (send this to the employee)" under Package result.
 - Gate results, 2026-10-16: the repository secret audit (P0), the mutable-artifact audit and a scan of the whole Git history (157 commits, gitleaks) find nothing; the public list, the tracked files and the files on GitHub are the same 283. The release-boundary scan of the 283 public files reports BLOCKED with 5 HIGH, and they are wording heuristics, not secrets or private data: `README.md:13` and `docs/agent/dual-mode-edge.md:16` describe where an edge deployment would be reached, and three technical notes (`docs/agent/followup-prompt-profile-2026-10-08.md:55`, `docs/agent/nvidia-model-provenance.md:23`, `docs/compliance/ai-governance.md:173`) name the follow-up adviser's instruction text or quote the model card. **Owner decision, 2026-10-16: accept all five and keep the wording**, because each one describes this project's own design and none carries a secret, a private record or an instruction aimed at an agent. The 2026-09-27 line "release-boundary: PASS, findings 0" below is therefore out of date.
 - Tests: the full suite is 865 tests, all passing; `npm test` (one file) is 117.
-- Video: the 1:47 narrated recording of 2026-09-27 is still the one linked from README and Devpost. A new cut of at most 178 s (the Devpost limit is 3 minutes) exists locally, with narration being finalized, and has not been uploaded; when it is, the README "Demo video" line and the Devpost video link change together.
+- Video: the new cut (178 s, YouTube shows 2:59) was uploaded as public on 2026-10-16: https://youtu.be/1zP4q8UwYsw. README and the Devpost video link carry it. The earlier 1:47 recording (https://youtu.be/klBuNhS5eYM, 2026-09-27) is kept on the channel.
 - Manifest: 272 paths on GitHub; 277 locally (the recording tools and the new Swift pointer helper are added).
 
 ## Current Gate Status
@@ -47,7 +47,7 @@ high-entropy literal.
 | Track | Done (form) | Best Apps and Agents |
 | New or existing project | Done (form) | New; first commit 2026-09-07, after the 2026-08-26 start |
 | Platform feedback | Done | Answered in the Devpost form questions on models, Nebius capabilities, improvements and the Nemotron team |
-| Demo video URL | Done | https://youtu.be/klBuNhS5eYM, 1:47, public, narration covers how Token Factory is used; submitted 2026-09-27 ([record](docs/agent/submission-record-2026-09-27.md)) |
+| Demo video URL | Done | https://youtu.be/1zP4q8UwYsw, 178 s (YouTube shows 2:59), public, uploaded 2026-10-16; shows the real Token Factory call and the local-first cascade. Earlier recording: https://youtu.be/klBuNhS5eYM (1:47, 2026-09-27, [record](docs/agent/submission-record-2026-09-27.md)) |
 | Builders and Brews city | Done (form) | Taipei; attended 2026-09-19 |
 | Submitter type, country, declarations | Done (form) | Filled in the Devpost form |
 

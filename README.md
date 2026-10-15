@@ -17,7 +17,7 @@ Entry for the Nebius x NVIDIA Global AI Hackathon, track Best Apps and Agents. F
 
 ## Try It
 
-- **Demo video (1:47, an earlier recording):** https://youtu.be/klBuNhS5eYM. It predates the employee inbox, the role-separated pages and the same-name finder; the walkthrough below is current.
+- **Demo video (under 3 minutes):** https://youtu.be/1zP4q8UwYsw. It shows the same-name case, the local Nemotron Nano answering first and Nemotron Super on Token Factory taking over (a real call), the employee's phone inbox and the refusal of the other person. The earlier 1:47 recording of 2026-09-27 (https://youtu.be/klBuNhS5eYM) predates the inbox and the same-name finder.
 - **Hosted demo:** https://enclave.jace0423.com. The sender, audit and administration pages sit behind a judge sign-in; an employee who receives a file needs only their own token. The sign-in and the role tokens are given to judges privately and are never committed here.
 - **Walkthrough:** [docs/demo/README.md](docs/demo/README.md), step by step: the manager approves a delivery for one person, that employee finds it in their inbox on a phone and decrypts it, a colleague who is signed in but was not picked is refused, and the evidence chain shows exactly what the model was given and answered.
 - **Sample documents:** [docs/demo/samples/](docs/demo/samples/), three synthetic files (two PDFs and a CSV) that say so inside.
