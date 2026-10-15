@@ -60,7 +60,7 @@ The administration page (`/admin.html`) is for the owner only: the admin token i
 - **Two people with the same name: shown, but with a lock to know about.** The hosted directory has two employees named 劉文祥 (sales-a in the
   north, sales-b in the south) and one 劉慶龍. In the sender page's find box, type 劉文祥: both appear with a warning to check the employee number.
   Three failed or ambiguous matches in a row lock that sender for the authorization (`423 MATCH_QUARANTINED`), and only an administrator can clear
-  the lock through the API (there is no button for it); a successful match resets the count. The same finder, with the video's data, runs locally:
+  the lock through the API (there is no button for it; the owner uses `node scripts/hosted-match-guard.mjs --clear`); a successful match resets the count. The same finder, with the video's data, runs locally:
   `node scripts/demo-local-same-name.mjs`. Tests: `scripts/recipient-resolve-route.test.mjs`.
 - **Revoking a delivery from the page.** The sender page has no revoke button; revocation is an API call
   (`POST /api/tasks/<id>/revoke`) and a revoked delivery shows as *Revoked by the sender* in the inbox.
