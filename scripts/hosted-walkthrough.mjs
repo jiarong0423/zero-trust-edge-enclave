@@ -176,6 +176,9 @@ export async function walkthrough({ origin, gate, tokens, phone, headless = fals
     const link = `${origin}/decode.html?id=${taskId}&version=${version}`;
     if (!await step(phone ? 'the phone opens the recipient link' : 'a second window opens the recipient link', async () => {
       if (phone) {
+        const attached = execFileSync('adb', ['devices']).toString().split('\n').slice(1).filter(line => /\bdevice$/.test(line.trim()));
+        must(attached.length >= 1, 'no phone is attached to adb');
+        must(attached.length === 1 || process.env.ANDROID_SERIAL, `${attached.length} adb connections are open (for example USB and Wi-Fi to the same phone); run "adb disconnect <the Wi-Fi one>" or set ANDROID_SERIAL`);
         execFileSync('adb', ['forward', `tcp:${PHONE_CDP}`, 'localabstract:chrome_devtools_remote'], { stdio: 'ignore' });
         execFileSync('adb', ['shell', 'input', 'keyevent', 'KEYCODE_WAKEUP'], { stdio: 'ignore' });
         cleanups.push(() => execFileSync('adb', ['forward', '--remove-all'], { stdio: 'ignore' }));
