@@ -35,6 +35,17 @@ const FOLLOWUP_QUICK_RETRIES = 3;
 // Which outlet produced an answer or a failure. A symbol, so it is never read as an answer field
 // and never reaches the validator's key check; only these fixed labels are stored.
 export const ADVICE_SOURCE = Symbol('adviceSource');
+// The hosted or local model name that answered (or failed), as the outlet sent it. Stored only when it passes
+// normalizeAdviceModel, so a hand-edited record or a foreign string is shown as no model.
+export const ADVICE_MODEL = Symbol('adviceModel');
+// A model name only stands next to an outlet that has models; a fixture answer or an unknown outlet never carries one.
+const MODEL_SOURCES = new Set(['nebius_token_factory', 'local_openai_compatible']);
+export function adviceModelFor(source, model) {
+  return MODEL_SOURCES.has(normalizeAdviceSource(source)) ? normalizeAdviceModel(model) : null;
+}
+export function normalizeAdviceModel(model) {
+  return typeof model === 'string' && /^[A-Za-z0-9][A-Za-z0-9._\/-]{0,127}$/.test(model) ? model : null;
+}
 // Set on a failure that happened before any request left (outlet disabled or misconfigured,
 // metadata refused). Asking again cannot change the answer, so it is not retried.
 export const ADVICE_NO_RETRY = Symbol('adviceNoRetry');
@@ -65,12 +76,14 @@ export function storedCascade(source, cascade) {
 export function adviceOrigin(source, cascade) {
   return Object.freeze({ source, cascade: normalizeCascade(cascade) });
 }
-function recordAdvice(job, kind, input, outcome, now, origin) {
+function recordAdvice(job, kind, input, outcome, now, origin, model = null) {
   const { source, cascade } = origin && typeof origin === 'object' ? origin : { source: origin, cascade: null };
   const entry = { kind, input: structuredClone(input), at: new Date(now).toISOString(),
     source: normalizeAdviceSource(source) };
   const marker = storedCascade(source, cascade);
   if (marker) entry.cascade = marker;
+  const stored = MODEL_SOURCES.has(entry.source) ? normalizeAdviceModel(model) : null;
+  if (stored) entry.model = stored;
   if (outcome.answer) entry.answer = structuredClone(outcome.answer);
   else entry.refusal = { reasonCode: outcome.reasonCode,
     detail: outcome.detail === undefined ? null
@@ -116,7 +129,7 @@ export async function advanceFileJobs(original, config, now = Date.now(), advise
         if (error?.[ADVICE_NO_RETRY]) retryable = false;
         // Only the validator's own refusal text is kept; any other failure may carry foreign text.
         recordAdvice(job, 'route', metadata, { reasonCode: rejection, detail: error?.adviceRejected ? error.message : undefined }, now,
-          error?.[ADVICE_SOURCE]);
+          error?.[ADVICE_SOURCE], error?.[ADVICE_MODEL]);
         throw error;
       }
       rejection = 'ADVICE_INVALID';
@@ -124,10 +137,10 @@ export async function advanceFileJobs(original, config, now = Date.now(), advise
       try {
         advice = validateFileAdvice(suggestion, metadata);
       } catch (error) {
-        recordAdvice(job, 'route', metadata, { reasonCode: 'ADVICE_INVALID', detail: error?.message }, now, suggestion?.[ADVICE_SOURCE]);
+        recordAdvice(job, 'route', metadata, { reasonCode: 'ADVICE_INVALID', detail: error?.message }, now, suggestion?.[ADVICE_SOURCE], suggestion?.[ADVICE_MODEL]);
         throw error;
       }
-      recordAdvice(job, 'route', metadata, { answer: advice }, now, suggestion?.[ADVICE_SOURCE]);
+      recordAdvice(job, 'route', metadata, { answer: advice }, now, suggestion?.[ADVICE_SOURCE], suggestion?.[ADVICE_MODEL]);
       delete job.nextAdviceAt;
       delete job.adviceRetries;
       rejection = 'AUTHORIZATION_INVALID';
@@ -247,7 +260,7 @@ export async function advanceFollowups(original, config, now = Date.now(), advis
         if (error?.adviceRejected) rejection = 'ADVICE_INVALID';
         // Only the validator's own refusal text is kept; any other failure may carry foreign text.
         recordAdvice(job, 'followup', metadata, { reasonCode: rejection, detail: error?.adviceRejected ? error.message : undefined }, now,
-          error?.[ADVICE_SOURCE]);
+          error?.[ADVICE_SOURCE], error?.[ADVICE_MODEL]);
         throw error;
       }
       rejection = 'ADVICE_INVALID';
@@ -255,10 +268,10 @@ export async function advanceFollowups(original, config, now = Date.now(), advis
       try {
         advice = validateFollowupAdvice(suggestion, metadata);
       } catch (error) {
-        recordAdvice(job, 'followup', metadata, { reasonCode: 'ADVICE_INVALID', detail: error?.message }, now, suggestion?.[ADVICE_SOURCE]);
+        recordAdvice(job, 'followup', metadata, { reasonCode: 'ADVICE_INVALID', detail: error?.message }, now, suggestion?.[ADVICE_SOURCE], suggestion?.[ADVICE_MODEL]);
         throw error;
       }
-      recordAdvice(job, 'followup', metadata, { answer: advice }, now, suggestion?.[ADVICE_SOURCE]);
+      recordAdvice(job, 'followup', metadata, { answer: advice }, now, suggestion?.[ADVICE_SOURCE], suggestion?.[ADVICE_MODEL]);
       // Authority is reloaded after the adviser has spoken, exactly as the routing pass does: a
       // grant revoked while the request was in flight must stop the reminder it advised.
       rejection = 'AUTHORIZATION_INVALID';

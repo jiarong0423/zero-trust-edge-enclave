@@ -118,6 +118,7 @@ function render(evidence) {
     const clean = entry.realValuesInInput === 0;
     const row = element('div', 'evidence-call');
     const source = [t(own(SOURCE_LABELS, entry.source) || 'Outlet not recorded'),
+      ...(typeof entry.model === 'string' && entry.model ? [entry.model] : []),
       ...(entry.cascade && own(CASCADE_LABELS, entry.cascade.reason) ? [t(own(CASCADE_LABELS, entry.cascade.reason))] : [])].join(' · ');
     row.append(element('p', 'evidence-meta', `${t(entry.kind === 'route' ? 'Routing' : 'Follow-up')} · ${source} · ${when(entry.at)}`));
     row.append(json(entry.input));

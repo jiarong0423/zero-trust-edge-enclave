@@ -94,6 +94,7 @@ Hosted mode:
 | `COORDINATOR_PROVIDER` | `nebius` | Adviser calls go to Token Factory |
 | `LOCAL_ONLY` | `false` | Required; a key alone does not enable the outlet |
 | `NEBIUS_API_KEY` | set privately on the backend | Never committed, never sent to the loopback outlet |
+| `NEBIUS_MODEL_FOLLOWUP` | unset | Optional: another hosted model for the follow-up decision only (routing keeps `NEBIUS_MODEL`); see the Ultra measurement in `followup-adviser-comparison-2026-10-08.md`. |
 | `NEBIUS_BASE_URL`, `NEBIUS_MODEL` | defaults `https://api.tokenfactory.nebius.com/v1`, `nvidia/nemotron-3-super-120b-a12b` | Other values are refused by the outlet rule |
 | `NEBIUS_BUDGET_USD`, `NEBIUS_PRICE_INPUT_PER_M`, `NEBIUS_PRICE_OUTPUT_PER_M` | optional | Spending cap; see [Zeabur deployment](zeabur-deployment.md) |
 

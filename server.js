@@ -81,6 +81,9 @@ const nebiusBaseUrl = process.env.NEBIUS_BASE_URL || 'https://api.tokenfactory.n
 const localModelBaseUrl = process.env.LOCAL_MODEL_BASE_URL || 'http://127.0.0.1:1234/v1';
 const localModelName = process.env.LOCAL_MODEL_NAME || 'nvidia-nemotron-3-nano-4b';
 const nebiusModel = process.env.NEBIUS_MODEL || 'nvidia/nemotron-3-super-120b-a12b';
+// Optional: a different hosted model for the follow-up decision only (routing keeps nebiusModel). Unset by default.
+const nebiusFollowupModel = process.env.NEBIUS_MODEL_FOLLOWUP || null;
+if (nebiusFollowupModel) console.error(`WARN adviser follow-up decisions use ${nebiusFollowupModel}; the spending ledger counts every hosted call at the one NEBIUS_PRICE pair, so set that pair to the dearer of the two models`);
 const validatePolicy = policy => validatePolicyWithModel(policy, nebiusModel);
 const localOnly = process.env.LOCAL_ONLY !== 'false';
 const demoFallbackEnabled = process.env.DEMO_FALLBACK_ENABLED !== 'false';
@@ -126,7 +129,7 @@ const mcp = createMcpRoutes({ packagesPath, auditsPath, readJson, writeJson, app
   findPackage, approvedPackage, createSealedPackageRecord, performLocalDelivery, createTimedCredential });
 const packages = createPackageRoutes({ packagesPath, readJson, writeJson, appendAudit, auditRejection, readSignedCredential,
   createSealedPackageRecord, approvedPackage, createTimedCredential, evaluateDecodeAttempt });
-const fileAdviser = createFileAdviser({ nebiusBudget, localOnly, localModelBaseUrl, localModelName, nebiusBaseUrl, nebiusModel,
+const fileAdviser = createFileAdviser({ nebiusBudget, localOnly, localModelBaseUrl, localModelName, nebiusBaseUrl, nebiusModel, nebiusFollowupModel,
   legacyHostedAdviceOff });
 const coordinator = createCoordinatorRoutes({ tasksPath, packagesPath, readJson, fileAdviser, nebiusBudget, nebiusBaseUrl, nebiusModel,
   localOnly, legacyHostedAdviceOff, demoFallbackEnabled, validatePolicy, approvedPackage, performLocalDelivery });
@@ -141,6 +144,7 @@ async function routeApi(req, res, pathname) {
       nebiusConfigured: !localOnly && Boolean(process.env.NEBIUS_API_KEY),
       nebiusBaseUrl,
       nebiusModel,
+      nebiusFollowupModel,
       localOutletBaseUrl: localModelBaseUrl,
       localOutletModel: localModelName,
       demoFallbackEnabled,

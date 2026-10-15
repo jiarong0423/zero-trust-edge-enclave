@@ -28,6 +28,7 @@ or newer.
 | `NEBIUS_PRICE_INPUT_PER_M` / `NEBIUS_PRICE_OUTPUT_PER_M` | `0.30` / `0.90` | USD per million tokens. Input matches the owner's billing; output is set above the billed 0.80 so the cap trips early rather than late. A budget without prices counts as spent. |
 | `NEBIUS_BASE_URL` | `https://api.tokenfactory.nebius.com/v1` | The adviser refuses any other host. |
 | `NEBIUS_MODEL` | `nvidia/nemotron-3-super-120b-a12b` | Must start with `nvidia/` or the adviser refuses it. |
+| `NEBIUS_MODEL_FOLLOWUP` | unset | Optional. A different hosted model for the follow-up decision only; routing keeps `NEBIUS_MODEL`. Same `nvidia/` rule. The ledger counts every hosted call at the one price pair above, so when this is set to a dearer model, set the pair to the dearer model's prices. `/api/health` reports it as `nebiusFollowupModel`, and the evidence chain names the model that answered each call. |
 | `TOKEN_SIGNING_SECRET` | Zeabur secret | Signs timed decode credentials. |
 | `DEMO_FALLBACK_ENABLED` | `false` | The default is `true`, which returns a synthetic result carrying its own warning that it is not submission evidence. A demo should fail visibly instead of quietly serving that. The one exception is the spending-cap fallback, which the page labels. |
 | `NODE_ENV` | `production` | Makes `TOKEN_SIGNING_SECRET` mandatory, so credentials survive a restart. |

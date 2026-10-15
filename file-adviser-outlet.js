@@ -1,4 +1,4 @@
-import { ADVICE_SOURCE, ADVICE_NO_RETRY, adviceOrigin } from './file-worker.js';
+import { ADVICE_SOURCE, ADVICE_MODEL, ADVICE_NO_RETRY, adviceOrigin } from './file-worker.js';
 import { requestFileAdvice } from './file-adviser.js';
 
 const ADVISER_PRE_REQUEST_FAILURES = new Set(['FILE_ADVICE_KIND_UNKNOWN', 'FILE_METADATA_REJECTED',
@@ -72,7 +72,7 @@ const BUDGET_REFUSED = 'NEBIUS_BUDGET_EXHAUSTED';
 // deployment without a key takes, rather than pausing every delivery.
 // localRequest and hostedRequest are the transport for each outlet; they default to the global
 // fetch and exist so a test can answer both outlets without a network.
-export function createFileAdviser({ nebiusBudget, localOnly, localModelBaseUrl, localModelName, nebiusBaseUrl, nebiusModel,
+export function createFileAdviser({ nebiusBudget, localOnly, localModelBaseUrl, localModelName, nebiusBaseUrl, nebiusModel, nebiusFollowupModel = null,
   legacyHostedAdviceOff, localRequest, hostedRequest, cascadeDeadlineMs = CASCADE_DEADLINE_MS }) {
   const configured = process.env.COORDINATOR_PROVIDER;
   const startupProblem = cascadeStartupProblem(configured, localOnly, { legacyHostedAdviceOff, env: process.env,
@@ -89,9 +89,13 @@ export function createFileAdviser({ nebiusBudget, localOnly, localModelBaseUrl, 
   const sendLocal = localRequest || ((url, init) => fetch(url, init));
   const sendHosted = hostedRequest || ((url, init) => fetch(url, init));
 
-  const outletFor = provider => provider === LOCAL_OUTLET
+  // Which hosted model answers which decision. Routing always uses nebiusModel; the follow-up decision uses
+  // nebiusFollowupModel when one is configured (NEBIUS_MODEL_FOLLOWUP), so a deployment can put a larger
+  // model on the decision where the default prompt leaves a smaller one passive. Unset, both use nebiusModel.
+  const hostedModelFor = kind => (kind === 'followup' && nebiusFollowupModel) ? nebiusFollowupModel : nebiusModel;
+  const outletFor = (provider, kind) => provider === LOCAL_OUTLET
     ? { baseUrl: localModelBaseUrl, model: localModelName }
-    : { baseUrl: nebiusBaseUrl, model: nebiusModel, apiKey: process.env.NEBIUS_API_KEY };
+    : { baseUrl: nebiusBaseUrl, model: hostedModelFor(kind), apiKey: process.env.NEBIUS_API_KEY };
   // budgetRefusal, when given, learns whether the spending cap (rather than the network) refused the
   // request: requestFileAdvice folds every transport failure into one code, so the cap's own error is
   // only visible here.
@@ -108,7 +112,7 @@ export function createFileAdviser({ nebiusBudget, localOnly, localModelBaseUrl, 
   // One outlet, one call, one log line. cascade is the marker when this call is the second outlet of
   // a cascade; failureNote adds the cascade state to a failure line once the failure is classified.
   async function ask(provider, metadata, kind, { cascade = null, failureNote = null, timeoutMs, budgetRefusal } = {}) {
-    const outlet = outletFor(provider);
+    const outlet = outletFor(provider, kind);
     // One line per adviser call, so the operator can see which outlet and model answered and what it
     // proposed. It carries the action and reason code only: never the task alias or any identity.
     const model = provider === 'synthetic_fixture' ? '-' : outlet.model;
@@ -119,6 +123,7 @@ export function createFileAdviser({ nebiusBudget, localOnly, localModelBaseUrl, 
       console.log(`adviser ${kind} ${result.provider} ${model} ${Math.round(performance.now() - started)}ms ` +
         `${result.advice.action} ${result.advice.reasonCode}${cascade ? ` cascade=${cascade.reason}` : ''}`);
       result.advice[ADVICE_SOURCE] = cascade ? adviceOrigin(result.provider, cascade) : result.provider;
+      if (provider !== 'synthetic_fixture') result.advice[ADVICE_MODEL] = outlet.model;
       return result;
     } catch (error) {
       const note = failureNote ? failureNote(error) : '';
@@ -131,6 +136,7 @@ export function createFileAdviser({ nebiusBudget, localOnly, localModelBaseUrl, 
         else {
           const label = provider === 'nebius' ? 'nebius_token_factory' : provider;
           error[ADVICE_SOURCE] = cascade ? adviceOrigin(label, cascade) : label;
+          error[ADVICE_MODEL] = outlet.model;
         }
       }
       throw error;
@@ -160,12 +166,12 @@ export function createFileAdviser({ nebiusBudget, localOnly, localModelBaseUrl, 
     try {
       hostedProvider = (await nebiusBudget.exhausted()) ? 'synthetic_fixture' : 'nebius';
     } catch {
-      console.error(`ERROR adviser ${kind} nebius ${nebiusModel} 0ms NEBIUS_BUDGET_UNREADABLE cascade=${reason}`);
+      console.error(`ERROR adviser ${kind} nebius ${hostedModelFor(kind)} 0ms NEBIUS_BUDGET_UNREADABLE cascade=${reason}`);
       throw localError;
     }
     const remaining = Math.floor(deadlineAt - performance.now());
     if (hostedProvider === 'nebius' && remaining <= 0) {
-      console.error(`ERROR adviser ${kind} nebius ${nebiusModel} 0ms CASCADE_DEADLINE_SPENT cascade=${reason}`);
+      console.error(`ERROR adviser ${kind} nebius ${hostedModelFor(kind)} 0ms CASCADE_DEADLINE_SPENT cascade=${reason}`);
       throw localError;
     }
     const origin = { from: LOCAL_OUTLET, reason };

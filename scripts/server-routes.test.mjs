@@ -62,7 +62,8 @@ test('health is unauthenticated and reports the configured outlet', async () => 
   const health = await request('/api/health', undefined, null);
   assert.equal(health.status, 200);
   assert.deepEqual(keys(health.body), ['adviserProvider', 'demoFallbackEnabled', 'fileTaskLimit', 'legacyHostedAdviceOff', 'localOnly',
-    'localOutletBaseUrl', 'localOutletModel', 'nebiusBaseUrl', 'nebiusBudget', 'nebiusConfigured', 'nebiusModel', 'ok', 'project']);
+    'localOutletBaseUrl', 'localOutletModel', 'nebiusBaseUrl', 'nebiusBudget', 'nebiusConfigured', 'nebiusFollowupModel', 'nebiusModel', 'ok', 'project']);
+  assert.equal(health.body.nebiusFollowupModel, null, 'unset by default: both decisions use nebiusModel');
   assert.equal(health.body.ok, true);
   assert.equal(health.body.project, 'zero-trust-edge-enclave');
   assert.equal(health.body.localOnly, true);

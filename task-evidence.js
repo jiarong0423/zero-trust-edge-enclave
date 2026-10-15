@@ -1,5 +1,5 @@
 import { resolvePrivateRoute } from './private-mapping.js';
-import { normalizeAdviceSource, storedCascade } from './file-worker.js';
+import { normalizeAdviceSource, adviceModelFor, storedCascade } from './file-worker.js';
 
 /**
  * The sender's evidence chain for one delivery: what they approved, the private mapping that stands
@@ -43,6 +43,7 @@ export function taskEvidence(task, version = task.jobs.at(-1)?.version) {
   // value outside them is shown as no outlet, and a marker next to a local outlet is dropped.
   const trail = (job.adviceTrail || []).map(entry => ({ kind: entry.kind, at: entry.at, source: normalizeAdviceSource(entry.source),
     cascade: storedCascade(entry.source, entry.cascade),
+    model: adviceModelFor(entry.source, entry.model),
     input: entry.input, answer: entry.answer || null, refusal: entry.refusal || null,
     realValuesInInput: countRealValues(entry.input, real, content.channels) }));
   // Mapped back from the delivery fixed code actually prepared, not from the adviser's answer: a
