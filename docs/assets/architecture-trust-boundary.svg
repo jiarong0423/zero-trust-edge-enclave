@@ -2,6 +2,9 @@
   Zero-Trust Edge Enclave — architecture diagram
   Generated 2026-09-18, revised 2026-09-19 for the second adviser and 2026-09-25 for answer
   validation, the evidence trail, the audit log and the hosted demo's sign-in and spending cap.
+  Revised 2026-10-16: the judge sign-in is in front of the sender side only (the employee's phone
+  needs only its own token), the phone has an inbox, and the two models can run as an opt-in
+  cascade (local first, hosted only when the local call fails).
   Purpose: README and hackathon submission material.
   Sources of truth: audit-boundary.js (state allowlist), task-operations.js (resumable reason
   codes), file-routing.js and delivery-followup.js (the two five-field projections),
@@ -10,7 +13,7 @@
 -->
 <svg width="100%" viewBox="0 0 680 700" xmlns="http://www.w3.org/2000/svg" role="img">
   <title>Trust boundary: what each party can reach</title>
-  <desc>Three bands. Human devices hold plaintext; each signs in with its own token, and the hosted demo adds a judge sign-in in front. The backend inside the trust boundary holds the immutable snapshot, the private mapping, the key vault, the evidence trail, the hash-linked (unkeyed) audit log and the fixed-code gate, which validates every adviser answer and re-verifies authority before dispatch. The adviser model sits outside the boundary, connected only by dashed lines; the hosted Token Factory outlet is behind a spending cap.</desc>
+  <desc>Three bands. Human devices hold plaintext; each signs in with its own token, and the hosted demo adds a judge sign-in in front of the sender side only. The backend inside the trust boundary holds the immutable snapshot, the private mapping, the key vault, the evidence trail, the hash-linked (unkeyed) audit log and the fixed-code gate, which validates every adviser answer and re-verifies authority before dispatch. The adviser model sits outside the boundary, connected only by dashed lines; the hosted Token Factory outlet is behind a spending cap. The two models can run as an opt-in cascade: local first, hosted only when the local call fails.</desc>
   <style>
     text { font-family: -apple-system, "Helvetica Neue", Inter, system-ui, sans-serif; }
     .ts { font-size: 12px; fill: #5f5e5a; }
@@ -34,11 +37,11 @@
     <text class="ts" x="192" y="116" text-anchor="middle" dominant-baseline="central">Encrypt, confirm twice, open the evidence chain</text></g>
   <g><rect class="box" x="352" y="78" width="272" height="56" rx="8"/>
     <text class="th" x="488" y="96" text-anchor="middle" dominant-baseline="central">Recipient phone</text>
-    <text class="ts" x="488" y="116" text-anchor="middle" dominant-baseline="central">Authenticate, decrypt on device</text></g>
+    <text class="ts" x="488" y="116" text-anchor="middle" dominant-baseline="central">Inbox, authenticate, decrypt on device</text></g>
 
   <line x1="192" y1="155" x2="192" y2="190" class="arr" marker-end="url(#a)"/>
   <line x1="488" y1="190" x2="488" y2="155" class="arr" marker-end="url(#a)"/>
-  <text class="ts" x="340" y="176" text-anchor="middle">Own token each · hosted: judge sign-in first</text>
+  <text class="ts" x="340" y="176" text-anchor="middle">Own token each · judge sign-in: sender only</text>
 
   <g class="c-teal"><rect x="40" y="200" width="600" height="246" rx="20" stroke-width="0.5" stroke-dasharray="6 4"/>
     <text class="th" x="56" y="222" dominant-baseline="central">Inside the trust boundary — backend</text></g>
@@ -67,10 +70,10 @@
   <g class="c-purple"><rect x="40" y="496" width="600" height="184" rx="20" stroke-width="0.5" stroke-dasharray="6 4"/>
     <text class="th" x="56" y="518" dominant-baseline="central">Outside the boundary — adviser model, asked two separate questions</text></g>
   <g><rect class="box" x="56" y="534" width="568" height="130" rx="8"/>
-    <text class="th" x="340" y="552" text-anchor="middle" dominant-baseline="central">Nemotron | Nebius Token Factory or local loopback</text>
+    <text class="th" x="340" y="552" text-anchor="middle" dominant-baseline="central">Nemotron | local loopback, or Nebius Token Factory</text>
     <text class="ts" x="340" y="574" text-anchor="middle" dominant-baseline="central">Route: channels · state · attempts in — ROUTE or PAUSE out</text>
     <text class="ts" x="340" y="592" text-anchor="middle" dominant-baseline="central">Follow up: timeCode · nudgeCount · pickupCode in — WAIT, REMIND or ESCALATE out</text>
     <text class="ts" x="340" y="612" text-anchor="middle" dominant-baseline="central">Five anonymous fields in, four or five out. Output is data, never permission</text>
-    <text class="ts" x="340" y="632" text-anchor="middle" dominant-baseline="central">Hosted: Super 120B on Token Factory behind a spending cap · local: Nano 4B, reasoning off</text>
+    <text class="ts" x="340" y="632" text-anchor="middle" dominant-baseline="central">Local Nano 4B first; Super 120B on Token Factory (spending cap) only if it fails, opt-in</text>
     <text class="ts" x="340" y="650" text-anchor="middle" dominant-baseline="central">Unreachable: asked again, a bounded number of times; never a reason to act</text></g>
 </svg>
