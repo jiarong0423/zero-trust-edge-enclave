@@ -28,7 +28,7 @@ Two places where the wrong person seeing one document is the actual harm. A sale
 
 Organizations usually decide who may see one sensitive document through an access policy; NIST SP 800-53 control AC-3 describes this as the system enforcing the approvals the organization has granted ([AC-3, access enforcement](https://csf.tools/reference/nist-sp-800-53/r4/ac/ac-3/)). This prototype enforces that kind of rule for one document at a time: only the picked people can open it, and the record shows who did.
 
-It is a prototype built and tested with synthetic documents. It is not certified for medical use and is not meant for classified information.
+It is a prototype built and tested with synthetic documents. It is not certified for medical use and is not meant for classified information. It is meant to run on a host the organization controls (edge mode), which employees reach from their own phones through one private address or domain; the public demo is a hosted copy so that judges can try it. Each person keeps their own token file safe, as with any key.
 
 ## Why This Boundary
 
