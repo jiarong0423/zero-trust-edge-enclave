@@ -194,7 +194,7 @@ Version 2026-10-08. `npm test` runs one file, `scripts/local-workflow.test.mjs` 
 
 ## Architecture
 
-Three views, redrawn on 2026-09-25 against the code as it now stands. Each is drawn from the
+Three views, redrawn on 2026-09-25 against the code as it now stands (the trust-boundary view was updated on 2026-10-16: the evidence trail names the model, and a bottom band shows the edge host and the hosted demo). Each is drawn from the
 implementation, not from intent: the state names come from the audit allowlist in
 `audit-boundary.js`, the resumable reason codes from `task-operations.js`, the adviser projections
 from `file-routing.js` and `delivery-followup.js`, and the evidence chain from `task-evidence.js`.
