@@ -2,6 +2,7 @@
   Zero-Trust Edge Enclave — architecture diagram
   Generated 2026-09-18, revised 2026-09-19 for the delivery follow-up loop and 2026-09-25 for the
   adviser retry on PENDING_CHECK.
+  Revised 2026-10-16: a reminder is a prepared notice (sendsEmail is false), not a sent message.
   Purpose: README and hackathon submission material.
   Sources of truth: audit-boundary.js (state allowlist), task-operations.js (resumable reason
   codes), file-routing.js and delivery-followup.js (the two five-field projections),
@@ -77,7 +78,7 @@
     <text class="th" x="340" y="490" text-anchor="middle" dominant-baseline="central">Follow-up reconsideration — a second adviser, a second projection</text>
     <text class="ts" x="340" y="512" text-anchor="middle" dominant-baseline="central">In: taskAlias · snapshotVersion · timeCode · nudgeCount · pickupCode</text>
     <text class="ts" x="340" y="530" text-anchor="middle" dominant-baseline="central">Out: WAIT, REMIND or ESCALATE. The state does not move.</text>
-    <text class="ts" x="340" y="548" text-anchor="middle" dominant-baseline="central">A reminder reaches only those who have not collected, resolved by fixed code</text></g>
+    <text class="ts" x="340" y="548" text-anchor="middle" dominant-baseline="central">A reminder notice is prepared, not sent, only for those who have not collected</text></g>
 
   <line x1="452" y1="400" x2="466" y2="400" class="arr" marker-end="url(#a)"/>
   <path d="M596 400 L616 400 L616 300 L350 300" class="arr" marker-end="url(#a)"/>

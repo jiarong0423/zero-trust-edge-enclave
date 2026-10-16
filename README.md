@@ -180,7 +180,7 @@ expiry or authorize execution, and neither is told who the recipients are, how m
 how they are grouped. The follow-up projection is starved further still: `timeCode` is a countdown of
 how much of the task's own window is left, in words (`WINDOW_FULL`, `WINDOW_MOST`, `WINDOW_LITTLE`, `WINDOW_LAST`) rather than a time, so an identical value means a different hour on a two-day
 task and a two-month one, and `pickupCode` is `PICKUP_NONE`, `PICKUP_SOME` or `PICKUP_ALL`, never a
-count. Fixed code decides who a reminder reaches, resolving it from receipts the adviser never saw.
+count. Fixed code decides who a reminder notice is prepared for (the prototype prepares it and sends nothing), resolving it from receipts the adviser never saw.
 
 Real provider calls, input rejection and injected-output gate tests were recorded separately during
 development, including earlier failed calls and their successful retests. One earlier conclusion was

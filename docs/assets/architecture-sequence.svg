@@ -2,6 +2,7 @@
   Zero-Trust Edge Enclave — architecture diagram
   Generated 2026-09-18, revised 2026-09-19 for the delivery follow-up exchange and 2026-09-25 for
   answer validation, adviser retries, the evidence trail and the evidence chain.
+  Revised 2026-10-16: step 17 says the reminder is a prepared notice (sendsEmail is false), not a sent message.
   Purpose: README and hackathon submission material.
   Sources of truth: audit-boundary.js (state allowlist), task-operations.js (resumable reason
   codes), file-routing.js and delivery-followup.js (the two five-field projections),
@@ -76,7 +77,7 @@
   <line x1="504" y1="728" x2="232" y2="728" class="arr" stroke-dasharray="5 4" marker-end="url(#a)"/>
   <text class="ts" x="368" y="720" text-anchor="middle">16. WAIT, REMIND or ESCALATE</text>
   <line x1="232" y1="760" x2="612" y2="760" class="arr" marker-end="url(#a)"/>
-  <text class="ts" x="422" y="752" text-anchor="middle">17. Reminder, only to those who have not collected</text>
+  <text class="ts" x="422" y="752" text-anchor="middle">17. Reminder prepared, not sent, for those who have not collected</text>
   <line x1="96" y1="792" x2="232" y2="792" class="arr" marker-end="url(#a)"/>
   <text class="ts" x="164" y="784" text-anchor="middle">18. Poll every second</text>
   <line x1="232" y1="818" x2="96" y2="818" class="arr" stroke-dasharray="5 4" marker-end="url(#a)"/>
