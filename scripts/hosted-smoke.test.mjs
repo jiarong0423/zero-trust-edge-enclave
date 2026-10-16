@@ -25,7 +25,8 @@ async function run(command, args, env, cwd = root) {
   return { code, stdout, stderr, all: stdout + stderr };
 }
 
-const runSmoke = env => run(process.execPath, [smoke], { PATH: process.env.PATH, ...env });
+// Short request timeout: against a server that drops every connection, Node 20 waits for it instead of failing at once.
+const runSmoke = env => run(process.execPath, [smoke], { PATH: process.env.PATH, SMOKE_REQUEST_TIMEOUT_MS: '1500', ...env });
 
 async function businessRegistry(prefix) {
   const dir = await fs.mkdtemp(path.join(os.tmpdir(), prefix));

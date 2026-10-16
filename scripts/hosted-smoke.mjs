@@ -34,7 +34,8 @@ const PROVIDERS = ['nebius_token_factory', 'synthetic_fixture', 'local_openai_co
 export function providerLabel(configured) {
   return configured === 'nebius' ? 'nebius_token_factory' : configured;
 }
-const REQUEST_TIMEOUT_MS = 20_000;
+// A tuning knob for tests and slow links; an unusable value falls back to 20 s.
+const REQUEST_TIMEOUT_MS = (() => { const value = Number(process.env.SMOKE_REQUEST_TIMEOUT_MS); return Number.isInteger(value) && value >= 200 && value <= 60_000 ? value : 20_000; })();
 const POLL_LIMIT_MS = 60_000;
 const POLL_INTERVAL_MS = 1_000;
 const DELIVERY_DEADLINE_MS = 5 * 60_000;
@@ -125,12 +126,20 @@ export async function runSmoke(config, { out = line => writeOut(process.stdout, 
     if (token) headers.authorization = `Bearer ${token}`;
     if (ctx.cookie) headers.cookie = ctx.cookie;
     if (body !== undefined) headers['content-type'] = 'application/json';
-    const response = await fetch(origin + route, { method, headers, redirect: 'manual',
-      body: body === undefined ? undefined : JSON.stringify(body), signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS) });
-    const text = await response.text();
-    let json = null;
-    try { json = JSON.parse(text); } catch { json = null; }
-    return { status: response.status, json, setCookie: response.headers.getSetCookie?.() ?? [] };
+    // A timer that keeps the process alive: AbortSignal.timeout does not, and on Node 20 a fetch to a server that drops
+    // the connection can hang with nothing else running, so the script would exit 13 with no FAIL line.
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
+    try {
+      const response = await fetch(origin + route, { method, headers, redirect: 'manual',
+        body: body === undefined ? undefined : JSON.stringify(body), signal: controller.signal });
+      const text = await response.text();
+      let json = null;
+      try { json = JSON.parse(text); } catch { json = null; }
+      return { status: response.status, json, setCookie: response.headers.getSetCookie?.() ?? [] };
+    } finally {
+      clearTimeout(timer);
+    }
   }
   const describe = result => `HTTP ${result.status}${typeof result.json?.error === 'string' ? ` "${result.json.error.slice(0, 100)}"` : ''}`;
   const expectStatus = (result, status, label) => {
