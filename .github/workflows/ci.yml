@@ -4,7 +4,7 @@ name: tests
 # Two Node lines: the lowest the project supports (engines >= 20.11) and a current one.
 on:
   push:
-    branches: [main, ci-trial]
+    branches: [main]
   pull_request:
 
 permissions:
