@@ -8,6 +8,8 @@
   Revised again 2026-10-16: the evidence trail names the model that answered, and a bottom band shows
   the two places the same code runs (an edge host the organization controls, and the hosted demo copy
   that judges use). The judge sign-in label now says which pages it covers.
+  Revised 2026-10-22: the hosted demo copy runs on a self-hosted Coolify server behind Cloudflare
+  (it ran on Zeabur until then); the public address did not change.
   Purpose: README and hackathon submission material.
   Sources of truth: audit-boundary.js (state allowlist), task-operations.js (resumable reason
   codes), file-routing.js and delivery-followup.js (the two five-field projections),
@@ -16,7 +18,7 @@
 -->
 <svg width="100%" viewBox="0 0 680 816" xmlns="http://www.w3.org/2000/svg" role="img">
   <title>Trust boundary: what each party can reach</title>
-  <desc>Four bands. The bottom band shows the two places the same code runs: an edge host the organization controls, reached by phones through one private address with the local Nano model on loopback, and the hosted demo copy for judges on Zeabur with Super 120B on Token Factory behind a spending cap. The upper three bands: Human devices hold plaintext; each signs in with its own token, and the hosted demo adds a judge sign-in in front of the sender side only. The backend inside the trust boundary holds the immutable snapshot, the private mapping, the key vault, the evidence trail, the hash-linked (unkeyed) audit log and the fixed-code gate, which validates every adviser answer and re-verifies authority before dispatch. The adviser model sits outside the boundary, connected only by dashed lines; the hosted Token Factory outlet is behind a spending cap. The two models can run as an opt-in cascade: local first, hosted only when the local call fails.</desc>
+  <desc>Four bands. The bottom band shows the two places the same code runs: an edge host the organization controls, reached by phones through one private address with the local Nano model on loopback, and the hosted demo copy for judges on a self-hosted Coolify server behind Cloudflare with Super 120B on Token Factory behind a spending cap. The upper three bands: Human devices hold plaintext; each signs in with its own token, and the hosted demo adds a judge sign-in in front of the sender side only. The backend inside the trust boundary holds the immutable snapshot, the private mapping, the key vault, the evidence trail, the hash-linked (unkeyed) audit log and the fixed-code gate, which validates every adviser answer and re-verifies authority before dispatch. The adviser model sits outside the boundary, connected only by dashed lines; the hosted Token Factory outlet is behind a spending cap. The two models can run as an opt-in cascade: local first, hosted only when the local call fails.</desc>
   <style>
     text { font-family: -apple-system, "Helvetica Neue", Inter, system-ui, sans-serif; }
     .ts { font-size: 12px; fill: #5f5e5a; }
@@ -89,6 +91,6 @@
     <text class="ts" x="192" y="783" text-anchor="middle" dominant-baseline="central">Phones reach it; local Nano 4B on loopback</text></g>
   <g><rect class="box" x="352" y="730" width="272" height="64" rx="8"/>
     <text class="th" x="488" y="747" text-anchor="middle" dominant-baseline="central">Hosted demo: a copy for judges</text>
-    <text class="ts" x="488" y="766" text-anchor="middle" dominant-baseline="central">Zeabur; Super 120B on Token Factory, $20 cap</text>
+    <text class="ts" x="488" y="766" text-anchor="middle" dominant-baseline="central">Coolify; Super 120B on Token Factory, $20 cap</text>
     <text class="ts" x="488" y="783" text-anchor="middle" dominant-baseline="central">Employee side needs only its own token</text></g>
 </svg>

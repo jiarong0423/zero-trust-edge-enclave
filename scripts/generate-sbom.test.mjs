@@ -61,7 +61,7 @@ test('every package.json field that can pull in third-party code is checked, and
 test('the services the model components point at exist in the document', () => {
   const sbom = buildSbom({ commit: null });
   const refs = new Set((sbom.services || []).map(service => service['bom-ref']));
-  assert.ok(refs.has('service-nebius-token-factory') && refs.has('service-zeabur-hosting'));
+  assert.ok(refs.has('service-nebius-token-factory') && refs.has('service-coolify-hosting'));
   for (const component of sbom.components.filter(item => item.type === 'machine-learning-model')) {
     for (const property of component.properties || []) {
       const match = String(property.value).match(/service-[a-z-]+/);

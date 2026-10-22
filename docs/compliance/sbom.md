@@ -32,7 +32,7 @@ convention for the described product. The `components` array holds what it relie
 | `zte:baseCommit` | Generated from `git rev-parse HEAD` when run inside a git checkout; omitted otherwise |
 | Serial number and timestamp | Generated on every run (`randomUUID()`, `new Date()`), so two runs never produce identical bytes |
 | Model, runtime, test-tooling components, the built-in module list, the disclaimer | Hand-kept in the `TEMPLATE` constant of `scripts/generate-sbom.mjs` |
-| `services` (Nebius Token Factory, Zeabur) | Hand-kept in the `SERVICES` constant of `scripts/generate-sbom.mjs` |
+| `services` (Nebius Token Factory, Coolify hosting) | Hand-kept in the `SERVICES` constant of `scripts/generate-sbom.mjs` |
 | Signature, vulnerability data, weight hashes, model licences | Not present anywhere |
 
 ## Components In The Generated Document
@@ -49,7 +49,7 @@ convention for the described product. The `components` array holds what it relie
 | `mermaid-diagram-tooling` | library | excluded | Supplied through `MERMAID_DIST` for `scripts/render-architecture.mjs`; version not recorded |
 
 Services listed (CycloneDX `services`, hand-kept in `SERVICES`): `service-nebius-token-factory` (the only Nebius service the project
-uses, `README.md`) and `service-zeabur-hosting` (the hosted demo platform). The `zte:access` property of the hosted model component names
+uses, `README.md`) and `service-coolify-hosting` (the hosted demo platform: a self-hosted Coolify server behind Cloudflare, Zeabur until 2026-10-22). The `zte:access` property of the hosted model component names
 `service-nebius-token-factory`; `scripts/generate-sbom.test.mjs` test "the services the model components point at exist in the document" checks that every
 `service-...` reference resolves.
 
@@ -84,5 +84,5 @@ prints nothing; `--check` prints `sbom check ok: zero third-party packages decla
   says so). A bundled toolchain would need its own review.
 - **GAP:** no check validates the file against the CycloneDX 1.5 JSON schema in this repository; only
   JSON well-formedness is tested (`scripts/generate-sbom.test.mjs` test "the document is valid JSON on the command line").
-- The hosted instance runs on a platform this repository does not control (Zeabur); its base image and
-  Node.js release are not recorded.
+- The hosted instance runs on a self-hosted Coolify server outside this repository (Zeabur until 2026-10-22); its base image and
+  Node.js release are not recorded here.

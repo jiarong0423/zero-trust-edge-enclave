@@ -265,9 +265,9 @@ const SERVICES = [
   { 'bom-ref': 'service-nebius-token-factory', name: 'Nebius Token Factory', provider: { name: 'Nebius' },
     endpoints: ['https://api.tokenfactory.nebius.com/v1'], authenticated: true, 'x-trust-boundary': true,
     description: 'Hosted OpenAI-compatible inference API used only in hosted mode (COORDINATOR_PROVIDER=nebius, LOCAL_ONLY=false, a key present). The adviser outlet accepts no other host.' },
-  { 'bom-ref': 'service-zeabur-hosting', name: 'Zeabur', provider: { name: 'Zeabur' },
+  { 'bom-ref': 'service-coolify-hosting', name: 'Coolify (self-hosted)', provider: { name: 'Project owner' },
     endpoints: ['https://enclave.jace0423.com'], authenticated: true,
-    description: 'Hosts the judge demo instance only; it is not Nebius compute and is not part of the application.' },
+    description: 'Hosts the judge demo instance only, behind a Cloudflare Worker (Zeabur until 2026-10-22); it is not Nebius compute and is not part of the application.' },
 ];
 
 export function buildSbom({ packageJsonPath = process.env.SBOM_PACKAGE_JSON || path.join(root, 'package.json'), now = new Date(), commit } = {}) {

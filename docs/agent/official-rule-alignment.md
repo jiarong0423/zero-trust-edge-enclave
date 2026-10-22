@@ -18,7 +18,7 @@ The official page was read again on 2026-10-08. No required item changed since 2
 The rules and overview pages were read again on 2026-09-24.
 
 - The overview's submission list asks for a "Working demo URL (except Physical AI submissions)". The rules accept "a working demo, hosted application, or test build". The stricter reading is followed: a hosted instance is deployed at `https://zero-trust-edge-enclave.zeabur.app`.
-- The rules define running on Token Factory as a runtime call to its inference API. The hosted instance makes those calls with the owner's key, under a USD 20 spending cap; Zeabur itself is not Nebius compute and is not claimed as such.
+- The rules define running on Token Factory as a runtime call to its inference API. The hosted instance makes those calls with the owner's key, under a USD 20 spending cap; the hosting platform (Zeabur until 2026-10-22, a self-hosted Coolify server since) is not Nebius compute and is not claimed as such.
 - Free judge access is provided without organizer input: a judge sign-in in front of the site, and per-role tokens behind it, both given in the file uploaded privately with the submission (the form has no testing-instructions field). The earlier organizer question below no longer blocks submission.
 - The overview asks for a demo video "with audio covering how you used Nebius Token Factory". Narration is therefore required, not only recommended.
 
