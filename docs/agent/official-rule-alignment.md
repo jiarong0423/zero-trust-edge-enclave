@@ -91,6 +91,10 @@ Project alignment:
 
 Status: aligned on 2026-09-24. Hosted instance at `https://zero-trust-edge-enclave.zeabur.app`, behind a judge sign-in, with grants valid to 2026-12-16.
 
+Status update 2026-10-22: the public address `https://enclave.jace0423.com` is unchanged; behind it the edge now forwards to a
+Coolify instance of the same commit on a patched Node 22 (see [Zeabur deployment](zeabur-deployment.md), "The public address and
+the edge"). The Zeabur address still answers 307 to the public address.
+
 ## Demo Video Requirement
 
 Official requirement:

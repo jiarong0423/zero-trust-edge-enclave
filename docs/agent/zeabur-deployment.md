@@ -1,8 +1,12 @@
 # Zeabur Deployment
 
-Written 2026-09-18, revised 2026-09-24. Modelled on the Shared Room MCP deployment already running
-on Zeabur. Status: deployed on 2026-09-24 and now served at `https://enclave.jace0423.com` (the earlier
+Written 2026-09-18, revised 2026-09-24 and 2026-10-22. Modelled on the Shared Room MCP deployment already running
+on Zeabur. Status: deployed on 2026-09-24 and served at `https://enclave.jace0423.com` (the earlier
 `zero-trust-edge-enclave.zeabur.app` answers 307 to it), with a Token Factory key, a spending cap and a judge sign-in.
+
+Since 2026-10-22 the edge forwards to a second instance of the same commit on a self-hosted Coolify server
+(`enclave-new.jace0423.com`, Node 22 with the October 2026 security fixes), not to the Zeabur service; see
+"The public address and the edge" below. The variables and procedures in this document apply to both instances.
 
 ## What Zeabur Runs
 
@@ -145,9 +149,13 @@ SMOKE_EXPECT_PROVIDER=nebius_token_factory node scripts/hosted-smoke.mjs
 
 The site is reached at https://enclave.jace0423.com, a Cloudflare Worker (`deploy/cloudflare-edge/`) that forwards to this service's
 platform address and adds the visitor's real address behind a shared secret (see SECURITY.md, "Client addresses behind an edge").
-The platform address `zero-trust-edge-enclave.zeabur.app` stays as the Worker's origin; with `REQUIRE_EDGE=true` and
-`EDGE_REDIRECT_TO`, links that still carry it are sent on to the public address. To roll back, unset `REQUIRE_EDGE` and
-`EDGE_REDIRECT_TO`: both addresses then serve directly.
+The Worker's origin is set by `ORIGIN_HOST` in `deploy/cloudflare-edge/wrangler.toml`. Until 2026-10-22 it was the platform
+address `zero-trust-edge-enclave.zeabur.app`; since then it is `enclave-new.jace0423.com`, the Coolify instance of the same
+commit, moved because the Zeabur build ran a Node.js from before the October 2026 security releases (CVE-2026-111497 and the
+TLS hostname checks) and the Zeabur service, deployed by upload rather than from GitHub, could not be rebuilt in place. Both
+instances hold the same `EDGE_SECRET`, `REQUIRE_EDGE=true` and `EDGE_REDIRECT_TO`, so links that still carry either platform
+address are sent on to the public address. To change the origin, edit `ORIGIN_HOST` and run `npx wrangler deploy` from
+`deploy/cloudflare-edge/`; to roll back to direct serving, unset `REQUIRE_EDGE` and `EDGE_REDIRECT_TO` on the instance.
 
 ## Extending the authorizations
 
