@@ -4,8 +4,9 @@ A step-by-step walkthrough of the judging instance at
 https://enclave.jace0423.com, using the three synthetic documents in
 [`samples/`](samples/). Every document is synthetic and says so inside; none holds real data.
 
-**Credentials are not in this repository.** The site sign-in and the role tokens are given
-to the judges privately. A public repository must not carry them: anyone holding them could
+**Credentials are not in this repository.** The site sign-in and the role tokens are in
+`ZTE-Judges.zip` under "Additional info" on the Devpost submission (open `README.txt` first).
+A public repository must not carry them: anyone holding them could
 use the instance and its Token Factory budget.
 
 | File | Use |

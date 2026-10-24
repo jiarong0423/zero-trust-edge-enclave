@@ -18,7 +18,7 @@ Entry for the Nebius x NVIDIA Global AI Hackathon, track Best Apps and Agents. F
 ## Try It
 
 - **Demo video (under 3 minutes):** https://youtu.be/1zP4q8UwYsw. It shows the same-name case, the local Nemotron Nano answering first and Nemotron Super on Token Factory taking over (a real call), the employee's phone inbox and the refusal of the other person. The earlier 1:47 recording of 2026-09-27 (https://youtu.be/klBuNhS5eYM) predates the inbox and the same-name finder.
-- **Hosted demo:** https://enclave.jace0423.com. The sender, audit and administration pages sit behind a judge sign-in; an employee who receives a file needs only their own token. The sign-in and the role tokens are given to judges privately and are never committed here.
+- **Hosted demo:** https://enclave.jace0423.com. The sender, audit and administration pages sit behind a judge sign-in; an employee who receives a file needs only their own token. Judges find the sign-in and the role tokens in `ZTE-Judges.zip` under "Additional info" on the Devpost submission; they are never committed here. Without them, use [Run Locally](#run-locally), which needs no key.
 - **Walkthrough:** [docs/demo/README.md](docs/demo/README.md), step by step: the manager approves a delivery for one person, that employee finds it in their inbox on a phone and decrypts it, a colleague who is signed in but was not picked is refused, and the evidence chain shows exactly what the model was given and answered.
 - **Sample documents:** [docs/demo/samples/](docs/demo/samples/), three synthetic files (two PDFs and a CSV) that say so inside.
 
@@ -123,8 +123,8 @@ That rule is where the two outlets stop being interchangeable. The Token Factory
 `nvidia/`. The local outlet accepts loopback hosts only, because a non-loopback host would make an
 external call wearing a local name. It also asks for the schema differently: the runtime rejects
 `json_object` and takes `json_schema`. On the runtime measured 2026-09-18 the constraint was what
-stopped the model reasoning aloud before it answered. Unconstrained, Nemotron Nano spends 500 to 1000 tokens deliberating and takes 8
-to 36 seconds; constrained, it answers in 64 to 73 tokens and under 4.2 seconds. Since 2026-09-24
+stopped the model reasoning aloud before it answered. Unconstrained, Nemotron Nano spends 645 to 1089 completion tokens (511 to 1016 of them reasoning) and takes 8.4
+to 35.7 seconds; constrained, it answers in 64 to 73 tokens in 3.7 to 4.1 seconds. Since 2026-09-24
 LM Studio applies the schema only after reasoning, so the local outlet now also sends
 `reasoning_effort: "none"` and temperature 0: 0 reasoning tokens, 40 of 40 accepted at 2.3 to 2.7
 seconds per call.
@@ -190,7 +190,7 @@ into `reasoning_content` while `content` is left empty. A client reading only `c
 empty success. None of these results prove superiority to deterministic routing, general injection
 resistance, or compatibility with an untested local runtime.
 
-Version 2026-10-08. `npm test` runs one file, `scripts/local-workflow.test.mjs` (117 tests). The full suite is `node --test scripts/*.test.mjs` (see the test count in the Proof line at the top).
+`npm test` runs one file, `scripts/local-workflow.test.mjs` (117 tests). The full suite is `npm run test:all` (see the test count in the Proof line at the top).
 
 ## Architecture
 
@@ -237,11 +237,11 @@ Backend storage includes ciphertext AND wrapped keys. The key service shares the
 ```bash
 npm run check
 npm test
-node --test scripts/*.test.mjs
+npm run test:all
 node scripts/generate-business-fixtures.mjs
 ```
 
-`npm run check` syntax-checks every JavaScript file in the repository (`scripts/check-syntax.mjs`). It does not run any test. `npm test` runs only `scripts/local-workflow.test.mjs`; the full suite is `node --test scripts/*.test.mjs`.
+`npm run check` syntax-checks every JavaScript file in the repository (`scripts/check-syntax.mjs`). It does not run any test. `npm test` runs only `scripts/local-workflow.test.mjs`; the full suite is `npm run test:all`, which GitHub Actions also runs (it works on Node 20, where `node --test` does not expand the `scripts/*.test.mjs` pattern).
 
 Tests use isolated synthetic stores and no provider requests. The fixture generator creates synthetic CSV and native-document source data, never reads user documents, and refuses differing existing outputs. Optional native rendering/browser testing is documented in [local workflow](docs/agent/local-workflow.md).
 
@@ -251,4 +251,4 @@ Email remains dry-run. No enterprise identity, malware inspection of ciphertext,
 
 [Security](SECURITY.md) | [Threat model](THREAT_MODEL.md) | [Release review](docs/agent/security-gate-summary.md) | [Export manifest](public-export-manifest.md)
 
-A hosted instance for judges runs at https://enclave.jace0423.com (a small Cloudflare Worker in front of it passes each visitor's real address to the server, so one visitor's failed attempts do not count against everyone; see `deploy/cloudflare-edge/` and SECURITY.md). The sender, audit and administration pages are behind a judge sign-in; an employee needs only their own token. The sign-in and the role tokens are given to judges privately, and the walkthrough is in [docs/demo/README.md](docs/demo/README.md). See [Zeabur deployment](docs/agent/zeabur-deployment.md); since 2026-10-22 the edge forwards to a Coolify instance of the same commit on a patched Node 22, as that document records.
+A hosted instance for judges runs at https://enclave.jace0423.com (a small Cloudflare Worker in front of it passes each visitor's real address to the server, so one visitor's failed attempts do not count against everyone; see `deploy/cloudflare-edge/` and SECURITY.md). The sender, audit and administration pages are behind a judge sign-in; an employee needs only their own token. The sign-in and the role tokens are in `ZTE-Judges.zip` under "Additional info" on the Devpost submission, and the walkthrough is in [docs/demo/README.md](docs/demo/README.md). See [Zeabur deployment](docs/agent/zeabur-deployment.md); since 2026-10-22 the edge forwards to a Coolify instance of the same commit on a patched Node 22, as that document records.
