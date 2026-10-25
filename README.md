@@ -1,6 +1,6 @@
 # Zero-Trust Edge Enclave
 
-MIT-licensed local hackathon prototype for encrypted document handoff with a restricted AI adviser. Extracted from the Shared Room MCP direction; not a production security certification.
+MIT-licensed local hackathon prototype for encrypted document handoff with a restricted AI adviser. It grew out of the idea behind my earlier Shared Room MCP project; this repository was started on 2026-09-07 as a new codebase. Not a production security certification.
 
 Entry for the Nebius x NVIDIA Global AI Hackathon, track Best Apps and Agents. First commit 2026-09-07, after the hackathon opened on 2026-08-26. The Nemotron models are used through Nebius Token Factory and, locally, through an OpenAI-compatible runtime, under the NVIDIA Nemotron Open Model License; they are not bundled here. The Token Factory runtime call is `requestFileAdvice` in `file-adviser.js` (POST `/v1/chat/completions`).
 

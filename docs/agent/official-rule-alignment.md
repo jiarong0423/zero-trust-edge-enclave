@@ -147,8 +147,8 @@ Official requirement:
 
 Project alignment:
 
-- This is a new independent repo extracted from the older Shared Room MCP direction.
-- README already states that this is a new hackathon-oriented framework extracted from the Shared Room MCP direction.
+- This is a new independent repo that grew out of the idea behind the older Shared Room MCP project; it was started on 2026-09-07 as a new codebase.
+- README states that this is a new codebase that grew out of the Shared Room MCP idea.
 
 Status: submitted 2026-09-27 as a new project (first commit 2026-09-07, after the 2026-08-26 start), with the Shared Room MCP origin stated in the README. A new repository name alone does not establish a new project; the commit dates do.
 
