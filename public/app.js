@@ -18,11 +18,11 @@ async function showModelRuntime() {
     const cascade = cascadeState(health);
     const tokenFactory = health.adviserProvider === 'nebius' && health.nebiusConfigured && !health.localOnly
       && !health.nebiusBudget?.exhausted;
-    setText(view, local ? 'Local model outlet configured; successful model call not verified'
-      : cascade === 'ready' ? 'Cascade outlet configured (local model first, Token Factory only if it fails); successful model call not verified'
+    setText(view, local ? 'Local model outlet configured'
+      : cascade === 'ready' ? 'Cascade outlet configured (local model first, Token Factory only if it fails)'
       : cascade === 'budget_spent' ? 'Cascade outlet: local model first; Token Factory budget spent, a local failure is answered by the synthetic adviser'
       : cascade === 'no_key' ? 'Cascade outlet without a Token Factory key: only the local model is called; if it fails the task is retried, then paused'
-      : tokenFactory ? 'Provider configured; successful model call not verified'
+      : tokenFactory ? 'Provider configured'
       : health.nebiusBudget?.exhausted ? 'Token Factory budget spent; synthetic adviser, no real model call'
       : 'Local simulation; no real model call');
     const model = local || cascade ? health.localOutletModel : tokenFactory ? health.nebiusModel : null;
