@@ -1,17 +1,17 @@
 # Zero-Trust Edge Enclave
 
-MIT-licensed local hackathon prototype for encrypted document handoff with a restricted AI adviser. It grew out of the idea behind my earlier Shared Room MCP project; this repository was started on 2026-09-07 as a new codebase. Not a production security certification.
+MIT-licensed local hackathon prototype for encrypted document handoff with a restricted AI adviser. It grew out of the idea behind my earlier Shared Room MCP project; this repository was started on 2026-09-07 as a new codebase. It is measured rather than certified: the 872 tests and the model comparisons below can be rerun from this tree; no production security certification is claimed.
 
 Entry for the Nebius x NVIDIA Global AI Hackathon, track Best Apps and Agents. First commit 2026-09-07, after the hackathon opened on 2026-08-26. The Nemotron models are used through Nebius Token Factory and, locally, through an OpenAI-compatible runtime, under the NVIDIA Nemotron Open Model License; they are not bundled here. The Token Factory runtime call is `requestFileAdvice` in `file-adviser.js` (POST `/v1/chat/completions`).
 
 **At a glance**
 
-- What it is: encrypted document handoff in which a restricted AI adviser only proposes routing and follow-up; fixed code verifies and executes. A prototype, not a certified deployment.
+- What it is: encrypted document handoff in which a restricted AI adviser only proposes routing and follow-up; fixed code verifies and executes. A prototype whose claims are the tests and measurements below, which a judge can rerun; it is not a certified deployment.
 - Two roles, kept apart: a **manager** (sender) on a computer chooses a file and an approved recipient list and confirms twice; an **employee** (recipient) on a phone, from anywhere, opens their **inbox** or the link with only their own token and receives the file decrypted in the browser. The interface shows each role only its own pages (the server enforces roles on every API call), and the employee never meets the hosted demo's shared judge sign-in. Two people can share a name: on the local build the sender tells them apart by employee number (the hosted directory also has two employees named 劉文祥 and one 劉慶龍, so the finder works there too; see the [hosted demo guide](docs/demo/README.md)).
-- Two modes, one contract: **edge** (Nemotron 3 Nano 4B on the same machine behind a loopback-only runtime: `LOCAL_ONLY=true`, `COORDINATOR_PROVIDER=local_openai_compatible`) and **hosted** (Nemotron 3 Super 120B on Nebius Token Factory). Switching is configuration, and there is no automatic fallback between them; an explicit, opt-in third value (`COORDINATOR_PROVIDER=local_then_nebius`, default off) asks the local model first and the hosted model only after a local failure, see [cascade outlet](docs/agent/cascade-outlet.md). The edge mode targets organisations that keep files inside a private network; that is a design goal, not a deployment.
+- Two modes, one contract: **edge** (Nemotron 3 Nano 4B on the same machine behind a loopback-only runtime: `LOCAL_ONLY=true`, `COORDINATOR_PROVIDER=local_openai_compatible`) and **hosted** (Nemotron 3 Super 120B on Nebius Token Factory). Switching is configuration, and there is no automatic fallback between them; an explicit, opt-in third value (`COORDINATOR_PROVIDER=local_then_nebius`, default off) asks the local model first and the hosted model only after a local failure, see [cascade outlet](docs/agent/cascade-outlet.md). The edge mode targets organisations that keep files inside a private network; that is the design goal, and what has actually been run is listed in the next point.
 - In the file workflow the adviser sees five pseudonymous fields per decision and never the document, the recipient, the address or the key. Two legacy compatibility paths send more to the hosted model (see "Scope of the five-field promise" below); `LEGACY_HOSTED_ADVICE=off` keeps them local.
-- Edge mode has been run on a Mac mini (Apple M2 Pro, 16 GB) with LM Studio, the kind of small always-on host it targets: models and data stay on that host and users reach it through one private address or domain. It has not been run on NVIDIA edge hardware (Jetson, DGX Spark).
-- Proof: 872 tests in the full suite (`npm run test:all`; GitHub Actions runs it on Node 20 and 22 on every push), and a measured comparison of both models on the same inputs: [follow-up comparison](docs/agent/followup-adviser-comparison-2026-10-08.md). 12 of its 36 inputs (everything already collected) are never sent to a model in the product, so read it on the other 24. With the opt-in `FOLLOWUP_PROMPT=directive` profile both models mostly act instead of waiting on those 24 inputs (Nano 4B on 16, Super 120B on 20; single runs, tuned on the same inputs; see [prompt profile](docs/agent/followup-prompt-profile-2026-10-08.md)).
+- Edge mode has been run on a Mac mini (Apple M2 Pro, 16 GB) with LM Studio, the kind of small always-on host it targets: models and data stay on that host and users reach it through one private address or domain. The local figures in this README come from that Mac mini; it has not been run on NVIDIA edge hardware (Jetson, DGX Spark), and a judge with such a device can repeat the same measurement by pointing `LOCAL_MODEL_BASE_URL` at a loopback runtime there.
+- Proof: 872 tests in the full suite (`npm run test:all`; GitHub Actions runs it on Node 20 and 22 on every push, where 866 pass and 6 are skipped: the demo-video composition tests in `scripts/compose-demo-video.test.mjs` are gated on `ffmpeg`, which the runner does not have; with `ffmpeg` installed all 872 run and pass), and a measured comparison of both models on the same inputs: [follow-up comparison](docs/agent/followup-adviser-comparison-2026-10-08.md). 12 of its 36 inputs (everything already collected) are never sent to a model in the product, so read it on the other 24. With the opt-in `FOLLOWUP_PROMPT=directive` profile both models mostly act instead of waiting on those 24 inputs (Nano 4B on 16, Super 120B on 20; single runs, tuned on the same inputs; see [prompt profile](docs/agent/followup-prompt-profile-2026-10-08.md)).
 - Optional, all off by default: [OIDC single sign-on](docs/agent/sso.md) (tested against a mock identity provider and once against a local Keycloak over loopback http), [signed webhook notices](docs/agent/webhook-notices.md) (link only, no recipients), a failure-driven [local-then-hosted cascade](docs/agent/cascade-outlet.md), and [tooling for human ground-truth labels](docs/agent/human-labels.md) (the labels themselves are the owner's, none exist yet). Each had a red-team pass; the open limits are listed in its document.
 - Details: [dual-mode edge](docs/agent/dual-mode-edge.md), [private-network deployment](docs/agent/private-network-deployment.md), [enterprise control mapping and evidence index](docs/compliance/README.md) (a mapping, not a certification), [model provenance](docs/agent/nvidia-model-provenance.md), [server split plan](docs/agent/server-split-plan.md).
 
@@ -64,8 +64,9 @@ snapshot version, channel allowlist, expiry and retry budget on every dispatch, 
 whole workflow completes with `COORDINATOR_PROVIDER=synthetic_fixture` and no model at
 all.
 
-Limits: this is a prototype (local, plus one hosted demo instance), not a certified deployment. There is no independent
-KMS or TEE. The five metadata fields do reach Nebius Token Factory; only the document
+Limits: this is a prototype (local, plus one hosted demo instance) whose boundary is checked by its tests, not by a
+certification. Keys live in the application process (`local-key-vault.js`); there is no independent KMS or TEE. The five
+metadata fields do reach Nebius Token Factory, and the audit page shows each call's exact payload; only the document
 content, recipient identity, address and keys are kept inside the boundary.
 
 ## Current Workflow
@@ -75,7 +76,7 @@ content, recipient identity, address and keys are kept inside the boundary.
 3. Review department-filtered recipients and channels. Confirm twice against the same immutable snapshot; changes require fresh confirmation.
 4. A backend worker prepares simulated email notices with bounded retries. AI advice passes fixed authorization checks.
 5. The authenticated recipient obtains ciphertext and a separate short-lived, one-use key ticket, decrypts in the browser and downloads the original file.
-6. Receipt reports distinguish verification, download request and acknowledgement. None proves reading or legally effective delivery.
+6. Receipt reports distinguish verification, download request and acknowledgement. Each is a recorded server event that a judge can read on the audit page; none proves reading or legally effective delivery.
 
 The SOC audit page also shows each delivery's evidence chain to its sender: what was approved, the
 private mapping, exactly what every adviser call was given (stored at the time of the call, with a
@@ -187,8 +188,10 @@ development, including earlier failed calls and their successful retests. One ea
 wrong and is corrected here rather than quietly dropped: constrained decoding on the local runtime
 was recorded as returning empty content, when it returns a complete and correct answer assembled
 into `reasoning_content` while `content` is left empty. A client reading only `content` sees an
-empty success. None of these results prove superiority to deterministic routing, general injection
-resistance, or compatibility with an untested local runtime.
+empty success. These results cover the calls, inputs and runtimes recorded in `SECURITY_SCAN_EVIDENCE.md` and the
+comparison documents, and `scripts/bench-adviser.mjs` reruns the model comparison; they do not prove
+superiority to deterministic routing, general injection resistance, or compatibility with an untested
+local runtime.
 
 `npm test` runs one file, `scripts/local-workflow.test.mjs` (117 tests). The full suite is `npm run test:all` (see the test count in the Proof line at the top).
 
@@ -200,7 +203,7 @@ implementation, not from intent: the state names come from the audit allowlist i
 from `file-routing.js` and `delivery-followup.js`, and the evidence chain from `task-evidence.js`.
 
 **What each party can reach.** Plaintext exists only on the two human devices, and each signs in with
-its own token (the hosted demo adds a judge sign-in in front of the sender, audit and administration pages only). The backend holds the document key and releases it to an approved recipient, so this is not end-to-end encryption against whoever operates the server; demo files are synthetic. Inside the boundary, next to the
+its own token (the hosted demo adds a judge sign-in in front of the sender, audit and administration pages only). The backend holds the document key and releases it to an approved recipient, so what the tests enforce is that no unapproved recipient and no adviser call ever receives the key, not secrecy from whoever operates the server (this is not end-to-end encryption); demo files are synthetic. Inside the boundary, next to the
 snapshot, mapping and key vault, the backend keeps an evidence trail of every adviser call and a
 hash-chained audit log (unkeyed SHA-256 links: `node scripts/verify-audit-chain.mjs <DATA_DIR>` detects edits, deletions and reordering, but not tail truncation or a full rewrite by someone who can recompute every hash). The adviser sits outside and is reached by two dashed edges and nothing else;
 the hosted Token Factory outlet is behind a spending cap.
@@ -230,7 +233,7 @@ channel, and none is claimed.
 
 The stdio MCP adapter exposes metadata-only file_status/file_recommend and legacy compatibility tools. It cannot deliver file bytes or release credentials. See [MCP permissions](MCP_SERVER_ALLOWLIST.md).
 
-Backend storage includes ciphertext AND wrapped keys. The key service shares the app host and process: a compromised backend is outside this prototype's protection boundary. No independent KMS or hardware enclave is claimed.
+Backend storage includes ciphertext AND wrapped keys. The key service shares the app host and process: a compromised backend is outside this prototype's protection boundary, and [THREAT_MODEL.md](THREAT_MODEL.md) lists which attacks the tests do cover. No independent KMS or hardware enclave is claimed.
 
 ## Verification And Limits
 
@@ -247,7 +250,7 @@ Tests use isolated synthetic stores and no provider requests. The fixture genera
 
 Optional hardening, described in [private-network deployment](docs/agent/private-network-deployment.md): `ALLOWED_CLIENT_CIDRS` (refuse clients outside listed networks), `TRUST_PROXY` (take the client address from `X-Forwarded-For` behind a proxy that overwrites it), `AUTH_MAX_FAILURES` / `AUTH_WINDOW_SECONDS` / `AUTH_LOCK_SECONDS` (failed sign-in throttle, which is on by default with 10 / 60 / 60) and `TLS_CERT_FILE` / `TLS_KEY_FILE`. `FOLLOWUP_FLOOR=true` (also off by default) makes fixed code escalate to a person when the follow-up adviser answers WAIT in the last part of the window with the pickup incomplete; the adviser's own answer stays in the evidence trail. Prepared dry-run notices are also appended to `<DATA_DIR>/outbox/notices.jsonl` for a gateway you operate, with group codes only and no sending. Beyond loopback, https is required: the document key is returned in a JSON response and Web Crypto needs a secure context.
 
-Email remains dry-run. No enterprise identity, malware inspection of ciphertext, legal signature or multi-host delivery guarantee is implemented. Legacy text/passphrase endpoints are compatibility paths, not this file workflow.
+Email remains dry-run: prepared notices are appended to `<DATA_DIR>/outbox/notices.jsonl`, where a judge can read exactly what would have been sent. Beyond the optional OIDC sign-on, no enterprise identity is implemented, and neither are malware inspection of ciphertext, legal signature or a multi-host delivery guarantee. Legacy text/passphrase endpoints are compatibility paths, not this file workflow.
 
 [Security](SECURITY.md) | [Threat model](THREAT_MODEL.md) | [Release review](docs/agent/security-gate-summary.md) | [Export manifest](public-export-manifest.md)
 

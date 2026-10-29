@@ -128,7 +128,10 @@ Test evidence at the same commit: 91/91, thirty consecutive runs with no variati
 run built 40,000 projections and drove 2,400 worker ticks against advisers returning hostile and
 malformed advice, with zero invariant violations: no identity, group code, count or clock value ever
 reached a projection, no accepted advice left the action or reason allowlists, the reminder budget
-was never exceeded, and a fully collected delivery was never chased.
+was never exceeded, and a fully collected delivery was never chased. That fuzz harness was a one-off script
+run on 2026-09-18 and was not committed, so this paragraph is a record and cannot be rerun from this tree;
+the same invariants are asserted on fixed inputs by `scripts/delivery-followup.test.mjs` and
+`scripts/delivery-followup-worker.test.mjs`, which are part of the suite.
 
 ## Live Adviser Comparison On The Follow-Up Contract, 2026-09-18
 

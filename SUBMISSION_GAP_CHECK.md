@@ -23,7 +23,7 @@ release-boundary: PASS, findings 0
 localguard:       92 findings, 3 CRITICAL / 15 HIGH / 61 MEDIUM / 13 LOW
 npm test:         115 of 115, thirty consecutive runs
 preflight:hosted: 7 of 8, 0 blocking, 1 advisory
-fuzz:             40,000 projections, 2,400 worker ticks, 0 invariant violations (2026-09-18)
+fuzz:             40,000 projections, 2,400 worker ticks, 0 invariant violations (2026-09-18; one-off script, not in the repository)
 ```
 
 The CRITICAL and HIGH findings are adjudicated false positives recorded in
