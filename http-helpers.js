@@ -5,7 +5,9 @@ export function securityHeaders(req) {
   const forwarded = String(req.headers['x-forwarded-proto'] || '').split(',')[0].trim();
   // Either TLS terminated in front of this process, or terminated by it. Browsers ignore HSTS on an
   // IP literal, so a LAN demo address simply does not receive it.
-  const overTls = forwarded === 'https' || Boolean(req.socket?.encrypted);
+  // REQUIRE_EDGE=true is the hosted instance, which is only reachable through the HTTPS edge, even when the hop from the
+  // edge to this process is plain HTTP and carries no x-forwarded-proto.
+  const overTls = forwarded === 'https' || Boolean(req.socket?.encrypted) || process.env.REQUIRE_EDGE === 'true';
   const hostHeader = String(req.headers.host || '').replace(/:\d+$/, '').replace(/^\[|\]$/g, '');
   const isIpLiteral = /^\d{1,3}(\.\d{1,3}){3}$/.test(hostHeader) || hostHeader.includes(':');
   return {
