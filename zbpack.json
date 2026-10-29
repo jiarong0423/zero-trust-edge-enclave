@@ -1,4 +1,0 @@
-{
-  "build_command": "",
-  "start_command": "exec node scripts/start-hosted.mjs"
-}
