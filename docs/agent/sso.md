@@ -157,7 +157,7 @@ const sso = createSsoRoutes({
   }
 ```
 
-With SSO off, `sso.resolveSession` returns `null` and `sso.knowsSession` returns `false`, and edit 3 is a `false` return, so the request path is identical to today's (proved by the "SSO unset" tests).
+With SSO off, `sso.resolveSession` returns `null` and `sso.knowsSession` returns `false`, and edit 3 is a `false` return, so the request path is identical to today's (proved by the "SSO unset" tests), with one addition: `GET /api/sso/status` is answered by the server itself with `{ok:true, enabled:false}` so that pages do not log a 401 when they ask whether SSO is on.
 
 **Proposed `env.sample` lines** (commented, like the other optional blocks):
 

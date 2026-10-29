@@ -238,8 +238,10 @@ export function createFileTaskRoutes({ dataDir, tasksPath, packagesPath, auditsP
         if (review.disagreement) await audit('INFO', ['MATCH_REVIEW_DISAGREE']);
         if (review.sources.some(entry => entry.status === 'UNAVAILABLE')) await audit('INFO', ['MATCH_REVIEW_UNAVAILABLE']);
       }
+      // The audit trail keeps the exact reason; the answer to the sender does not say whether the person exists in the directory.
+      const answerCode = result.code === 'NONE_NOT_AUTHORIZED' ? 'NONE_NOT_FOUND' : result.code;
       sendJson(res, 200, {
-        ok: true, status: result.status, code: result.code, via: result.via, nameVerified: result.nameVerified,
+        ok: true, status: result.status, code: answerCode, via: result.via, nameVerified: result.nameVerified,
         message: result.status === 'MATCHED' ? null : MATCH_MESSAGES[result.code] || MATCH_MESSAGES.NONE_NOT_FOUND,
         person: success ? onGrant.get(result.id) : null,
         candidates: result.candidates.map(id => onGrant.get(id)),

@@ -10,7 +10,7 @@ import crypto from 'node:crypto';
  * derived from them, never the password, so changing either value signs every session out.
  */
 const cookieName = 'enclave_gate';
-const openPaths = new Set(['/judge-login.html', '/judge-login.js', '/judge-next.js', '/styles.css', '/api/judge-login', '/api/health']);
+const openPaths = new Set(['/judge-login.html', '/judge-login.js', '/judge-next.js', '/styles.css', '/api/judge-login', '/api/health', '/api/sso/status']);
 // The recipient side stands on its own token and the sender's approved list, so an employee who was sent a
 // delivery never meets the judge sign-in: the receiving page, the scripts it loads, and the few calls it makes
 // (who am I, my inbox, the file-access steps) are open. Each call still has to present a registered token, and

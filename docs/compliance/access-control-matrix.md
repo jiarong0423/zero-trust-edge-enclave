@@ -102,7 +102,7 @@ SSO adds a second way to obtain a bearer token, not a second way to be authorise
 
 | Route | Who | Enforcing check | Denials |
 | --- | --- | --- | --- |
-| `GET /api/sso/status` | anyone | none | 429 while the client key is locked |
+| `GET /api/sso/status` | anyone, before any sign-in | none; with SSO off the server answers `{ok:true, enabled:false}` itself, and the demo gate lets the request through because it discloses only that boolean | none |
 | `GET /api/sso/login` | anyone | creates a single-use state, nonce and PKCE verifier bound to a flow cookie (`sso-routes.js` `login()`) | 429, 503 |
 | `GET /api/sso/callback` | the browser that started the sign-in | state single use, flow cookie match, full ID-token validation, subject map, principal enabled (`callback()`, `sso-oidc.js` `verifyIdToken()`) | 400, 401, 403, 429, 503 |
 | `POST /api/sso/session` | holder of the one-minute hand-off cookie | header `x-sso-exchange: 1`, single-use hand-off (`exchange()`) | 400, 401, 403, 429, 503 |
@@ -116,7 +116,7 @@ SSO adds a second way to obtain a bearer token, not a second way to be authorise
 | Static pages and scripts (`/`, `/index.html`, `/decode.html`, `/audit.html`, `/admin.html`, `/judge-login.html`, `/styles.css`, `/*.js`, and the `/zh-TW/` aliases) | Served without a token. With the demo gate on, all but the open paths need the session cookie | UI code only. Data comes from authenticated API calls. An unknown path outside `/zh-TW/` returns `index.html` with status 200; an unknown `/zh-TW/` path returns 404 (`static-files.js` `createStaticServer()`, `localizedPages`) |
 | `/api/*` other than health | 401 without a valid token (503 if the registry is missing) | Nothing |
 | `POST /api/judge-login` | Only when `REQUIRE_DEMO_GATE=true` | A session cookie on a correct sign-in |
-| `GET /api/sso/status`, `GET /api/sso/login`, `GET /api/sso/callback`, `POST /api/sso/session`, `POST /api/sso/logout` | Only when `SSO_ISSUER` is set; each answers 503 when SSO is misconfigured | A redirect to the identity provider, a hand-off cookie on a verified sign-in, a session token in the response body of `POST /api/sso/session`; no registry data |
+| `GET /api/sso/login`, `GET /api/sso/callback`, `POST /api/sso/session`, `POST /api/sso/logout` (and `GET /api/sso/status` answers `enabled:true`) | Only when `SSO_ISSUER` is set; each answers 503 when SSO is misconfigured | A redirect to the identity provider, a hand-off cookie on a verified sign-in, a session token in the response body of `POST /api/sso/session`; no registry data |
 
 Notes for reviewers:
 

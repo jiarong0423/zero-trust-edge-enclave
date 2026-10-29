@@ -14,8 +14,8 @@ Since 2026-10-22 the edge forwards to a second instance of the same commit on a 
 
 One Node process. `server.js` serves the API and the four pages in `public/` (sender, decode,
 audit, admin), plus the judge sign-in page, from the same origin, so there is no separate frontend service to deploy. There are
-no third-party runtime packages, so there is no build step: `zbpack.json` starts
-`node scripts/start-hosted.mjs`.
+no third-party runtime packages, so there is no build step. Start command on the platform (Zeabur used a `zbpack.json` that is no longer in the repository; on Coolify set it as the start command):
+`node scripts/start-hosted.mjs`. The wrapper seeds the registry from `HOSTED_REGISTRY_B64` on an empty volume and forwards the stop signal, so use it instead of `npm start` (`node server.js`), which on an empty volume answers 503 on every authorized route.
 
 Zeabur detects Node from `package.json`; no Dockerfile is required. `engines` requires Node 20.11
 or newer.
@@ -71,7 +71,7 @@ is not demonstrating what the submission claims.
 `private-keys` directory created by the local key vault. The vault refuses a directory whose mode
 allows group or other access, and refuses a symlinked path.
 
-`.gitignore` and `.zeaburignore` both exclude `data/`, so nothing from a local run is ever uploaded;
+`.gitignore` (and, on Zeabur, a `.zeaburignore`) excluded `data/`, so nothing from a local run is ever uploaded;
 the deployed instance generates its own.
 
 The volume also keeps `server.lock` between containers. A deployment on 2026-09-24 crash-looped on a

@@ -56,6 +56,21 @@ Known and accepted: a registered recipient token can tell whether a task id exis
 an unknown id 404). Task ids are random UUIDs. Open slots for request bodies are counted per client address, so behind a proxy that
 does not forward the real address (`TRUST_PROXY`), clients share one allowance.
 
+Known and accepted limits of the hosted demo, written down so a reviewer can weigh them:
+
+- The judge sign-in has a global failure limit (200 failures in a window, with a one-minute retry). A person who deliberately keeps
+  that many wrong passwords going can make new sign-ins answer 429 until the failures stop; a browser that already holds the session
+  cookie is unaffected.
+- The sign-in cookie is derived from the sign-in and is the same value for every session; `Max-Age=43200` is enforced by the browser,
+  and the server has no per-session expiry or revocation. Changing the sign-in password invalidates every cookie.
+- The hosted demo shares one sender token among all judges, so the same-name finder lock (seven failed or ambiguous matches in a row)
+  counts for everyone together and only the site owner clears it. The pending download tickets of one task (50) are counted
+  across recipients, not per recipient.
+- `GET /api/health` is open on purpose: it shows the model, the USD 20 cap and the running spend so that a judge can see the Token
+  Factory budget without signing in. It also shows whether the legacy hosted paths are off.
+- The answer to the sender's name lookup no longer says whether a person exists in the directory but is not on the authorization
+  (both cases answer `NONE_NOT_FOUND`); the audit trail keeps the exact reason.
+
 ## Client addresses behind an edge
 
 The failed-token lockout, the sign-in limit and the request-body slots are counted per client address. Behind the hosting

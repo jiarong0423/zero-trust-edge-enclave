@@ -13,6 +13,8 @@ test('demo gate issues a derived session and admits only that session', () => {
   const gate = gateConfig({ REQUIRE_DEMO_GATE: 'true', DEMO_GATE_USER: 'judge', DEMO_GATE_PASSWORD: 'correct horse' });
   assert.equal(gateAllows(gate, request(), '/'), false);
   assert.equal(gateAllows(gate, request(), '/judge-login.html'), true);
+  assert.equal(gateAllows(gate, request(), '/api/sso/status'), true); // the recipient pages ask this before anyone has signed in
+  assert.equal(gateAllows(gate, request(), '/api/sso/session'), false);
   assert.equal(gateSignIn(gate, { user: 'judge', password: 'wrong' }, true).status, 401);
   const { cookie } = gateSignIn(gate, { user: 'judge', password: 'correct horse' }, true);
   assert.match(cookie, /HttpOnly; SameSite=Lax; Max-Age=43200; Secure$/);
