@@ -1,4 +1,6 @@
-# Zeabur Deployment
+# Hosted Deployment Notes (file name kept for existing links)
+
+Since 2026-10-22 the judging instance runs on a self-hosted Coolify server behind Cloudflare at `https://enclave.jace0423.com`. The variables, spending cap and sign-in below apply unchanged; the Zeabur-specific steps are the original setup record.
 
 Written 2026-09-18, revised 2026-09-24 and 2026-10-22. Modelled on the Shared Room MCP deployment already running
 on Zeabur. Status: deployed on 2026-09-24 and served at `https://enclave.jace0423.com` (the earlier

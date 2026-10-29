@@ -120,5 +120,5 @@ HOST=127.0.0.1 TRUST_PROXY=true ALLOWED_CLIENT_CIDRS=10.0.0.0/24 npm start
   is created with owner-only permissions, and an export that fails is logged without stopping the
   worker.
 
-See also [Zeabur deployment](zeabur-deployment.md) for the hosted instance's variables and the spending
+See also [Hosted deployment notes](zeabur-deployment.md) for the hosted instance's variables and the spending
 cap.
