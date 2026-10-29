@@ -24,7 +24,7 @@ Written 2026-10-08 against branch `improve/2026-10-08`. Re-verified against the 
 | Adviser benchmark | `node scripts/bench-adviser.mjs` | Fixture mode: 36 inputs, no network | Manual |
 | Browser acceptance | `scripts/browser-file-workflow.mjs` | End-to-end Chromium flow on synthetic data with external requests blocked | Manual, opt-in |
 
-**GAP:** no CI configuration exists in the repository, so none of the manual gates is enforced on a push or
+CI (`.github/workflows/ci.yml`) runs `npm run check` and `npm run test:all` on Node 20 and 22 for pushes to main and pull requests; the other manual gates are not enforced on a push or
 a merge. **GAP:** nothing in the repository shows required review or protected branches.
 
 ## 2. Release Checklist

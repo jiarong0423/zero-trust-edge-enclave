@@ -55,8 +55,8 @@ token (the length every issuer produces) that belongs to no registered identity.
 as it is typed, so every prefix of a real token reaches the server on the way; prefixes, missing or
 malformed headers, and the token of a registered but disabled identity do not count, and a valid
 sign-in does not reset the counter. After `AUTH_MAX_FAILURES` guesses inside `AUTH_WINDOW_SECONDS`, the
-client is locked for `AUTH_LOCK_SECONDS`: every request from it gets 429 with `Retry-After`, including
-one that carries a valid token, and one `WARN auth throttle locked client ...` line is logged.
+client is locked for `AUTH_LOCK_SECONDS`: every request from it that does not carry a valid token gets 429 with `Retry-After`
+(a valid token still signs in), and one `WARN auth throttle locked client ...` line is logged.
 Addresses are normalised so every spelling of one address is one key, and an IPv6 client is keyed by its
 /64. A lock is not forgotten when many throwaway keys arrive; only if every tracked key is locked is the
 oldest lock released. State is in memory, so a restart clears it. The hosted judge sign-in

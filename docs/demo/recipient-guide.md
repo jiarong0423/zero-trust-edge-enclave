@@ -28,7 +28,7 @@ Nothing readable leaves your browser: the file is decrypted on your device with 
 | --- | --- | --- |
 | `ACCESS DENIED` | You are signed in but are not on this delivery's approved list, or the delivery was revoked or has expired | Ask the sender. Do not try other tokens |
 | Asked to sign in before the page opens | You opened a sender, audit or administration page. The receiving page never asks for the shared demo sign-in | Open the receiving page (`/decode.html`) instead |
-| Token not recognised | Wrong or expired token | Ask your administrator for yours |
+| Token not recognised | Wrong, rotated or disabled token | Ask your administrator for yours |
 
 ## Good to know
 

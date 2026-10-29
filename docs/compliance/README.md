@@ -45,16 +45,16 @@ Evidence is cited by symbol or test name; if a symbol moved, `grep -rn '<symbol>
 
 ## Reporting a vulnerability
 
-`SECURITY.md` has a "Reporting" section that describes how to write a report (minimal synthetic
-reproductions, no real documents or credentials) but names **no reporting channel, contact address or
-response time**. The channel is TO BE SET BY THE MAINTAINER. This index does not invent one.
+`SECURITY.md` has a "Reporting" section: open an issue on this repository with a minimal synthetic
+reproduction (no real documents or credentials); if the report needs a private channel, open an issue that
+says so without details and the owner arranges one. It names no contact address or response time.
 
 ## Headline gaps
 
 1. No independent key management: the key vault, wrapped keys and ciphertext share one host and one process; no KMS, HSM or TEE; no master-key rotation; a missing `master.key` is silently regenerated.
-2. No enterprise identity: bearer role tokens without expiry; no SSO, MFA or device attestation.
+2. No enterprise identity: bearer role tokens with no per-token expiry (access ends with the grant, revocation or rotation); optional OIDC sign-on (off by default); no enterprise SSO, MFA or device attestation.
 3. The audit chain is unkeyed and its head is not anchored off-host; no log shipping.
 4. No data deletion or erasure path, no backup and restore procedure.
-5. No CI, no versioned release gate (the commit hook lives outside the repository), and no test pins the routing prompt text (the follow-up default is hash-pinned by a test committed on this branch).
+5. CI (`.github/workflows/ci.yml`: `npm run check` and `npm run test:all` on Node 20 and 22, for pushes to main and pull requests) but no versioned release gate (the commit hook lives outside the repository), and no test pins the routing prompt text (the follow-up default is hash-pinned by a test committed on this branch).
 6. No incident process: no on-call, no alerting, no breach notification procedure.
 7. Legacy endpoints (`/api/policy/recommend`, the legacy coordinator `recommend`) send more than the five-field projection to the hosted model by default; `LEGACY_HOSTED_ADVICE=off` keeps both local, and the legacy call sites do not apply the file-workflow outlet's host rule. The hosted demo instance has run with `off` since 2026-10-09 (`/api/health` reports `legacyHostedAdviceOff`); the default for any other deployment is still on.

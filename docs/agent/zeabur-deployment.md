@@ -97,7 +97,7 @@ The deployed key is the project owner's. Beyond the spending cap, provider calls
 controls that already exist:
 
 - every page and route that can reach a provider sits behind the judge sign-in and a bearer token
-- staged file tasks are capped at 50 (`507` beyond that)
+- staged file tasks are capped (`FILE_TASK_LIMIT`: default 50, 300 on the hosted instance; `507` beyond that)
 - `maxAttempts` is validated to 1–5 per grant, so the routing pass asks at most five times per task;
   an adviser that cannot be reached on the first check adds at most three retries, 30 seconds
   apart, before the job pauses, and a failure before any request leaves is not retried
@@ -109,7 +109,7 @@ controls that already exist:
 - each request carries an abort deadline and a token ceiling, five seconds and 512 hosted
 
 Both callers together therefore stay bounded: about nine provider calls per task when the adviser
-answers (five routing, four follow-up), somewhat more when it keeps failing, and the 50-task cap puts the worst case in the hundreds,
+answers (five routing, four follow-up), somewhat more when it keeps failing, and the 300-task cap on the hosted instance puts the worst case in the hundreds,
 not an open endpoint. The spending cap stops it outright before that. The follow-up pass is
 counted here because it is a second caller on a schedule `maxAttempts` does not govern.
 

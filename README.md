@@ -2,7 +2,7 @@
 
 MIT-licensed local hackathon prototype for encrypted document handoff with a restricted AI adviser. It grew out of the idea behind my earlier Shared Room MCP project; this repository was started on 2026-09-07 as a new codebase. It is measured rather than certified: the 882 tests and the model comparisons below can be rerun from this tree; no production security certification is claimed.
 
-Entry for the Nebius x NVIDIA Global AI Hackathon, track Best Apps and Agents. First commit 2026-09-07, after the hackathon opened on 2026-08-26. The Nemotron models are used through Nebius Token Factory and, locally, through an OpenAI-compatible runtime, under the NVIDIA Nemotron Open Model License; they are not bundled here. The Token Factory runtime call is `requestFileAdvice` in `file-adviser.js` (POST `/v1/chat/completions`).
+Entry for the Nebius x NVIDIA Global AI Hackathon, track Best Apps and Agents. First commit 2026-09-07, after the hackathon opened on 2026-08-26. The Nemotron models are used through Nebius Token Factory and, locally, through an OpenAI-compatible runtime, (Super and Nano under the NVIDIA Nemotron Open Model License; Ultra, measured only as a benchmark, under OpenMDW-1.1, see `docs/agent/nvidia-model-provenance.md`); they are not bundled here. The Token Factory runtime call is `requestFileAdvice` in `file-adviser.js` (POST `/v1/chat/completions`).
 
 **At a glance**
 
@@ -54,7 +54,7 @@ recipient and therefore the number of recipients, when `COORDINATOR_PROVIDER=neb
 but neither is limited to five fields. `LEGACY_HOSTED_ADVICE=off` makes both answer from the local
 fixture and never call the hosted model (`/api/health` reports `legacyHostedAdviceOff`).
 
-The opt-in cascade (`COORDINATOR_PROVIDER=local_then_nebius`, default off) stays inside the five-field promise: every decision goes to the loopback model first, and only when that call is unreachable or its output is unusable are the same five fields sent to Token Factory, once. A valid local answer is never second-guessed. The server refuses to start in this mode unless `LOCAL_ONLY=false`, `LEGACY_HOSTED_ADVICE=off` (because `LOCAL_ONLY=false` is also what opens the two legacy paths) and a Token Factory budget (`NEBIUS_BUDGET_USD` with both prices) are set. The coordinator tool `file_recommend` is answered by the local model only under the cascade. Details: [data protection and retention](docs/compliance/data-protection-and-retention.md).
+The opt-in cascade (`COORDINATOR_PROVIDER=local_then_nebius`, default off) stays inside the five-field promise: every decision goes to the loopback model first, and only when that call is unreachable or its output is unusable are the same five fields sent to Token Factory (once per adviser call; a retried decision is a new call, see `docs/agent/cascade-outlet.md`). A valid local answer is never second-guessed. The server refuses to start in this mode unless `LOCAL_ONLY=false`, `LEGACY_HOSTED_ADVICE=off` (because `LOCAL_ONLY=false` is also what opens the two legacy paths) and a Token Factory budget (`NEBIUS_BUDGET_USD` with both prices) are set. The coordinator tool `file_recommend` is answered by the local model only under the cascade. Details: [data protection and retention](docs/compliance/data-protection-and-retention.md).
 
 The adviser's small surface is the design, not an unfinished part. A model is the
 component an injected instruction attacks, so it cannot also be the component that

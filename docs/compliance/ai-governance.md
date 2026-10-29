@@ -173,9 +173,8 @@ escalation or an overdue delivery; the sender sees them only in the page and in 
   follow-up system prompt; any other value returns the original text byte for byte
   (`scripts/followup-prompt-profile.test.mjs` test "only the exact string directive activates the profile",
   `scripts/followup-prompt-profile.test.mjs` test "directive swaps only the JUDGEMENT paragraph"). The projection, schema,
-  validator and floor are unchanged. Evidence to date is the contributor's note: measured on the local 4B
-  only, 24 reachable inputs, one run each, selected on the same inputs it was measured on; the hosted model
-  was not tested with it. **GAP:** the adviser evidence trail does not record which prompt profile produced
+  validator and floor are unchanged. Evidence to date is single runs on the 24 reachable inputs the profile was tuned on: the
+  local 4B (the contributor's note) and the hosted 120B (`docs/agent/followup-prompt-profile-2026-10-08.md`). **GAP:** the adviser evidence trail does not record which prompt profile produced
   an answer (`file-worker.js` `recordAdvice()` stores kind, input, time and outlet), so an answer cannot later be
   tied to a profile except through the process environment at that time.
 - Mitigation by design: because the validators and fixed checks are the boundary, a prompt change cannot
