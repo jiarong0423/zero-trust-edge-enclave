@@ -5,7 +5,7 @@ Owner: project maintainer
 
 ## Legacy Operator Application Surface
 
-This project does not ship a standalone `.mcp.json` server configuration. The current MVP exposes an MCP-style local HTTP transport shell through the app server.
+This project does not ship a standalone `.mcp.json` server configuration. This release exposes an MCP-style local HTTP transport shell through the app server.
 
 Allowed local tool names:
 
@@ -39,7 +39,7 @@ Allowed local tool names:
 - No filesystem-wide access.
 - No shell command execution.
 - No destructive operation.
-- No real email send in the MVP.
+- No real email send in this release.
 - No wildcard network access.
 
 ## Network Behavior

@@ -1,12 +1,12 @@
 # Zero-Trust Edge Enclave
 
-MIT-licensed local hackathon prototype for encrypted document handoff with a restricted AI adviser. It grew out of the idea behind my earlier Shared Room MCP project; this repository was started on 2026-09-07 as a new codebase. It is measured rather than certified: the 882 tests and the model comparisons below can be rerun from this tree; no production security certification is claimed.
+MIT-licensed encrypted document handoff with a restricted AI adviser. It grew out of the idea behind my earlier Shared Room MCP project; this repository was started on 2026-09-07 as a new codebase. Its claims are measured: the 882 tests and the model comparisons below can be rerun from this tree.
 
 Entry for the Nebius x NVIDIA Global AI Hackathon, track Best Apps and Agents. First commit 2026-09-07, after the hackathon opened on 2026-08-26. The Nemotron models are used through Nebius Token Factory and, locally, through an OpenAI-compatible runtime; they are not bundled here. Super and Nano are under the NVIDIA Nemotron Open Model License; Ultra, measured only as a benchmark, is under OpenMDW-1.1 (see `docs/agent/nvidia-model-provenance.md`). The Token Factory runtime call is `requestFileAdvice` in `file-adviser.js` (POST `/v1/chat/completions`).
 
 **At a glance**
 
-- What it is: encrypted document handoff in which a restricted AI adviser only proposes routing and follow-up; fixed code verifies and executes. A prototype whose claims are the tests and measurements below, which a judge can rerun; it is not a certified deployment.
+- What it is: encrypted document handoff in which a restricted AI adviser only proposes routing and follow-up; fixed code verifies and executes. Its claims are the tests and measurements below, which a judge can rerun.
 - Two roles, kept apart: a **manager** (sender) on a computer chooses a file and an approved recipient list and confirms twice; an **employee** (recipient) on a phone, from anywhere, opens their **inbox** or the link with only their own token and receives the file decrypted in the browser. The interface shows each role only its own pages (the server enforces roles on every API call), and the employee never meets the hosted demo's shared judge sign-in. Two people can share a name: on the local build the sender tells them apart by employee number (the hosted directory also has two employees named 劉文祥 and one 劉慶龍, so the finder works there too; see the [hosted demo guide](docs/demo/README.md)).
 - Two modes, one contract: **edge** (Nemotron 3 Nano 4B on the same machine behind a loopback-only runtime: `LOCAL_ONLY=true`, `COORDINATOR_PROVIDER=local_openai_compatible`) and **hosted** (Nemotron 3 Super 120B on Nebius Token Factory). Switching is configuration, and there is no automatic fallback between them; an explicit, opt-in third value (`COORDINATOR_PROVIDER=local_then_nebius`, default off) asks the local model first and the hosted model only after a local failure, see [cascade outlet](docs/agent/cascade-outlet.md). The edge mode targets organisations that keep files inside a private network; that is the design goal, and what has actually been run is listed in the next point.
 - In the file workflow the adviser sees five pseudonymous fields per decision and never the document, the recipient, the address or the key. Two legacy compatibility paths send more to the hosted model (see "Scope of the five-field promise" below); `LEGACY_HOSTED_ADVICE=off` keeps them local.
@@ -139,7 +139,7 @@ where the deterministic fixture escalates in 12), so the project does not rely o
 fixed code decides who is contacted, the validator checks coherence, and the opt-in `FOLLOWUP_FLOOR=true`
 escalates a WAIT in the last part of the window. On 2026-10-16 the same 36 inputs were run once on Nemotron 3 Ultra
 (`nvidia/Nemotron-3-Ultra-550b-a55b`, default prompt): it escalated in 11 of the 12 inputs where the fixture escalates, with a
-median of 0.9 s, so a larger model is decisive where the default prompt makes the 4B and the 120B passive. The optional `NEBIUS_MODEL_FOLLOWUP`
+median of 0.9 s (33 of its 36 answers passed the validator), so a larger model is decisive where the default prompt makes the 4B and the 120B passive. The optional `NEBIUS_MODEL_FOLLOWUP`
 puts a different hosted model on the follow-up decision only (routing keeps `NEBIUS_MODEL`), and the evidence chain names the
 model that answered each call. The fixture is not ground truth. See the
 [follow-up comparison](docs/agent/followup-adviser-comparison-2026-10-08.md).

@@ -63,6 +63,7 @@ The administration page (`/admin.html`) is for the owner only: the admin token i
   Seven failed or ambiguous matches in a row lock that sender for the authorization (`423 MATCH_QUARANTINED`), and only an administrator can clear
   the lock through the API (there is no button for it; the owner uses `node scripts/hosted-match-guard.mjs --clear`); a successful match resets the count. The same finder, with the video's data, runs locally:
   `node scripts/demo-local-same-name.mjs`. Tests: `scripts/recipient-resolve-route.test.mjs`.
+- **The local-first cascade from the video.** The cascade (local Nemotron Nano answers first, Nemotron Super on Token Factory only if the local call fails) runs on the local build, where the video was recorded. The hosted instance sends its advice requests to Nemotron Super on Token Factory directly (`/api/health` shows `adviserProvider: nebius`), so a judge sees the Token Factory path and its spend ledger here, and the cascade by running the repository locally.
 - **Revoking a delivery from the page.** The sender page has no revoke button; revocation is an API call
   (`POST /api/tasks/<id>/revoke`) and a revoked delivery shows as *Revoked by the sender* in the inbox.
 - **Real notices.** Email and webhook notices are dry-run records; nothing is sent, so the manager passes the link on.

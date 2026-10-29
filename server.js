@@ -232,7 +232,7 @@ const server = createServer(async (req, res) => {
     if (demoGate && url.pathname === '/api/judge-login') {
       if (req.method !== 'POST') fail('Method not allowed', 405);
       const input = await readBody(req, 4096);
-      const secure = String(req.headers['x-forwarded-proto'] || '').split(',')[0].trim() === 'https' || Boolean(req.socket?.encrypted);
+      const secure = String(req.headers['x-forwarded-proto'] || '').split(',')[0].trim() === 'https' || Boolean(req.socket?.encrypted) || process.env.REQUIRE_EDGE === 'true';
       const result = gateSignIn(demoGate, input, secure, Date.now(), keyOf(req));
       if (result.status) throw Object.assign(new Error(result.status === 401 ? 'Sign-in rejected' : 'Sign-in unavailable'),
         { status: result.status, retryAfter: result.retryAfter });
