@@ -17,7 +17,7 @@ Entry for the Nebius x NVIDIA Global AI Hackathon, track Best Apps and Agents. F
 
 ## Try It
 
-- **Demo video (under 3 minutes):** https://youtu.be/1zP4q8UwYsw. It shows the same-name case, the local Nemotron Nano answering first and Nemotron Super on Token Factory taking over (a real call), the employee's phone inbox and the refusal of the other person.
+- **Demo video (under 3 minutes):** https://youtu.be/U2Wym2BYu20. It shows the same-name case, the local Nemotron Nano answering first and Nemotron Super on Token Factory taking over (a real call), the employee's phone inbox and the refusal of the other person.
 - **Hosted demo:** https://enclave.jace0423.com. The sender, audit and administration pages sit behind a judge sign-in; an employee who receives a file needs only their own token. Judges find the sign-in and the role tokens in `ZTE-Judges.zip` under "Additional info" on the Devpost submission; they are never committed here. Without them, use [Run Locally](#run-locally), which needs no key.
 - **Walkthrough:** [docs/demo/README.md](docs/demo/README.md), step by step: the manager approves a delivery for one person, that employee finds it in their inbox on a phone and decrypts it, a colleague who is signed in but was not picked is refused, and the evidence chain shows exactly what the model was given and answered.
 - **Sample documents:** [docs/demo/samples/](docs/demo/samples/), three synthetic files (two PDFs and a CSV) that say so inside.
