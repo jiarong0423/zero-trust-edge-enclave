@@ -11,9 +11,9 @@ Updated: 2026-10-29 Asia/Taipei
 | Hosted demo | `https://enclave.jace0423.com` (self-hosted Coolify behind a Cloudflare edge since 2026-10-22), judge sign-in on the sender, audit and administration pages | `/api/health` shows the Nebius model, the USD 20 cap and the legacy hosted paths off |
 | Demo video | https://youtu.be/U2Wym2BYu20, 178 s, public, uploaded 2026-10-29; the results card shows 882 tests | YouTube page and the Devpost video field |
 | Judge access | Sign-in and role tokens are in `ZTE-Judges.zip` under Devpost "Additional info"; the no-sign-in route is `npm run setup:local` | `README.md`, `public/judge-login.html` |
-| Secret and history scan | gitleaks over GitHub `main`: no findings (2026-10-29) | `SECURITY_SCAN_EVIDENCE.md` |
+| Secret and history scan | gitleaks over GitHub `main`: no findings (2026-10-30, 147 commits scanned) | `SECURITY_SCAN_EVIDENCE.md` |
 
-Everything below this table is dated history and is kept as a record of what was checked and when.
+Everything below this table is dated history, kept as a record of what was checked and when; where it differs from the table above (file counts, commit ids, test counts, video links), the table is current.
 
 ## Update 2026-10-15 (the sections below are the 2026-09-27 state and are kept as history)
 

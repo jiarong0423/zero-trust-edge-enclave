@@ -7,8 +7,8 @@ and Agents, on 2026-09-27. Deadline: 2026-10-30 10:00 PDT.
 
 | Item | Value |
 | --- | --- |
-| Demo video | https://youtu.be/klBuNhS5eYM (1:47, public) |
-| Hosted demo | https://zero-trust-edge-enclave.zeabur.app (judge sign-in) |
+| Demo video | https://youtu.be/klBuNhS5eYM (1:47, public on 2026-09-27; no longer on the channel, the current demo video is https://youtu.be/U2Wym2BYu20) |
+| Hosted demo | https://zero-trust-edge-enclave.zeabur.app (judge sign-in; on 2026-09-27, now redirects to https://enclave.jace0423.com) |
 | Code | https://github.com/jiarong0423/zero-trust-edge-enclave (MIT) |
 | Judge access | Uploaded to the Devpost "Additional info" page, which is visible to judges and organizers only |
 

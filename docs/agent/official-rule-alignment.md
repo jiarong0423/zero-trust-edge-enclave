@@ -106,7 +106,7 @@ Project alignment:
 
 - The video shows sender approval, recipient decode, a signed-in but unselected recipient being denied, follow-up advice on Token Factory with the evidence chain, a refused fake model, local Nano 4B and the judge sign-in.
 - The narration states that the model receives only five anonymous fields and never the document or identities.
-- Delivered 2026-09-27: https://youtu.be/klBuNhS5eYM, 1:47, public, English narration and burned-in subtitles.
+- Delivered 2026-09-27: https://youtu.be/klBuNhS5eYM, 1:47, public, English narration and burned-in subtitles (dated record: this recording is no longer on the channel; the current demo video is https://youtu.be/U2Wym2BYu20).
 
 Status: delivered 2026-09-27.
 
