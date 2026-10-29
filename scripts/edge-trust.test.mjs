@@ -75,6 +75,10 @@ test('behind the edge, each visitor has their own lockout, and nobody can borrow
     assert.deepEqual([await attempt(as('203.0.113.1')), await attempt(as('203.0.113.1')), await attempt(as('203.0.113.1')), await attempt(as('203.0.113.1'))], [401, 401, 401, 429]);
     // Another visitor behind the same edge is not locked.
     assert.equal(await attempt(as('198.51.100.2')), 401);
+    // With SSO off the page's one public question (is SSO on?) gets a plain no instead of a 401 in the console.
+    const sso = await fetch(base + '/api/sso/status', { headers: as('203.0.113.7') });
+    assert.equal(sso.status, 200);
+    assert.deepEqual(await sso.json(), { ok: true, enabled: false });
     // Without the secret the claimed address is ignored: all of these share the one real socket address.
     const spoof = ip => ({ 'x-verified-client-ip': ip, 'x-forwarded-for': ip });
     assert.deepEqual([await attempt(spoof('192.0.2.1')), await attempt(spoof('192.0.2.2')), await attempt(spoof('192.0.2.3')), await attempt(spoof('192.0.2.4'))], [401, 401, 401, 429]);

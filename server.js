@@ -249,6 +249,9 @@ const server = createServer(async (req, res) => {
     }
     // Outside apiQueue on purpose: the handler makes network calls to the identity provider and must
     // not stall every other API request.
+    // With SSO off the handler stays inert on purpose; the page still asks once whether SSO is on, so answer that one public question
+    // here instead of leaving it to the sign-in check (which would log a 401 in every visitor's console).
+    if (req.method === 'GET' && url.pathname === '/api/sso/status' && sso.state === 'off') { sendJson(res, 200, { ok: true, enabled: false }); return; }
     if (url.pathname.startsWith('/api/sso/') && await sso(req, res, url)) return;
     if (url.pathname.startsWith('/api/')) {
       // The body is read here, before the request joins the serial queue, so a body that never finishes
