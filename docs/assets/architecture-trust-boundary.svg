@@ -8,6 +8,7 @@
   Revised again 2026-10-16: the evidence trail names the model that answered, and a bottom band shows
   the two places the same code runs (an edge host the organization controls, and the hosted demo copy
   that judges use). The judge sign-in label now says which pages it covers.
+  Revised 2026-10-30: the hosted-demo box names the Cloudflare edge and the demo gate in front of the app, and says the judge sign-in covers the manager pages while an employee needs only their own token.
   Revised 2026-10-22: the hosted demo copy runs on a self-hosted Coolify server behind Cloudflare
   (it ran on Zeabur until then); the public address did not change.
   Purpose: README and hackathon submission material.
@@ -91,6 +92,6 @@
     <text class="ts" x="192" y="783" text-anchor="middle" dominant-baseline="central">Phones reach it; local Nano 4B on loopback</text></g>
   <g><rect class="box" x="352" y="730" width="272" height="64" rx="8"/>
     <text class="th" x="488" y="747" text-anchor="middle" dominant-baseline="central">Hosted demo: a copy for judges</text>
-    <text class="ts" x="488" y="766" text-anchor="middle" dominant-baseline="central">Coolify; Super 120B on Token Factory, $20 cap</text>
-    <text class="ts" x="488" y="783" text-anchor="middle" dominant-baseline="central">Employee side needs only its own token</text></g>
+    <text class="ts" x="488" y="766" text-anchor="middle" dominant-baseline="central">Cloudflare edge, demo gate, Coolify; $20 cap</text>
+    <text class="ts" x="488" y="783" text-anchor="middle" dominant-baseline="central">Judge sign-in on manager pages only</text></g>
 </svg>

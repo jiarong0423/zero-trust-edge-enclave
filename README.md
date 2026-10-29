@@ -4,6 +4,10 @@ MIT-licensed encrypted document handoff with a restricted AI adviser. It grew ou
 
 Entry for the Nebius x NVIDIA Global AI Hackathon, track Best Apps and Agents. First commit 2026-09-07, after the hackathon opened on 2026-08-26. The Nemotron models are used through Nebius Token Factory and, locally, through an OpenAI-compatible runtime; they are not bundled here. Super and Nano are under the NVIDIA Nemotron Open Model License; Ultra, measured only as a benchmark, is under OpenMDW-1.1 (see `docs/agent/nvidia-model-provenance.md`). The Token Factory runtime call is `requestFileAdvice` in `file-adviser.js` (POST `/v1/chat/completions`).
 
+![Architecture: what each party can reach, the adviser outside the trust boundary, and where the same code runs (edge host, hosted demo behind Cloudflare and the demo gate)](docs/assets/architecture-trust-boundary.svg)
+
+The diagram above is the trust boundary; the delivery sequence and the task state machine are under [Architecture](#architecture), and the flow in text form (with the hosted layer) is in [approved delivery architecture](docs/agent/approved-delivery-architecture.md).
+
 **At a glance**
 
 - What it is: encrypted document handoff in which a restricted AI adviser only proposes routing and follow-up; fixed code verifies and executes. Its claims are the tests and measurements below, which a judge can rerun.
