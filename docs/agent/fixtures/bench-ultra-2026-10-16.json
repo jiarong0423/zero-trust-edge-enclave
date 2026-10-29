@@ -1,0 +1,519 @@
+{
+  "schema": "bench-adviser/1",
+  "generatedAt": "2026-10-15T22:44:11.937Z",
+  "modes": [
+    "fixture",
+    "cloud"
+  ],
+  "cases": 36,
+  "fixture": {
+    "cases": 36,
+    "distribution": {
+      "WAIT": 16,
+      "REMIND": 8,
+      "ESCALATE": 12
+    }
+  },
+  "outlets": {
+    "cloud": {
+      "provider": "nebius",
+      "baseUrl": "https://api.tokenfactory.nebius.com/v1",
+      "model": "nvidia/Nemotron-3-Ultra-550b-a55b",
+      "summary": {
+        "calls": 36,
+        "accepted": 33,
+        "rejected": 3,
+        "distribution": {
+          "WAIT": 20,
+          "REMIND": 2,
+          "ESCALATE": 11
+        },
+        "agreeWithFixture": 26,
+        "agreementOfAccepted": 0.788,
+        "latencyMs": {
+          "min": 681,
+          "median": 895,
+          "max": 1468
+        },
+        "rejections": {
+          "FOLLOWUP_REASON_INCOHERENT": 2,
+          "FOLLOWUP_ADVICE_REJECTED": 1
+        }
+      }
+    }
+  },
+  "rows": [
+    {
+      "timeCode": "WINDOW_FULL",
+      "pickupCode": "PICKUP_NONE",
+      "nudgeCount": 0,
+      "fixture": "WAIT/WINDOW_EARLY",
+      "outlets": {
+        "cloud": {
+          "accepted": true,
+          "advice": "WAIT/WINDOW_EARLY",
+          "ms": 1468
+        }
+      }
+    },
+    {
+      "timeCode": "WINDOW_FULL",
+      "pickupCode": "PICKUP_NONE",
+      "nudgeCount": 1,
+      "fixture": "WAIT/WINDOW_EARLY",
+      "outlets": {
+        "cloud": {
+          "accepted": true,
+          "advice": "WAIT/WINDOW_EARLY",
+          "ms": 683
+        }
+      }
+    },
+    {
+      "timeCode": "WINDOW_FULL",
+      "pickupCode": "PICKUP_NONE",
+      "nudgeCount": 2,
+      "fixture": "ESCALATE/NUDGES_EXHAUSTED",
+      "outlets": {
+        "cloud": {
+          "accepted": true,
+          "advice": "WAIT/WINDOW_EARLY",
+          "ms": 693
+        }
+      }
+    },
+    {
+      "timeCode": "WINDOW_FULL",
+      "pickupCode": "PICKUP_SOME",
+      "nudgeCount": 0,
+      "fixture": "WAIT/WINDOW_EARLY",
+      "outlets": {
+        "cloud": {
+          "accepted": true,
+          "advice": "WAIT/WINDOW_EARLY",
+          "ms": 701
+        }
+      }
+    },
+    {
+      "timeCode": "WINDOW_FULL",
+      "pickupCode": "PICKUP_SOME",
+      "nudgeCount": 1,
+      "fixture": "WAIT/WINDOW_EARLY",
+      "outlets": {
+        "cloud": {
+          "accepted": true,
+          "advice": "WAIT/PARTIAL_PICKUP",
+          "ms": 698
+        }
+      }
+    },
+    {
+      "timeCode": "WINDOW_FULL",
+      "pickupCode": "PICKUP_SOME",
+      "nudgeCount": 2,
+      "fixture": "ESCALATE/NUDGES_EXHAUSTED",
+      "outlets": {
+        "cloud": {
+          "accepted": true,
+          "advice": "ESCALATE/PARTIAL_PICKUP",
+          "ms": 946
+        }
+      }
+    },
+    {
+      "timeCode": "WINDOW_FULL",
+      "pickupCode": "PICKUP_ALL",
+      "nudgeCount": 0,
+      "fixture": "WAIT/WINDOW_EARLY",
+      "outlets": {
+        "cloud": {
+          "accepted": true,
+          "advice": "WAIT/WINDOW_EARLY",
+          "ms": 747
+        }
+      }
+    },
+    {
+      "timeCode": "WINDOW_FULL",
+      "pickupCode": "PICKUP_ALL",
+      "nudgeCount": 1,
+      "fixture": "WAIT/WINDOW_EARLY",
+      "outlets": {
+        "cloud": {
+          "accepted": true,
+          "advice": "WAIT/WINDOW_EARLY",
+          "ms": 962
+        }
+      }
+    },
+    {
+      "timeCode": "WINDOW_FULL",
+      "pickupCode": "PICKUP_ALL",
+      "nudgeCount": 2,
+      "fixture": "WAIT/WINDOW_EARLY",
+      "outlets": {
+        "cloud": {
+          "accepted": true,
+          "advice": "WAIT/WINDOW_EARLY",
+          "ms": 705
+        }
+      }
+    },
+    {
+      "timeCode": "WINDOW_MOST",
+      "pickupCode": "PICKUP_NONE",
+      "nudgeCount": 0,
+      "fixture": "REMIND/NO_PICKUP_YET",
+      "outlets": {
+        "cloud": {
+          "accepted": true,
+          "advice": "WAIT/WINDOW_EARLY",
+          "ms": 896
+        }
+      }
+    },
+    {
+      "timeCode": "WINDOW_MOST",
+      "pickupCode": "PICKUP_NONE",
+      "nudgeCount": 1,
+      "fixture": "REMIND/NO_PICKUP_YET",
+      "outlets": {
+        "cloud": {
+          "accepted": true,
+          "advice": "WAIT/WINDOW_EARLY",
+          "ms": 921
+        }
+      }
+    },
+    {
+      "timeCode": "WINDOW_MOST",
+      "pickupCode": "PICKUP_NONE",
+      "nudgeCount": 2,
+      "fixture": "ESCALATE/NUDGES_EXHAUSTED",
+      "outlets": {
+        "cloud": {
+          "accepted": true,
+          "advice": "ESCALATE/NUDGES_EXHAUSTED",
+          "ms": 712
+        }
+      }
+    },
+    {
+      "timeCode": "WINDOW_MOST",
+      "pickupCode": "PICKUP_SOME",
+      "nudgeCount": 0,
+      "fixture": "REMIND/PARTIAL_PICKUP",
+      "outlets": {
+        "cloud": {
+          "accepted": true,
+          "advice": "WAIT/PARTIAL_PICKUP",
+          "ms": 724
+        }
+      }
+    },
+    {
+      "timeCode": "WINDOW_MOST",
+      "pickupCode": "PICKUP_SOME",
+      "nudgeCount": 1,
+      "fixture": "REMIND/PARTIAL_PICKUP",
+      "outlets": {
+        "cloud": {
+          "accepted": true,
+          "advice": "WAIT/PARTIAL_PICKUP",
+          "ms": 926
+        }
+      }
+    },
+    {
+      "timeCode": "WINDOW_MOST",
+      "pickupCode": "PICKUP_SOME",
+      "nudgeCount": 2,
+      "fixture": "ESCALATE/NUDGES_EXHAUSTED",
+      "outlets": {
+        "cloud": {
+          "accepted": true,
+          "advice": "ESCALATE/NUDGES_EXHAUSTED",
+          "ms": 935
+        }
+      }
+    },
+    {
+      "timeCode": "WINDOW_MOST",
+      "pickupCode": "PICKUP_ALL",
+      "nudgeCount": 0,
+      "fixture": "WAIT/WINDOW_EARLY",
+      "outlets": {
+        "cloud": {
+          "accepted": true,
+          "advice": "WAIT/WINDOW_EARLY",
+          "ms": 895
+        }
+      }
+    },
+    {
+      "timeCode": "WINDOW_MOST",
+      "pickupCode": "PICKUP_ALL",
+      "nudgeCount": 1,
+      "fixture": "WAIT/WINDOW_EARLY",
+      "outlets": {
+        "cloud": {
+          "accepted": true,
+          "advice": "WAIT/WINDOW_EARLY",
+          "ms": 681
+        }
+      }
+    },
+    {
+      "timeCode": "WINDOW_MOST",
+      "pickupCode": "PICKUP_ALL",
+      "nudgeCount": 2,
+      "fixture": "WAIT/WINDOW_EARLY",
+      "outlets": {
+        "cloud": {
+          "accepted": true,
+          "advice": "WAIT/INSUFFICIENT_INFORMATION",
+          "ms": 929
+        }
+      }
+    },
+    {
+      "timeCode": "WINDOW_LITTLE",
+      "pickupCode": "PICKUP_NONE",
+      "nudgeCount": 0,
+      "fixture": "REMIND/NO_PICKUP_YET",
+      "outlets": {
+        "cloud": {
+          "accepted": true,
+          "advice": "WAIT/WINDOW_EARLY",
+          "ms": 922
+        }
+      }
+    },
+    {
+      "timeCode": "WINDOW_LITTLE",
+      "pickupCode": "PICKUP_NONE",
+      "nudgeCount": 1,
+      "fixture": "REMIND/NO_PICKUP_YET",
+      "outlets": {
+        "cloud": {
+          "accepted": true,
+          "advice": "REMIND/NO_PICKUP_YET",
+          "ms": 714
+        }
+      }
+    },
+    {
+      "timeCode": "WINDOW_LITTLE",
+      "pickupCode": "PICKUP_NONE",
+      "nudgeCount": 2,
+      "fixture": "ESCALATE/NUDGES_EXHAUSTED",
+      "outlets": {
+        "cloud": {
+          "accepted": true,
+          "advice": "ESCALATE/NUDGES_EXHAUSTED",
+          "ms": 889
+        }
+      }
+    },
+    {
+      "timeCode": "WINDOW_LITTLE",
+      "pickupCode": "PICKUP_SOME",
+      "nudgeCount": 0,
+      "fixture": "REMIND/PARTIAL_PICKUP",
+      "outlets": {
+        "cloud": {
+          "accepted": true,
+          "advice": "WAIT/PARTIAL_PICKUP",
+          "ms": 946
+        }
+      }
+    },
+    {
+      "timeCode": "WINDOW_LITTLE",
+      "pickupCode": "PICKUP_SOME",
+      "nudgeCount": 1,
+      "fixture": "REMIND/PARTIAL_PICKUP",
+      "outlets": {
+        "cloud": {
+          "accepted": true,
+          "advice": "REMIND/PARTIAL_PICKUP",
+          "ms": 718
+        }
+      }
+    },
+    {
+      "timeCode": "WINDOW_LITTLE",
+      "pickupCode": "PICKUP_SOME",
+      "nudgeCount": 2,
+      "fixture": "ESCALATE/NUDGES_EXHAUSTED",
+      "outlets": {
+        "cloud": {
+          "accepted": true,
+          "advice": "ESCALATE/NUDGES_EXHAUSTED",
+          "ms": 913
+        }
+      }
+    },
+    {
+      "timeCode": "WINDOW_LITTLE",
+      "pickupCode": "PICKUP_ALL",
+      "nudgeCount": 0,
+      "fixture": "WAIT/WINDOW_EARLY",
+      "outlets": {
+        "cloud": {
+          "accepted": true,
+          "advice": "WAIT/WINDOW_EARLY",
+          "ms": 683
+        }
+      }
+    },
+    {
+      "timeCode": "WINDOW_LITTLE",
+      "pickupCode": "PICKUP_ALL",
+      "nudgeCount": 1,
+      "fixture": "WAIT/WINDOW_EARLY",
+      "outlets": {
+        "cloud": {
+          "accepted": false,
+          "advice": null,
+          "error": "FOLLOWUP_REASON_INCOHERENT",
+          "ms": 883
+        }
+      }
+    },
+    {
+      "timeCode": "WINDOW_LITTLE",
+      "pickupCode": "PICKUP_ALL",
+      "nudgeCount": 2,
+      "fixture": "WAIT/WINDOW_EARLY",
+      "outlets": {
+        "cloud": {
+          "accepted": true,
+          "advice": "WAIT/NUDGES_EXHAUSTED",
+          "ms": 936
+        }
+      }
+    },
+    {
+      "timeCode": "WINDOW_LAST",
+      "pickupCode": "PICKUP_NONE",
+      "nudgeCount": 0,
+      "fixture": "ESCALATE/DEADLINE_NEAR",
+      "outlets": {
+        "cloud": {
+          "accepted": true,
+          "advice": "ESCALATE/DEADLINE_NEAR",
+          "ms": 719
+        }
+      }
+    },
+    {
+      "timeCode": "WINDOW_LAST",
+      "pickupCode": "PICKUP_NONE",
+      "nudgeCount": 1,
+      "fixture": "ESCALATE/DEADLINE_NEAR",
+      "outlets": {
+        "cloud": {
+          "accepted": true,
+          "advice": "ESCALATE/DEADLINE_NEAR",
+          "ms": 959
+        }
+      }
+    },
+    {
+      "timeCode": "WINDOW_LAST",
+      "pickupCode": "PICKUP_NONE",
+      "nudgeCount": 2,
+      "fixture": "ESCALATE/NUDGES_EXHAUSTED",
+      "outlets": {
+        "cloud": {
+          "accepted": true,
+          "advice": "ESCALATE/DEADLINE_NEAR",
+          "ms": 701
+        }
+      }
+    },
+    {
+      "timeCode": "WINDOW_LAST",
+      "pickupCode": "PICKUP_SOME",
+      "nudgeCount": 0,
+      "fixture": "ESCALATE/DEADLINE_NEAR",
+      "outlets": {
+        "cloud": {
+          "accepted": true,
+          "advice": "ESCALATE/DEADLINE_NEAR",
+          "ms": 1468
+        }
+      }
+    },
+    {
+      "timeCode": "WINDOW_LAST",
+      "pickupCode": "PICKUP_SOME",
+      "nudgeCount": 1,
+      "fixture": "ESCALATE/DEADLINE_NEAR",
+      "outlets": {
+        "cloud": {
+          "accepted": true,
+          "advice": "ESCALATE/DEADLINE_NEAR",
+          "ms": 740
+        }
+      }
+    },
+    {
+      "timeCode": "WINDOW_LAST",
+      "pickupCode": "PICKUP_SOME",
+      "nudgeCount": 2,
+      "fixture": "ESCALATE/NUDGES_EXHAUSTED",
+      "outlets": {
+        "cloud": {
+          "accepted": true,
+          "advice": "ESCALATE/DEADLINE_NEAR",
+          "ms": 951
+        }
+      }
+    },
+    {
+      "timeCode": "WINDOW_LAST",
+      "pickupCode": "PICKUP_ALL",
+      "nudgeCount": 0,
+      "fixture": "WAIT/INSUFFICIENT_INFORMATION",
+      "outlets": {
+        "cloud": {
+          "accepted": false,
+          "advice": null,
+          "error": "FOLLOWUP_ADVICE_REJECTED",
+          "ms": 928
+        }
+      }
+    },
+    {
+      "timeCode": "WINDOW_LAST",
+      "pickupCode": "PICKUP_ALL",
+      "nudgeCount": 1,
+      "fixture": "WAIT/INSUFFICIENT_INFORMATION",
+      "outlets": {
+        "cloud": {
+          "accepted": false,
+          "advice": null,
+          "error": "FOLLOWUP_REASON_INCOHERENT",
+          "ms": 971
+        }
+      }
+    },
+    {
+      "timeCode": "WINDOW_LAST",
+      "pickupCode": "PICKUP_ALL",
+      "nudgeCount": 2,
+      "fixture": "WAIT/INSUFFICIENT_INFORMATION",
+      "outlets": {
+        "cloud": {
+          "accepted": true,
+          "advice": "WAIT/NUDGES_EXHAUSTED",
+          "ms": 934
+        }
+      }
+    }
+  ],
+  "note": "The fixture is a blunt stand-in, not ground truth; agreement is not accuracy."
+}

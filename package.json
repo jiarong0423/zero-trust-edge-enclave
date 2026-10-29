@@ -13,6 +13,7 @@
     "preflight:hosted": "node scripts/hosted-preflight.mjs",
     "test": "node --test scripts/local-workflow.test.mjs",
     "bench": "node scripts/bench-adviser.mjs",
+    "compare:advisers": "node scripts/compare-followup-advisers.mjs",
     "test:all": "node scripts/run-all-tests.mjs"
   },
   "engines": {

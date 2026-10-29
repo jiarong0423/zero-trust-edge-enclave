@@ -1,6 +1,6 @@
 # Public Export Manifest
 
-Review date: 2026-10-16 (286 entries; was 285, 284, 283, 281, 279, 277, 276 and 211 on 2026-10-08 and 122 on 2026-09-27). Status: public on GitHub since 2026-09-18; this list is the allowlist every push is checked against.
+Review date: 2026-10-29 (293 entries; was 286 on 2026-10-16, 285, 284, 283, 281, 279, 277, 276 and 211 on 2026-10-08 and 122 on 2026-09-27). Status: public on GitHub since 2026-09-18; this list is the allowlist every push is checked against.
 
 The following exact paths are the release allowlist, not directory wildcards. Runtime data, credentials, environment secrets, logs, output, dependencies, Git metadata, screenshots and raw provider evidence are excluded even when untracked. New source files require explicit review and a manifest update.
 
@@ -295,6 +295,13 @@ scripts/demo-choreography.test.mjs
 scripts/os-mouse.swift
 scripts/compose-demo-video.mjs
 scripts/compose-demo-video.test.mjs
+scripts/compare-followup-advisers.mjs
+scripts/compare-followup-advisers.test.mjs
+docs/agent/adviser-evidence-table-2026-10-29.md
+docs/agent/fixtures/followup-advisers-recorded.json
+docs/agent/fixtures/bench-ultra-2026-10-16.json
+docs/submission/devpost_first_paragraph_20261029.md
+docs/submission/judge_fix_20261029.diff
 ```
 
 ## Release Conditions
