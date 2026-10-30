@@ -132,7 +132,7 @@ shared credential. The deployment answers that with two layers. An outer sign-in
 keeps anonymous traffic away from the billed outlet; the browser holds an HMAC derived from the
 sign-in, never the password, and changing either value signs every session out. Inside it, each
 role still presents its own token, checked against the hash-only registry. The registry's grants
-run to 2026-12-16, past the end of judging. Both the sign-in and the role tokens are given to judges
+run to 2027-02-28 (moved from 2027-01-15 on 2026-10-30 with `scripts/hosted-extend-grants.mjs`; the Judging Period ends 2026-12-23). Both the sign-in and the role tokens are given to judges
 in the file uploaded privately with the submission, and the spending cap bounds what a shared credential can cost.
 
 ## Owner Smoke Test (credentials stay in your terminal)
