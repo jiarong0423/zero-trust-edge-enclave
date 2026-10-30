@@ -9,7 +9,7 @@
 ```mermaid
 flowchart TB
   subgraph Hosted["託管評審站（只有託管版有；本機版沒有這一層）"]
-    Edge["Cloudflare 邊緣<br/>你自己的 Coolify 伺服器之前"]
+    Edge["Cloudflare 邊緣<br/>自行託管的 Coolify 伺服器之前"]
     DemoGate["示範閘 demo-gate<br/>評審登入只擋發文、稽核、管理頁<br/>收件人頁面只靠自己的憑證"]
     OpenPaths["不需登入：登入頁、/api/health<br/>/api/sso/status 只回是否啟用，不含機密"]
     Edge --> DemoGate

@@ -301,3 +301,14 @@ CRITICAL is unchanged: the same three deliberate canary strings in adviser tests
 `LG-SECRET-002` on this file, matching the model filename
 `NVIDIA-Nemotron3-Nano-4B-Q4_K_M.gguf` as a high-entropy literal. It is a filename. The rule already
 matches `COORDINATOR_PROVIDER=synthetic_fixture` in README.md on the same basis.
+
+### Secret Scan Of The Git History, 2026-10-30
+
+| Item | Value |
+| --- | --- |
+| Tool | gitleaks 8.30.1 |
+| Command | `gitleaks git --redact --no-banner .` |
+| Scope | the Git history of a clone of this repository, all refs: 198 commits (`main` has 155) |
+| Result | no leaks found, 0 findings |
+
+This replaces the earlier unattributed "no findings" lines in `SUBMISSION_GAP_CHECK.md`.
