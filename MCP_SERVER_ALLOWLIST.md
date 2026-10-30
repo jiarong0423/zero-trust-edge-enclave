@@ -48,7 +48,7 @@ Allowed local tool names:
 - Cloud inference is disabled by default (LOCAL_ONLY). Explicitly configured provider adapters may make bounded Token Factory requests only when cloud mode is enabled; a key alone does not enable file-task inference.
 - Email adapter is dry-run only.
 
-## Implemented Codex Coordinator Profile
+## Implemented Coordinator Profile
 
 Current dedicated tools: legacy status/recommend/deliver and file_status/file_recommend. File tools accept taskAlias and snapshotVersion only; return code-only status/advice, never documents or keys. The file worker consumes backend adviser output behind the fixed gate, for both the routing and the delivery follow-up decision, not direct MCP execution commands. Only routing advice is reachable over MCP; the follow-up projection is never exposed there. Provider credentials stay backend-only; synthetic responses do not count as real cloud evidence.
 

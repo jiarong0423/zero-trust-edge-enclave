@@ -1,6 +1,6 @@
 # Optional webhook notice adapter
 
-Status: implemented and wired (`server.js` creates it with `createWebhookFromEnv`, `worker-schedule.js` kicks it after each export). `env.sample` does not list the variables yet (see "Wiring").
+Status: implemented and wired (`server.js` creates it with `createWebhookFromEnv`, `worker-schedule.js` kicks it after each export). `env.sample` lists the variables, commented out (see "Wiring").
 Code: `webhook-adapter.js`. Tests: `scripts/webhook-adapter.test.mjs`.
 
 ## What it is
