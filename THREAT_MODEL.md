@@ -8,7 +8,7 @@ Review date: 2026-09-08. Revised 2026-10-16 for the recipient finder and its loc
 | --- | --- | --- |
 | Document plaintext | Sender and recipient browsers only | The two humans at each end |
 | Ciphertext packet and wrapped key | Local backend store | Backend process; released to an authenticated recipient |
-| Document key | local-key-vault.js, wrapped per task and version | Sender browser (encrypts); backend holds it wrapped; released to the authenticated recipient browser through a one-use ticket; never an adviser |
+| Document key | local-key-vault.js, wrapped per task and version | Sender browser (encrypts); backend holds it wrapped; released to the authenticated recipient browser through a one-use ticket (on the hosted demo it also passes through Cloudflare's TLS edge); never an adviser |
 | Private mapping | Snapshot, covered by the snapshot hash | Backend only; the file adviser receives no part of it, and the legacy coordinator receives opaque aliases without group codes |
 | Recipient identity, department, address | Access registry | Operator directory view and the dispatch gate |
 | Bearer tokens and key tickets | Registry token hashes; one-use tickets | The holding principal |

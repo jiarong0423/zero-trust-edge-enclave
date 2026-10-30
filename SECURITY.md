@@ -30,7 +30,7 @@ See also: [compliance control mapping and evidence index](docs/compliance/README
 
 ## Request bodies and the API queue
 
-Every `/api/` request runs on one serial queue. The server reads a request's body **before** the request joins
+Every `/api/` request except the judge sign-in and the optional SSO routes runs on one serial queue. The server reads a request's body **before** the request joins
 that queue (`createBodyGate` in `http-helpers.js`), so a body that never finishes cannot hold the queue. A
 body that stops arriving is cut off after 15 s, and the whole read after 30 s (120 s for the large file route).
 Each client may have 8 bodies being read or waiting at once and the server 24; a request that finds the slots

@@ -56,8 +56,8 @@ Status: implemented through the separate `scripts/coordinator-mcp.mjs` adapter a
 
 - Humans configure grants and confirm each file-task snapshot twice. Only subsequent bounded worker actions run unattended; AI cannot approve a snapshot.
 - Expose sanitized receipt, fallback, and audit status; allow bounded route and notice requests (follow-up stays backend-only) only through a deterministic authorization gate.
-- Package creation stays with the sender application. Credential issuance stays with the authenticated recipient service; do not expose credential tokens to Codex.
+- Package creation stays with the sender application. Credential issuance stays with the authenticated recipient service; do not expose credential tokens to an AI coding agent.
 - Do not forward raw outputs from the existing tool surface. A dedicated adapter must project approved metadata fields and opaque handles, excluding filenames, recipient addresses, document content, and cryptographic material.
-- Codex may request metadata-only Nemotron recommendations through a dedicated backend adapter; the provider credential never enters model context.
+- An AI coding agent may request metadata-only Nemotron recommendations through a dedicated backend adapter; the provider credential never enters model context.
 - Enforce finite retry budgets, idempotency, channel restrictions, and expiry limits before execution. Model/provider failures use a preapproved deterministic fallback or pause.
 - Escalate only authorization changes and unresolved exceptions. Neither AI can approve its own escalation or extend access.
