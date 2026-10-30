@@ -308,7 +308,7 @@ matches `COORDINATOR_PROVIDER=synthetic_fixture` in README.md on the same basis.
 | --- | --- |
 | Tool | gitleaks 8.30.1 |
 | Command | `gitleaks git --redact --no-banner .` |
-| Scope | the Git history of a clone of this repository, all refs: 198 commits (`main` has 155) |
+| Scope | a fresh clone of public `main` at cb71c19: 156 commits on `main`, 151 reported as scanned by gitleaks |
 | Result | no leaks found, 0 findings |
 
-This replaces the earlier unattributed "no findings" lines in `SUBMISSION_GAP_CHECK.md`.
+This replaces the earlier unattributed "no findings" lines in `SUBMISSION_GAP_CHECK.md`. The same command can be rerun on any clone of `main`. A scan of the maintainer's own working clone, which also holds local autosave refs, scanned 198 commits and also found nothing; that number is not reproducible from the public repository.
