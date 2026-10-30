@@ -1,12 +1,12 @@
 # Security Policy
 
-Review date: 2026-09-08, scope extended 2026-09-25 to the hosted demo (judge sign-in, USD 20 Token Factory cap). Scope: hackathon prototype, synthetic documents only.
+Review date: 2026-09-08, rechecked 2026-10-30, scope extended 2026-09-25 to the hosted demo (judge sign-in, USD 20 Token Factory cap). Scope: hackathon prototype, synthetic documents only.
 
 ## Boundaries
 
 Humans configure grants and confirm each snapshot twice. Browser cryptography encrypts file bytes; AI does not perform encryption. Fixed backend checks enforce current identity, grant version, snapshot, recipient membership, expiry, channels and replay limits.
 
-The model and coordinator receive allowlisted metadata only, in two separate projections: one for routing and one for delivery follow-up. Model proposals cannot authorize execution. Two further ceilings are enforced in code rather than asked for in a prompt: a delivery is reminded at most twice, and a fully collected delivery cannot be chased at all. Who a reminder reaches is resolved by fixed code from receipts no adviser sees. Recipients authenticate separately and redeem short-lived one-use key tickets. Download reports are client assertions, not proof of reading.
+By default the model and coordinator receive allowlisted metadata only, in two separate projections: one for routing and one for delivery follow-up. Model proposals cannot authorize execution. Two further ceilings are enforced in code rather than asked for in a prompt: a delivery is reminded at most twice, and a fully collected delivery cannot be chased at all. Who a reminder reaches is resolved by fixed code from receipts no adviser sees. Recipients authenticate separately and redeem short-lived one-use key tickets. Download reports are client assertions, not proof of reading. Opt-in, off unless set: `MATCH_AI_REVIEW` and `STATE_AI_REVIEW` (7 and 8 coded fields; `dual` also asks the hosted model) and `NOTE_AI=local` (the sender's free-text note, sent to the loopback model only).
 
 ## Key Custody
 
@@ -16,7 +16,7 @@ Provider credentials, signing material, bearer credentials, key-vault material a
 
 ## Limits
 
-No enterprise SSO, device attestation, TEE, ciphertext malware inspection, compliance certification, real mail or legal-signature guarantee is claimed. The current file workflow does not use a shared passphrase; legacy compatibility endpoints are separately scoped.
+Beyond an optional OIDC sign-on (off by default; tested against a mock identity provider and once against a local Keycloak), no enterprise SSO deployment, device attestation, TEE, ciphertext malware inspection, compliance certification, real mail or legal-signature guarantee is claimed. The current file workflow does not use a shared passphrase; legacy compatibility endpoints are separately scoped.
 
 Single-process serialization is not a distributed transaction. Retention inventory is read-only. Capacity exhaustion requires operator handling. Production rate limiting, independently administered keys and deployment hardening require separate review.
 

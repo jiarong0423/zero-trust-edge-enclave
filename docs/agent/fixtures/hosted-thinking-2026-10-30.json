@@ -1,7 +1,7 @@
 {
   "schema": "hosted-thinking-live/1",
   "generatedAt": "2026-10-30T07:44:32.021Z",
-  "note": "Live calls made on 2026-10-30 by `node scripts/compare-followup-advisers.mjs --cloud --yes-spend --thinking both` through requestFileAdvice on Nebius Token Factory (nvidia/nemotron-3-super-120b-a12b). Inputs: the 6 synthetic cells WINDOW_LAST x (PICKUP_NONE, PICKUP_SOME) x nudge 0..2. Only the two live columns are kept here; the offline columns recompute from the other fixtures. Not recomputed by the script: a judge reproduces it with their own key (12 calls).",
+  "note": "Live calls made on 2026-10-30 by `node scripts/compare-followup-advisers.mjs --cloud --yes-spend --thinking both` through requestFileAdvice on Nebius Token Factory (nvidia/nemotron-3-super-120b-a12b). Inputs: the 6 synthetic cells WINDOW_LAST x (PICKUP_NONE, PICKUP_SOME) x nudge 0..2. Only the two live columns are kept here; the offline columns recompute from the other fixtures. Answers vary between runs (the hosted path samples at temperature 1), so a rerun will not repeat these exact figures. Not recomputed by the script: a judge reproduces the experiment with their own key (12 calls).",
   "columns": [
     {
       "id": "live-thinking-off",
