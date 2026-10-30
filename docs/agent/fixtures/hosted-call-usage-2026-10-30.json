@@ -1,0 +1,35 @@
+{
+  "schema": "hosted-call-usage/1",
+  "date": "2026-10-30",
+  "note": "One live follow-up call through requestFileAdvice on Nebius Token Factory, made to read the provider's usage field (the comparison script does not record usage). Request shape: production (five coded fields, enable_thinking:false, temperature 1, top_p 0.95, 5 s deadline). The usage object below is copied from the provider response unchanged. Cost at the list prices in env.sample ($0.30 input and $0.90 output per million tokens), counting every prompt token at the full input price: 1010 x 0.30/1e6 + 70 x 0.90/1e6 = $0.000366. One call, one input; token counts differ a little per input. Two earlier attempts at the same input the same minute hit the 5 s deadline before this one succeeded.",
+  "model": "nvidia/nemotron-3-super-120b-a12b",
+  "input": {
+    "timeCode": "WINDOW_LAST",
+    "pickupCode": "PICKUP_NONE",
+    "nudgeCount": 0
+  },
+  "answer": {
+    "action": "ESCALATE",
+    "reasonCode": "DEADLINE_NEAR"
+  },
+  "usage": {
+    "completion_tokens": 70,
+    "prompt_tokens": 1010,
+    "total_tokens": 1080,
+    "completion_tokens_details": {
+      "accepted_prediction_tokens": null,
+      "audio_tokens": null,
+      "reasoning_tokens": 0,
+      "rejected_prediction_tokens": null
+    },
+    "prompt_tokens_details": {
+      "audio_tokens": null,
+      "cached_tokens": 992,
+      "created_cache_tokens": 0,
+      "multimodal_tokens": null
+    },
+    "prompt_cache_hit_tokens": 992,
+    "prompt_cache_miss_tokens": 18
+  },
+  "costUsdUpperBound": 0.000366
+}

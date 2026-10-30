@@ -32,7 +32,7 @@ flowchart TB
     Commit["持久核准與工作紀錄"]
     Gate["固定程式驗證<br/>名單、版本、撤銷、渠道"]
     Worker["有限重試與催促迴路<br/>只準備模擬通知"]
-    Access["收件身分驗證<br/>密文與取鑰分開檢查<br/>查無此名與未被授權：同一個回應碼"]
+    Access["收件身分驗證<br/>密文與取鑰分開檢查<br/>未知憑據 401、種類不符 403；寄件端找人時查無此名與未被授權同一個回應碼"]
     Mode{"已核准交付模式"}
     Required["指定人交付<br/>無額外下載截止<br/>仍須有效授權"]
     Timed["限時下載<br/>到期拒絕新取用<br/>中止未完成的服務端傳輸"]
@@ -99,11 +99,11 @@ flowchart TB
 
 詳見同專案的 Local Workflow 文件與既有開發紀錄。測試覆蓋原檔位元組還原、兩次確認、草稿恢復、授權更新、指定收件人隔離、到期 API 拒絕、HTTP 慢速傳輸中止、回報遺失與重試，以及管理與留存盤點。
 
-2026-09-25：npm test 115/115，連續 30 次；全套腳本 227/227。先前隔離驗收：瀏覽器完成發文端憑據匯入、部門映射、兩次核准、收件端憑據匯入、CSV／DOCX／PDF 原檔下載與回報。這些是已記錄的前次驗收，本次圖面收尾沒有重新呼叫模型。
+2026-09-25（歷史值，現行全套 882 個測試）：npm test 115/115，連續 30 次；全套腳本 227/227。先前隔離驗收：瀏覽器完成發文端憑據匯入、部門映射、兩次核准、收件端憑據匯入、CSV／DOCX／PDF 原檔下載與回報。這些是已記錄的前次驗收，本次圖面收尾沒有重新呼叫模型。
 
 ## 剩餘交付缺口
 
-已於 2026-09-27 提交：影片、評審用託管版、平台回饋與新專案說明都已交付。尚餘：審核掃描誤報例外，不能把原始告警改成零告警（P1，待人工核准）。
+已於 2026-09-27 提交：影片、評審用託管版、平台回饋與新專案說明都已交付。
 
 此表不新增多地部署或真實寄信。每次 push 前須重新建立副本並掃描。
 
@@ -129,7 +129,7 @@ flowchart TB
     Fixed["Fixed-code gate: list, version, revocation, channel"]
     Store["Ciphertext store; document key wrapped separately"]
     Evidence["Evidence trail for every routing and follow-up adviser call;<br/>hash-linked audit log"]
-    Access["Recipient identity check;<br/>an unknown name and an unauthorized name get the same answer code"]
+    Access["Recipient identity check;<br/>an unknown token gets 401 and a token of the wrong kind 403;<br/>in the sender's name finder an unknown name and an unauthorized name get the same answer code"]
   end
   subgraph Adviser["Restricted adviser, outside the boundary"]
     Fields["Two five-field projections:<br/>route (ROUTE or PAUSE), follow-up (WAIT, REMIND or ESCALATE)"]

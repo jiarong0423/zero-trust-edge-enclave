@@ -12,6 +12,8 @@ By default the model and coordinator receive allowlisted metadata only, in two s
 
 The backend stores ciphertext, wrapped document keys and private authorization/mapping records. Its key service shares the application host and process. A compromised backend can access cryptographic material: this is not ciphertext-only storage or independently administered KMS.
 
+On the hosted demo Cloudflare terminates TLS, so the ciphertext and a released document key also pass through its edge in the clear; the edge build has no such party.
+
 Provider credentials, signing material, bearer credentials, key-vault material and runtime stores stay outside Git. Rotate provider credentials at the provider; rotate principals through authenticated administration. Explicit revocation denies future access but cannot recall released keys or plaintext. Do not delete runtime or audit history as a substitute for revocation.
 
 ## Limits

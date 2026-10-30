@@ -6,7 +6,7 @@ Updated: 2026-10-30 Asia/Taipei
 
 | Item | State | Evidence |
 | --- | --- | --- |
-| Repository | Public, MIT, GitHub `main` | `git ls-remote origin main`; 290 tracked files, equal to the manifest in `public-export-manifest.md` |
+| Repository | Public, MIT, GitHub `main` | `git ls-remote origin main`; 291 tracked files, equal to the manifest in `public-export-manifest.md` |
 | Tests | 882 tests, all passing (`npm run test:all`, with `ffmpeg` installed); CI on Node 20 and 22 runs on pushes to `main` and on pull requests and skips the 6 composition tests that need `ffmpeg` | `package.json`, `.github/workflows/ci.yml` |
 | Hosted demo | `https://enclave.jace0423.com` (self-hosted Coolify behind a Cloudflare edge since 2026-10-22), judge sign-in on the sender, audit and administration pages | `/api/health` shows the Nebius model, the USD 20 cap and the legacy hosted paths off |
 | Demo video | https://youtu.be/U2Wym2BYu20, 178 s, public, uploaded 2026-10-29; the results card shows 882 tests | YouTube page and the Devpost video field |

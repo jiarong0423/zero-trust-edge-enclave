@@ -57,7 +57,7 @@
     <text class="ts" x="318" y="385" text-anchor="middle" dominant-baseline="central">Re-verify authority, then resolve recipients.</text>
   </g>
   <line x1="232" y1="424" x2="612" y2="424" class="arr" marker-end="url(#a)"/>
-  <text class="ts" x="422" y="416" text-anchor="middle">7. Notice prepared</text>
+  <text class="ts" x="422" y="416" text-anchor="middle">7. Notice prepared (dry run, not sent)</text>
   <line x1="612" y1="458" x2="232" y2="458" class="arr" marker-end="url(#a)"/>
   <text class="ts" x="422" y="450" text-anchor="middle">8. Authenticate; not on the snapshot: refused, logged</text>
   <line x1="232" y1="492" x2="612" y2="492" class="arr" stroke-dasharray="5 4" marker-end="url(#a)"/>
@@ -66,8 +66,8 @@
   <text class="ts" x="422" y="518" text-anchor="middle">10. Exchange one-use ticket</text>
   <line x1="232" y1="560" x2="368" y2="560" class="arr" marker-end="url(#a)"/>
   <text class="ts" x="300" y="552" text-anchor="middle">11. Unwrap</text>
-  <line x1="368" y1="594" x2="612" y2="594" class="arr" stroke-dasharray="5 4" marker-end="url(#a)"/>
-  <text class="ts" x="490" y="586" text-anchor="middle">12. Key: five minutes, single use</text>
+  <line x1="232" y1="594" x2="612" y2="594" class="arr" stroke-dasharray="5 4" marker-end="url(#a)"/>
+  <text class="ts" x="422" y="586" text-anchor="middle">12. Key from the backend: five minutes, single use</text>
   <g class="c-gray"><rect x="500" y="598" width="140" height="34" rx="8" stroke-width="0.5"/>
     <text class="ts" x="570" y="615" text-anchor="middle" dominant-baseline="central">13. Decrypt on device</text></g>
   <line x1="612" y1="662" x2="232" y2="662" class="arr" marker-end="url(#a)"/>

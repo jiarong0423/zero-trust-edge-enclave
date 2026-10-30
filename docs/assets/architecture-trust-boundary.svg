@@ -8,6 +8,7 @@
   Revised again 2026-10-16: the evidence trail names the model that answered, and a bottom band shows
   the two places the same code runs (an edge host the organization controls, and the hosted demo copy
   that judges use). The judge sign-in label now says which pages it covers.
+  Revised 2026-10-30 (second pass): the adviser box says the fields are pseudonymous by default and that the cascade also covers a refused answer; the bottom boxes say what each place costs per call and that Cloudflare terminates TLS on the hosted demo.
   Revised 2026-10-30: the hosted-demo box names the Cloudflare edge and the demo gate in front of the app, and says the judge sign-in covers the manager pages while an employee needs only their own token.
   Revised 2026-10-22: the hosted demo copy runs on a self-hosted Coolify server behind Cloudflare
   (it ran on Zeabur until then); the public address did not change.
@@ -80,8 +81,8 @@
     <text class="th" x="340" y="552" text-anchor="middle" dominant-baseline="central">Nemotron | local loopback, or Nebius Token Factory</text>
     <text class="ts" x="340" y="574" text-anchor="middle" dominant-baseline="central">Route: channels · state · attempts in — ROUTE or PAUSE out</text>
     <text class="ts" x="340" y="592" text-anchor="middle" dominant-baseline="central">Follow up: timeCode · nudgeCount · pickupCode in — WAIT, REMIND or ESCALATE out</text>
-    <text class="ts" x="340" y="612" text-anchor="middle" dominant-baseline="central">Five anonymous fields in, four or five out. Output is data, never permission</text>
-    <text class="ts" x="340" y="632" text-anchor="middle" dominant-baseline="central">Local Nano 4B first; Super 120B on Token Factory (spending cap) only if it fails, opt-in</text>
+    <text class="ts" x="340" y="612" text-anchor="middle" dominant-baseline="central">By default five pseudonymous fields in, four or five out. Output is data, never permission</text>
+    <text class="ts" x="340" y="632" text-anchor="middle" dominant-baseline="central">Opt-in cascade: Nano 4B first; Super 120B only if it fails or is refused</text>
     <text class="ts" x="340" y="650" text-anchor="middle" dominant-baseline="central">Unreachable: asked again, a bounded number of times; never a reason to act</text></g>
 
   <g class="c-gray"><rect x="40" y="696" width="600" height="108" rx="20" stroke-width="0.5" stroke-dasharray="6 4"/>
@@ -89,9 +90,9 @@
   <g><rect class="box" x="56" y="730" width="272" height="64" rx="8"/>
     <text class="th" x="192" y="747" text-anchor="middle" dominant-baseline="central">Edge host: the intended deployment</text>
     <text class="ts" x="192" y="766" text-anchor="middle" dominant-baseline="central">The organization's machine, one private address</text>
-    <text class="ts" x="192" y="783" text-anchor="middle" dominant-baseline="central">Phones reach it; local Nano 4B on loopback</text></g>
+    <text class="ts" x="192" y="783" text-anchor="middle" dominant-baseline="central">Local Nano 4B on loopback: no per-call fee</text></g>
   <g><rect class="box" x="352" y="730" width="272" height="64" rx="8"/>
     <text class="th" x="488" y="747" text-anchor="middle" dominant-baseline="central">Hosted demo: a copy for judges</text>
-    <text class="ts" x="488" y="766" text-anchor="middle" dominant-baseline="central">Cloudflare edge, demo gate, Coolify; $20 cap</text>
-    <text class="ts" x="488" y="783" text-anchor="middle" dominant-baseline="central">Judge sign-in on manager pages only</text></g>
+    <text class="ts" x="488" y="766" text-anchor="middle" dominant-baseline="central">Cloudflare terminates TLS; demo gate; Coolify</text>
+    <text class="ts" x="488" y="783" text-anchor="middle" dominant-baseline="central">Super 120B only; $20 cap, under $0.0004 a call</text></g>
 </svg>
