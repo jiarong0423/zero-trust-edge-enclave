@@ -22,7 +22,7 @@ printed as copied.
 | 6 | 6 critical inputs (`WINDOW_LAST`, pickup incomplete), reasoning on | Nemotron 3 Nano 4B, loopback | on (`reasoning_effort` low / high) | 2026-10-08 | 6 + 6 | low: ESCALATE 1, same as table 3/6, median 21292 ms; high: ESCALATE 1, same 3/6, median 20953 ms; against `none`: ESCALATE 0, same 2/6, median 2841 ms | `docs/agent/followup-adviser-comparison-2026-10-08.md:95-108` | summary |
 | 7 | 24 reachable inputs, opt-in `FOLLOWUP_PROMPT=directive` | Super 120B / Nano 4B | off | 2026-10-08 | 24 + 24 | Super WAIT 4 / REMIND 11 / ESCALATE 9, same as table 20/24; Nano WAIT 8 / REMIND 6 / ESCALATE 10, same 20/24 | `docs/agent/followup-adviser-comparison-2026-10-08.md:154`; `docs/agent/followup-prompt-profile-2026-10-08.md` | summary |
 | 8 | Lookup table, no model | `tableFollowupAdvice` | n/a | computed on each run | 36 | 36/36 coherent; WAIT 16 / REMIND 8 / ESCALATE 12; ESCALATE on 12 of 12; about 1 ms per input | `followup-table.js` | rows |
-| 9 | Hosted thinking on, through the production path | Nemotron 3 Super 120B, Token Factory | on (`enable_thinking: true`, 4096 tokens, 60 s) | not yet run | 0 | no record; `node scripts/compare-followup-advisers.mjs --cloud --yes-spend --thinking both` makes 12 calls and fills this row | - | live only |
+| 9 | 6 critical inputs (`WINDOW_LAST`, pickup incomplete), through the production path, thinking off and on | Nemotron 3 Super 120B, Token Factory | off (`enable_thinking: false`, production shape) and on (`enable_thinking: true`, 4096 tokens, 60 s, not the default) | 2026-10-30 | 6 + 6 | off: 6/6 accepted by the validator, REMIND 4 / ESCALATE 2, same as table 2/6, latency 786 / 928 / 1908 ms (min / median / max); on: 6/6 accepted, REMIND 3 / ESCALATE 3, same as table 3/6, latency 5119 / 6405 / 8827 ms. Six inputs per setting is too few to rank the settings; the figures are what was measured. | `docs/agent/fixtures/hosted-thinking-2026-10-30.json` | record only (the script's `--cloud` flag repeats it with your own key, 12 calls) |
 | 10 | Full test suite | - | - | 2026-10-29 | 882 tests | local with ffmpeg: 882 pass, 0 skipped (872 before `scripts/compare-followup-advisers.test.mjs`); GitHub Actions at b8c74a5: 866 pass, 6 skipped of 872 (`scripts/compose-demo-video.test.mjs` is gated on `ffmpeg`) | `README.md` Proof line; CI log | `npm run test:all` |
 | 11 | Fuzz over projections and worker ticks | - | - | 2026-09-18 | 40,000 projections, 2,400 ticks | 0 invariant violations | `SECURITY_SCAN_EVIDENCE.md:127-134`; `SUBMISSION_GAP_CHECK.md:26` | not reproducible: one-off script, never committed; the same invariants are asserted on fixed inputs by `scripts/delivery-followup.test.mjs` and `scripts/delivery-followup-worker.test.mjs` |
 
@@ -39,6 +39,7 @@ printed as copied.
   table escalates, Super escalates in 1 (row 3), Ultra in 11 at a median 0.9 s (row 5), and the 4B in 0 (row 4).
   The directive prompt makes the 120B and the 4B decisive too (row 7, 20/24 each). Which of those is right is
   for a person to label (`docs/agent/human-labels.md`); the fixture is not ground truth.
-- Reasoning on has one record, on the 4B (row 6): one changed answer out of six for about seven times the
-  latency. Row 9 is the hosted equivalent and is empty until someone runs it; the script exists so that a judge
-  with a key can fill it in 12 calls.
+- Reasoning on has two records. On the 4B (row 6): one changed answer out of six for about seven times the
+  latency. On the hosted 120B (row 9, run 2026-10-30): 3 of 6 critical inputs matched the table with thinking on
+  against 2 of 6 with it off, at a median of 6.4 s against 0.9 s. Six inputs per setting is a probe, not a
+  ranking, and thinking on is not the shipped setting (the production deadline is 5 s).

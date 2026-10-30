@@ -1,0 +1,155 @@
+{
+  "schema": "hosted-thinking-live/1",
+  "generatedAt": "2026-10-30T07:44:32.021Z",
+  "note": "Live calls made on 2026-10-30 by `node scripts/compare-followup-advisers.mjs --cloud --yes-spend --thinking both` through requestFileAdvice on Nebius Token Factory (nvidia/nemotron-3-super-120b-a12b). Inputs: the 6 synthetic cells WINDOW_LAST x (PICKUP_NONE, PICKUP_SOME) x nudge 0..2. Only the two live columns are kept here; the offline columns recompute from the other fixtures. Not recomputed by the script: a judge reproduces it with their own key (12 calls).",
+  "columns": [
+    {
+      "id": "live-thinking-off",
+      "model": "nvidia/nemotron-3-super-120b-a12b",
+      "date": "2026-10-30",
+      "thinking": "off",
+      "label": "nvidia/nemotron-3-super-120b-a12b on Token Factory through requestFileAdvice, enable_thinking:false (production shape)",
+      "summary": {
+        "answered": 6,
+        "accepted": 6,
+        "rejected": 0,
+        "rejections": {},
+        "coherent": 1,
+        "distribution": {
+          "WAIT": 0,
+          "REMIND": 4,
+          "ESCALATE": 2
+        },
+        "sameAsTable": 2,
+        "escalatedWhereTableDoes": {
+          "count": 2,
+          "of": 6
+        },
+        "reachable": {
+          "answered": 6,
+          "accepted": 6,
+          "sameAsTable": 2
+        },
+        "latencyMs": {
+          "min": 786,
+          "median": 928,
+          "p95": 1908,
+          "max": 1908,
+          "from": "rows"
+        }
+      },
+      "rows": {
+        "WINDOW_LAST/PICKUP_NONE/0": {
+          "accepted": true,
+          "action": "REMIND",
+          "advice": "REMIND/DEADLINE_NEAR",
+          "ms": 1908
+        },
+        "WINDOW_LAST/PICKUP_NONE/1": {
+          "accepted": true,
+          "action": "REMIND",
+          "advice": "REMIND/DEADLINE_NEAR",
+          "ms": 1022
+        },
+        "WINDOW_LAST/PICKUP_NONE/2": {
+          "accepted": true,
+          "action": "ESCALATE",
+          "advice": "ESCALATE/DEADLINE_NEAR",
+          "ms": 786
+        },
+        "WINDOW_LAST/PICKUP_SOME/0": {
+          "accepted": true,
+          "action": "REMIND",
+          "advice": "REMIND/PARTIAL_PICKUP",
+          "ms": 818
+        },
+        "WINDOW_LAST/PICKUP_SOME/1": {
+          "accepted": true,
+          "action": "REMIND",
+          "advice": "REMIND/PARTIAL_PICKUP",
+          "ms": 1016
+        },
+        "WINDOW_LAST/PICKUP_SOME/2": {
+          "accepted": true,
+          "action": "ESCALATE",
+          "advice": "ESCALATE/NUDGES_EXHAUSTED",
+          "ms": 839
+        }
+      }
+    },
+    {
+      "id": "live-thinking-on",
+      "model": "nvidia/nemotron-3-super-120b-a12b",
+      "date": "2026-10-30",
+      "thinking": "on",
+      "label": "nvidia/nemotron-3-super-120b-a12b on Token Factory through requestFileAdvice, enable_thinking:true (max_tokens 4096, deadline 60 s instead of the production 512 / 5 s)",
+      "summary": {
+        "answered": 6,
+        "accepted": 6,
+        "rejected": 0,
+        "rejections": {},
+        "coherent": 1,
+        "distribution": {
+          "WAIT": 0,
+          "REMIND": 3,
+          "ESCALATE": 3
+        },
+        "sameAsTable": 3,
+        "escalatedWhereTableDoes": {
+          "count": 3,
+          "of": 6
+        },
+        "reachable": {
+          "answered": 6,
+          "accepted": 6,
+          "sameAsTable": 3
+        },
+        "latencyMs": {
+          "min": 5119,
+          "median": 6405,
+          "p95": 8827,
+          "max": 8827,
+          "from": "rows"
+        }
+      },
+      "rows": {
+        "WINDOW_LAST/PICKUP_NONE/0": {
+          "accepted": true,
+          "action": "REMIND",
+          "advice": "REMIND/DEADLINE_NEAR",
+          "ms": 8827
+        },
+        "WINDOW_LAST/PICKUP_NONE/1": {
+          "accepted": true,
+          "action": "ESCALATE",
+          "advice": "ESCALATE/DEADLINE_NEAR",
+          "ms": 6058
+        },
+        "WINDOW_LAST/PICKUP_NONE/2": {
+          "accepted": true,
+          "action": "ESCALATE",
+          "advice": "ESCALATE/DEADLINE_NEAR",
+          "ms": 5119
+        },
+        "WINDOW_LAST/PICKUP_SOME/0": {
+          "accepted": true,
+          "action": "REMIND",
+          "advice": "REMIND/PARTIAL_PICKUP",
+          "ms": 8064
+        },
+        "WINDOW_LAST/PICKUP_SOME/1": {
+          "accepted": true,
+          "action": "REMIND",
+          "advice": "REMIND/DEADLINE_NEAR",
+          "ms": 6751
+        },
+        "WINDOW_LAST/PICKUP_SOME/2": {
+          "accepted": true,
+          "action": "ESCALATE",
+          "advice": "ESCALATE/DEADLINE_NEAR",
+          "ms": 5673
+        }
+      }
+    }
+  ]
+}
