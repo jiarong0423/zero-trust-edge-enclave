@@ -1,6 +1,6 @@
 # Public Export Manifest
 
-Review date: 2026-10-30 (291 entries; 290 before the single-call usage record was added; 289 on 2026-10-29 before the hosted thinking record was added; 291 earlier that day before two internal drafting files were removed; 293 before the two Zeabur files were removed; was 286 on 2026-10-16, 285, 284, 283, 281, 279, 277, 276 and 211 on 2026-10-08 and 122 on 2026-09-27). Status: public on GitHub since 2026-09-18; this list is the allowlist every push is checked against.
+Review date: 2026-10-30 (292 entries; 291 before the second full hosted run was recorded; 290 before the single-call usage record was added; 289 on 2026-10-29 before the hosted thinking record was added; 291 earlier that day before two internal drafting files were removed; 293 before the two Zeabur files were removed; was 286 on 2026-10-16, 285, 284, 283, 281, 279, 277, 276 and 211 on 2026-10-08 and 122 on 2026-09-27). Status: public on GitHub since 2026-09-18; this list is the allowlist every push is checked against.
 
 The following exact paths are the release allowlist, not directory wildcards. Runtime data, credentials, environment secrets, logs, output, dependencies, Git metadata, screenshots and raw provider evidence are excluded even when untracked. New source files require explicit review and a manifest update.
 
@@ -300,6 +300,7 @@ docs/agent/fixtures/followup-advisers-recorded.json
 docs/agent/fixtures/bench-ultra-2026-10-16.json
 docs/agent/fixtures/hosted-thinking-2026-10-30.json
 docs/agent/fixtures/hosted-call-usage-2026-10-30.json
+docs/agent/fixtures/hosted-all36-2026-10-30.json
 ```
 
 ## Release Conditions
