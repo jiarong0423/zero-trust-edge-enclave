@@ -64,7 +64,7 @@
     <text class="ts" x="534" y="276" text-anchor="middle" dominant-baseline="central">Wrapped per document</text></g>
   <g><rect class="box" x="56" y="306" width="277" height="56" rx="8"/>
     <text class="th" x="194.5" y="324" text-anchor="middle" dominant-baseline="central">Evidence trail</text>
-    <text class="ts" x="194.5" y="344" text-anchor="middle" dominant-baseline="central">Each adviser call: sent, answered, outlet, model</text></g>
+    <text class="ts" x="194.5" y="344" text-anchor="middle" dominant-baseline="central">Each delivery call: sent, answered, outlet, model</text></g>
   <g><rect class="box" x="347" y="306" width="277" height="56" rx="8"/>
     <text class="th" x="485.5" y="324" text-anchor="middle" dominant-baseline="central">Audit log</text>
     <text class="ts" x="485.5" y="344" text-anchor="middle" dominant-baseline="central">Hash-linked (unkeyed); refusals carry no names</text></g>
@@ -94,5 +94,5 @@
   <g><rect class="box" x="352" y="730" width="272" height="64" rx="8"/>
     <text class="th" x="488" y="747" text-anchor="middle" dominant-baseline="central">Hosted demo: a copy for judges</text>
     <text class="ts" x="488" y="766" text-anchor="middle" dominant-baseline="central">Cloudflare terminates TLS; demo gate; Coolify</text>
-    <text class="ts" x="488" y="783" text-anchor="middle" dominant-baseline="central">Super 120B only; $20 cap, under $0.0004 a call</text></g>
+    <text class="ts" x="488" y="783" text-anchor="middle" dominant-baseline="central">Super only; $20 cap; under $0.0004 per follow-up</text></g>
 </svg>
